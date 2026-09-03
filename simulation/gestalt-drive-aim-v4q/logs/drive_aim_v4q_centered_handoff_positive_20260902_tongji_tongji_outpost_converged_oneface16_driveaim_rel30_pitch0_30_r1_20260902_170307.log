@@ -1,0 +1,168 @@
+[2026-09-02 17:03:08.059] [info] [gestalt] port=29454 config=D:\�Ӿ���ѵ\day3\sp_vision_25_gestalt_system_bridge-main\configs\experiments\tongji_outpost_converged_oneface16_driveaim_rel30_pitch0_30.yaml
+[2026-09-02 17:03:08.060] [info] [gestalt] Tongji convergence fire gate=enabled
+[2026-09-02 17:03:08.060] [info] [gestalt] Tongji one-face-once gate=enabled face_limit=16.0deg rearm=34.0deg
+[2026-09-02 17:03:08.061] [info] [gestalt] drive outpost aim=true max_relative=30.0deg max_step=15.0deg drive_pitch=0.0deg
+[2026-09-02 17:03:10.583] [info] [gestalt] preparing vision model and solver before takeover
+[2026-09-02 17:03:11.418] [info] [gestalt] vision model and solver ready (warmup detections=0)
+[2026-09-02 17:03:11.923] [info] [gestalt] sentry map=1934 outpost map=16 outpost_hp=1500
+[2026-09-02 17:03:12.137] [info] [gestalt] shooter parking goal=(-4.50,3.00)m move_mode=5 configured=false
+[2026-09-02 17:03:12.137] [info] [gestalt] shooter drive pos=(-1.11,12.82)m goal=(-4.50,3.00)m error=10.39m stable=0/4 mode=90 drive_aim=outpost target_bearing=-99.8deg target_source=scene_fallback command=-99.8deg command_error=9.8deg target_error=9.8deg turret_chassis_error=0.0deg
+[2026-09-02 17:03:13.171] [info] [gestalt] shooter drive pos=(-1.49,11.80)m goal=(-4.50,3.00)m error=9.30m stable=0/4 mode=90 drive_aim=outpost target_bearing=-99.0deg target_source=scene_fallback command=-99.0deg command_error=5.6deg target_error=5.6deg turret_chassis_error=1.5deg
+[2026-09-02 17:03:14.197] [info] [gestalt] shooter drive pos=(-1.93,10.13)m goal=(-4.50,3.00)m error=7.58m stable=0/4 mode=90 drive_aim=outpost target_bearing=-98.2deg target_source=scene_fallback command=-98.2deg command_error=5.1deg target_error=5.1deg turret_chassis_error=6.1deg
+[2026-09-02 17:03:15.206] [info] [gestalt] shooter drive pos=(-2.26,8.67)m goal=(-4.50,3.00)m error=6.10m stable=0/4 mode=90 drive_aim=outpost target_bearing=-97.7deg target_source=scene_fallback command=-97.7deg command_error=4.9deg target_error=4.9deg turret_chassis_error=13.3deg
+[2026-09-02 17:03:16.228] [info] [gestalt] shooter drive pos=(-2.71,6.86)m goal=(-4.50,3.00)m error=4.26m stable=0/4 mode=90 drive_aim=outpost target_bearing=-96.5deg target_source=scene_fallback command=-96.5deg command_error=6.0deg target_error=6.0deg turret_chassis_error=10.0deg
+[2026-09-02 17:03:17.270] [info] [gestalt] shooter drive pos=(-3.03,5.01)m goal=(-4.50,3.00)m error=2.49m stable=0/4 mode=90 drive_aim=outpost target_bearing=-95.7deg target_source=scene_fallback command=-95.7deg command_error=6.0deg target_error=6.0deg turret_chassis_error=20.8deg
+[2026-09-02 17:03:18.293] [info] [gestalt] shooter drive pos=(-3.87,3.41)m goal=(-4.50,3.00)m error=0.76m stable=0/4 mode=90 drive_aim=outpost target_bearing=-89.5deg target_source=scene_fallback command=-118.2deg command_error=11.9deg target_error=16.8deg turret_chassis_error=58.8deg
+[2026-09-02 17:03:18.798] [info] [gestalt] starting precise final approach
+[2026-09-02 17:03:19.306] [info] [gestalt] shooter drive pos=(-4.52,2.84)m goal=(-4.50,3.00)m error=0.16m stable=0/4 mode=90 drive_aim=outpost target_bearing=-82.9deg target_source=scene_fallback command=-88.2deg command_error=16.6deg target_error=21.9deg turret_chassis_error=63.2deg
+[2026-09-02 17:03:20.311] [info] [gestalt] shooter drive pos=(-4.52,2.84)m goal=(-4.50,3.00)m error=0.16m stable=2/4 mode=90 drive_aim=outpost target_bearing=-82.9deg target_source=scene_fallback command=-82.9deg command_error=0.5deg target_error=0.5deg turret_chassis_error=86.4deg
+[2026-09-02 17:03:21.336] [info] [gestalt] shooter drive pos=(-4.52,2.84)m goal=(-4.50,3.00)m error=0.16m stable=4/4 mode=90 drive_aim=outpost target_bearing=-82.9deg target_source=scene_fallback command=-82.9deg command_error=0.0deg target_error=0.0deg turret_chassis_error=86.9deg
+[2026-09-02 17:03:21.783] [info] [startup_guard] arrival hard handoff released=true reacquired=true mode=90 heartbeat=true native_ai=1
+[2026-09-02 17:03:21.783] [info] [startup_guard] arrival lock entry centered_from_drive=true drive_target_error=0.0deg native_ai=1
+[2026-09-02 17:03:21.798] [info] [startup_guard] arrival lock phase=elevation target=-82.9deg yaw=-82.9deg command=-82.9deg bias=0.0deg yaw_error=0.0deg pitch_error=10.0deg settled=0/3
+[2026-09-02 17:03:22.339] [info] [startup_guard] arrival lock phase=elevation target=-82.9deg yaw=-82.8deg command=-82.8deg bias=0.0deg yaw_error=0.0deg pitch_error=0.9deg settled=1/3
+[2026-09-02 17:03:22.572] [info] [startup_guard] arrival lock result=true yaw_stage=true initial_error=0.0deg final_error=0.1deg settled=3/3 iterations=7 retained_bias=-0.0deg
+[2026-09-02 17:03:22.573] [info] [gestalt] final parking error=0.160m stable_samples=4
+[2026-09-02 17:03:22.573] [info] [startup_guard] drive aim summary enabled=true samples=19 telemetry_samples=0 fallback_samples=19 mean_target_error=8.3deg max_target_error=33.0deg final_target_error=0.1deg command=-82.9deg
+[2026-09-02 17:03:22.573] [info] [gestalt] bench_position actual=(-4.52,2.84)m outpost=(-3.81,-2.83)m distance=5.71m bearing=-82.9deg source=scene_fallback
+[2026-09-02 17:03:22.573] [info] [gestalt] pos=far drive arrived=true
+[2026-09-02 17:03:26.647] [info] [gestalt] local frame stream 'RobotBridgeDemo  ' pid=13168
+[2026-09-02 17:03:26.757] [info] [gestalt] bench-startup frame gate passed: 3 consecutive frames 1280x720 fov=25.00 arm=0.00cm pid=0 map=1934 actor=39094 epoch=1798 flags=0x7
+[2026-09-02 17:03:26.757] [info] [gestalt] bench-startup takeover gate passed: mode90 + frame contract + physical arrival lock proof (readiness 0.0s, retained_bias=-0.0deg)
+[2026-09-02 17:03:26.757] [info] [startup_guard] parked takeover gate passed attempt=1/3 recoveries=0
+[2026-09-02 17:03:26.757] [info] [gestalt] bootstrap aim shooter=(-4.52,2.84)m outpost=(-3.81,-2.83)m bearing=-82.9deg chassis_yaw=-169.8deg turret_yaw=-82.9deg
+[2026-09-02 17:03:26.767] [info] [startup_guard] bootstrap attempt=1/3 mode=90 yaw=-82.9 yaw_error=0.0 bias=-0.0 pitch=10.0 pitch_error=0.0 settled=1/3
+[2026-09-02 17:03:27.285] [info] [startup_guard] startup passed recoveries=0 final_mode=90 target=(-82.9,10.0) actual=(-82.9,10.0)
+[2026-09-02 17:03:27.285] [info] [gestalt] sim_quad_scale=1.192 z_adapter=false bar_refine=false v_adapter=false delay=0.2
+[2026-09-02 17:03:27.291] [info] [gestalt] vision_frame_contract actual=1280x720 fov=25.00deg arm=0.00cm expected=1280x720 fov=25.00deg
+[2026-09-02 17:03:28.331] [info] [ekf] a=-141.1 w=2.50 r=0.277 z=[1.210,1.210,1.210] cd=6.10 cb=82.9 id0_wh=45.7x23.5 aim_d=6.04 aim_b=84.1 aim_a=52.0 aim_wh=54.1x26.2 reproj_xy=2.2/13.2px zmap=[0.000/0,0.000/0,0.000/0] state=tracking conv=false nis_fail=0.00 det[r/b/e/p]=27/0/0/0
+[2026-09-02 17:03:29.367] [info] [ekf] a=9.6 w=2.53 r=0.277 z=[1.281,1.281,1.281] cd=5.95 cb=83.1 id0_wh=20.6x26.7 aim_d=5.67 aim_b=83.2 aim_a=81.5 aim_wh=67.0x27.8 reproj_xy=4.5/10.6px zmap=[0.000/0,0.000/0,0.000/0] state=tracking conv=false nis_fail=0.02 det[r/b/e/p]=53/0/0/0
+[2026-09-02 17:03:30.397] [info] [ekf] a=157.4 w=2.52 r=0.277 z=[1.099,1.099,1.099] cd=6.00 cb=82.9 id0_wh=18.5x26.7 aim_d=5.78 aim_b=81.6 aim_a=108.8 aim_wh=59.6x27.7 reproj_xy=8.0/31.8px zmap=[0.000/0,0.000/0,0.000/0] state=tracking conv=false nis_fail=0.02 det[r/b/e/p]=60/0/0/0
+[2026-09-02 17:03:31.433] [info] [ekf] a=-55.1 w=2.50 r=0.277 z=[1.236,1.236,1.236] cd=5.86 cb=83.0 id0_wh=48.9x24.2 aim_d=5.70 aim_b=85.6 aim_a=16.2 aim_wh=27.4x27.5 reproj_xy=1.9/0.8px zmap=[0.000/0,0.000/0,0.000/0] state=tracking conv=false nis_fail=0.01 det[r/b/e/p]=87/0/0/0
+[2026-09-02 17:03:31.607] [info] [Target] outpost height model locked: shift=1 direction=-1 pivot_z=1.114 variance=0.00229 second=0.00861
+[2026-09-02 17:03:31.671] [info] [environment] outpost rotation_observed=positive omega=+2.510rad_s source=vision_ekf_not_control
+[2026-09-02 17:03:31.671] [info] [fire_gate] Tongji target converged; fire enabled frames=132 state=tracking omega=2.510 radius=0.277
+[2026-09-02 17:03:31.806] [info] [fire_gate] Tongji one-face pulse face_error=13.23deg omega=+2.507rad_s radius=0.277m
+[2026-09-02 17:03:32.009] [info] [shot] #001 FIRED | ammo=29 target_hp=1500 pending=1
+[2026-09-02 17:03:32.345] [info] [gestalt] frames=152 det=99 cmds=109 fire_cmds=1 shots=1 hp=1500 allow=29 det_ms=13 post_ms=11 grab_avg=12 rej_avg=0 rej_n=0
+[2026-09-02 17:03:32.480] [info] [ekf] a=93.3 w=2.52 r=0.277 z=[1.073,1.266,1.165] cd=6.03 cb=83.0 id0_wh=65.5x27.6 aim_d=-1.00 aim_b=999.0 aim_a=999.0 aim_wh=-1.0x-1.0 reproj_xy=2.8/0.6px zmap=[0.000/0,0.000/0,0.000/0] state=tracking conv=true nis_fail=0.02 det[r/b/e/p]=101/0/0/0
+[2026-09-02 17:03:32.649] [info] [fire_gate] Tongji one-face pulse face_error=11.68deg omega=+2.511rad_s radius=0.277m
+[2026-09-02 17:03:32.852] [info] [shot] #002 FIRED | ammo=28 target_hp=1500 pending=2
+[2026-09-02 17:03:33.192] [info] [shot] #001 HIT | damage=20 target_hp=1480 hits=1/1 hit_rate=100.0%
+[2026-09-02 17:03:33.497] [info] [ekf] a=-123.6 w=2.51 r=0.277 z=[1.080,1.272,1.171] cd=6.04 cb=82.7 id0_wh=55.7x23.4 aim_d=5.80 aim_b=83.1 aim_a=72.8 aim_wh=64.7x27.2 reproj_xy=0.8/1.1px zmap=[0.000/0,0.000/0,0.000/0] state=tracking conv=true nis_fail=0.02 det[r/b/e/p]=118/0/0/0
+[2026-09-02 17:03:33.497] [info] [fire_gate] Tongji one-face pulse face_error=9.90deg omega=+2.509rad_s radius=0.277m
+[2026-09-02 17:03:33.743] [info] [shot] #003 FIRED | ammo=27 target_hp=1480 pending=2
+[2026-09-02 17:03:34.067] [info] [shot] #002 HIT | damage=20 target_hp=1460 hits=2/2 hit_rate=100.0%
+[2026-09-02 17:03:34.318] [info] [fire_gate] Tongji one-face pulse face_error=12.89deg omega=+2.509rad_s radius=0.277m
+[2026-09-02 17:03:34.512] [info] [ekf] a=25.6 w=2.51 r=0.277 z=[1.061,1.254,1.153] cd=5.93 cb=83.0 id0_wh=35.0x27.5 aim_d=5.63 aim_b=82.3 aim_a=98.6 aim_wh=65.5x28.2 reproj_xy=5.1/1.9px zmap=[0.000/0,0.000/0,0.000/0] state=tracking conv=true nis_fail=0.03 det[r/b/e/p]=142/0/0/0
+[2026-09-02 17:03:34.513] [info] [shot] #004 FIRED | ammo=26 target_hp=1460 pending=2
+[2026-09-02 17:03:34.967] [info] [shot] #003 MISS | damage=0 target_hp=1460 hits=2/3 hit_rate=66.7%
+[2026-09-02 17:03:35.132] [info] [fire_gate] Tongji one-face pulse face_error=12.62deg omega=+2.505rad_s radius=0.277m
+[2026-09-02 17:03:35.341] [info] [shot] #005 FIRED | ammo=25 target_hp=1460 pending=2
+[2026-09-02 17:03:35.532] [info] [ekf] a=175.8 w=2.51 r=0.277 z=[1.082,1.275,1.174] cd=6.07 cb=82.9 id0_wh=12.6x25.8 aim_d=-1.00 aim_b=999.0 aim_a=999.0 aim_wh=-1.0x-1.0 reproj_xy=1000000000.0/1000000000.0px zmap=[0.000/0,0.000/0,0.000/0] state=temp_lost conv=true nis_fail=0.02 det[r/b/e/p]=167/0/0/0
+[2026-09-02 17:03:35.676] [info] [shot] #004 HIT | damage=20 target_hp=1440 hits=3/4 hit_rate=75.0%
+[2026-09-02 17:03:35.950] [info] [fire_gate] Tongji one-face pulse face_error=14.80deg omega=+2.512rad_s radius=0.277m
+[2026-09-02 17:03:36.141] [info] [shot] #006 FIRED | ammo=24 target_hp=1440 pending=2
+[2026-09-02 17:03:36.475] [info] [shot] #005 HIT | damage=20 target_hp=1420 hits=4/5 hit_rate=80.0%
+[2026-09-02 17:03:36.544] [info] [ekf] a=-39.6 w=2.51 r=0.277 z=[1.075,1.268,1.166] cd=6.00 cb=83.0 id0_wh=36.9x24.8 aim_d=-1.00 aim_b=999.0 aim_a=999.0 aim_wh=-1.0x-1.0 reproj_xy=1000000000.0/1000000000.0px zmap=[0.000/0,0.000/0,0.000/0] state=temp_lost conv=true nis_fail=0.02 det[r/b/e/p]=183/0/0/0
+[2026-09-02 17:03:36.803] [info] [fire_gate] Tongji one-face pulse face_error=12.71deg omega=+2.510rad_s radius=0.277m
+[2026-09-02 17:03:37.008] [info] [shot] #007 FIRED | ammo=23 target_hp=1420 pending=2
+[2026-09-02 17:03:37.343] [info] [gestalt] frames=300 det=199 cmds=208 fire_cmds=7 shots=7 hp=1420 allow=23 det_ms=14 post_ms=9 grab_avg=11 rej_avg=0 rej_n=0
+[2026-09-02 17:03:37.343] [info] [shot] #006 MISS | damage=0 target_hp=1420 hits=4/6 hit_rate=66.7%
+[2026-09-02 17:03:37.533] [info] [ekf] a=103.4 w=2.51 r=0.277 z=[1.068,1.260,1.159] cd=5.99 cb=83.0 id0_wh=62.5x27.7 aim_d=5.74 aim_b=84.3 aim_a=55.0 aim_wh=58.4x27.6 reproj_xy=1000000000.0/1000000000.0px zmap=[0.000/0,0.000/0,0.000/0] state=temp_lost conv=true nis_fail=0.01 det[r/b/e/p]=202/0/0/0
+[2026-09-02 17:03:37.634] [info] [fire_gate] Tongji one-face pulse face_error=13.75deg omega=+2.512rad_s radius=0.277m
+[2026-09-02 17:03:37.843] [info] [shot] #008 FIRED | ammo=22 target_hp=1420 pending=2
+[2026-09-02 17:03:38.142] [info] [shot] #007 HIT | damage=20 target_hp=1400 hits=5/7 hit_rate=71.4%
+[2026-09-02 17:03:38.459] [info] [fire_gate] Tongji one-face pulse face_error=13.91deg omega=+2.510rad_s radius=0.277m
+[2026-09-02 17:03:38.565] [info] [ekf] a=-111.3 w=2.51 r=0.277 z=[1.045,1.238,1.137] cd=5.88 cb=82.9 id0_wh=61.1x23.8 aim_d=5.58 aim_b=82.7 aim_a=84.1 aim_wh=68.2x28.3 reproj_xy=1.0/0.2px zmap=[0.000/0,0.000/0,0.000/0] state=tracking conv=true nis_fail=0.01 det[r/b/e/p]=226/0/0/0
+[2026-09-02 17:03:38.695] [info] [shot] #009 FIRED | ammo=21 target_hp=1400 pending=2
+[2026-09-02 17:03:39.047] [info] [shot] #008 HIT | damage=20 target_hp=1380 hits=6/8 hit_rate=75.0%
+[2026-09-02 17:03:39.302] [info] [fire_gate] Tongji one-face pulse face_error=13.38deg omega=+2.509rad_s radius=0.277m
+[2026-09-02 17:03:39.510] [info] [shot] #010 FIRED | ammo=20 target_hp=1380 pending=2
+[2026-09-02 17:03:39.576] [info] [ekf] a=36.9 w=2.51 r=0.277 z=[1.061,1.254,1.153] cd=5.94 cb=83.0 id0_wh=45.5x27.7 aim_d=5.70 aim_b=81.9 aim_a=109.5 aim_wh=59.9x27.9 reproj_xy=5.0/2.2px zmap=[0.000/0,0.000/0,0.000/0] state=tracking conv=true nis_fail=0.00 det[r/b/e/p]=253/0/0/0
+[2026-09-02 17:03:39.871] [info] [shot] #009 HIT | damage=20 target_hp=1360 hits=7/9 hit_rate=77.8%
+[2026-09-02 17:03:40.066] [info] [fire_gate] Tongji one-face pulse face_error=15.61deg omega=+2.508rad_s radius=0.277m
+[2026-09-02 17:03:40.275] [info] [shot] #011 FIRED | ammo=19 target_hp=1360 pending=2
+[2026-09-02 17:03:40.620] [info] [ekf] a=-173.5 w=2.51 r=0.277 z=[1.211,1.403,1.302] cd=6.79 cb=82.6 id0_wh=18.2x22.6 aim_d=6.87 aim_b=84.5 aim_a=28.3 aim_wh=32.4x23.0 reproj_xy=1000000000.0/1000000000.0px zmap=[0.000/0,0.000/0,0.000/0] state=temp_lost conv=true nis_fail=0.01 det[r/b/e/p]=264/0/1/0
+[2026-09-02 17:03:40.737] [info] [shot] #010 MISS | damage=0 target_hp=1360 hits=7/10 hit_rate=70.0%
+[2026-09-02 17:03:40.935] [info] [fire_gate] Tongji one-face pulse face_error=13.29deg omega=+2.512rad_s radius=0.277m
+[2026-09-02 17:03:41.142] [info] [shot] #012 FIRED | ammo=18 target_hp=1360 pending=2
+[2026-09-02 17:03:41.477] [info] [shot] #011 HIT | damage=20 target_hp=1340 hits=8/11 hit_rate=72.7%
+[2026-09-02 17:03:41.635] [info] [ekf] a=-28.6 w=2.51 r=0.277 z=[1.065,1.258,1.157] cd=5.95 cb=83.1 id0_wh=28.0x25.5 aim_d=5.58 aim_b=85.1 aim_a=47.4 aim_wh=55.3x28.7 reproj_xy=2.4/0.5px zmap=[0.000/0,0.000/0,0.000/0] state=tracking conv=true nis_fail=0.01 det[r/b/e/p]=286/0/1/0
+[2026-09-02 17:03:41.787] [info] [fire_gate] Tongji one-face pulse face_error=15.14deg omega=+2.507rad_s radius=0.277m
+[2026-09-02 17:03:42.013] [info] [shot] #013 FIRED | ammo=17 target_hp=1340 pending=2
+[2026-09-02 17:03:42.355] [info] [shot] #012 MISS | damage=0 target_hp=1340 hits=8/12 hit_rate=66.7%
+[2026-09-02 17:03:42.383] [info] [gestalt] frames=450 det=303 cmds=306 fire_cmds=13 shots=13 hp=1340 allow=17 det_ms=22 post_ms=2 grab_avg=12 rej_avg=0 rej_n=0
+[2026-09-02 17:03:42.383] [info] [shot] #013 HIT | damage=20 target_hp=1320 hits=9/13 hit_rate=69.2%
+[2026-09-02 17:03:42.602] [info] [ekf] a=114.3 w=2.51 r=0.277 z=[1.054,1.246,1.145] cd=5.93 cb=83.0 id0_wh=57.2x28.0 aim_d=5.62 aim_b=83.9 aim_a=65.8 aim_wh=64.8x28.2 reproj_xy=1000000000.0/1000000000.0px zmap=[0.000/0,0.000/0,0.000/0] state=temp_lost conv=true nis_fail=0.01 det[r/b/e/p]=313/0/1/0
+[2026-09-02 17:03:42.637] [info] [fire_gate] Tongji one-face pulse face_error=12.31deg omega=+2.509rad_s radius=0.277m
+[2026-09-02 17:03:42.842] [info] [shot] #014 FIRED | ammo=16 target_hp=1320 pending=1
+[2026-09-02 17:03:43.175] [info] [shot] #014 HIT | damage=20 target_hp=1300 hits=10/14 hit_rate=71.4%
+[2026-09-02 17:03:43.451] [info] [fire_gate] Tongji one-face pulse face_error=15.88deg omega=+2.510rad_s radius=0.277m
+[2026-09-02 17:03:43.625] [info] [ekf] a=-103.3 w=2.51 r=0.277 z=[1.058,1.251,1.150] cd=5.94 cb=82.8 id0_wh=61.8x23.5 aim_d=5.68 aim_b=82.3 aim_a=91.9 aim_wh=66.3x27.8 reproj_xy=0.6/0.0px zmap=[0.000/0,0.000/0,0.000/0] state=tracking conv=true nis_fail=0.01 det[r/b/e/p]=332/0/1/0
+[2026-09-02 17:03:43.655] [info] [shot] #015 FIRED | ammo=15 target_hp=1300 pending=1
+[2026-09-02 17:03:43.976] [info] [shot] #015 HIT | damage=20 target_hp=1280 hits=11/15 hit_rate=73.3%
+[2026-09-02 17:03:44.280] [info] [fire_gate] Tongji one-face pulse face_error=13.49deg omega=+2.503rad_s radius=0.277m
+[2026-09-02 17:03:44.510] [info] [shot] #016 FIRED | ammo=14 target_hp=1280 pending=1
+[2026-09-02 17:03:44.635] [info] [ekf] a=47.9 w=2.51 r=0.277 z=[1.053,1.246,1.145] cd=5.90 cb=83.1 id0_wh=54.6x28.0 aim_d=-1.00 aim_b=999.0 aim_a=999.0 aim_wh=-1.0x-1.0 reproj_xy=0.8/2.4px zmap=[0.000/0,0.000/0,0.000/0] state=tracking conv=true nis_fail=0.03 det[r/b/e/p]=355/0/1/0
+[2026-09-02 17:03:44.853] [info] [shot] #016 HIT | damage=20 target_hp=1260 hits=12/16 hit_rate=75.0%
+[2026-09-02 17:03:45.134] [info] [fire_gate] Tongji one-face pulse face_error=12.90deg omega=+2.507rad_s radius=0.277m
+[2026-09-02 17:03:45.343] [info] [shot] #017 FIRED | ammo=13 target_hp=1260 pending=1
+[2026-09-02 17:03:45.640] [info] [ekf] a=-169.8 w=2.51 r=0.277 z=[1.066,1.259,1.158] cd=5.98 cb=82.9 id0_wh=23.9x25.5 aim_d=5.86 aim_b=85.1 aim_a=23.9 aim_wh=33.7x26.9 reproj_xy=1000000000.0/1000000000.0px zmap=[0.000/0,0.000/0,0.000/0] state=temp_lost conv=true nis_fail=0.02 det[r/b/e/p]=379/0/1/0
+[2026-09-02 17:03:45.949] [info] [fire_gate] Tongji one-face pulse face_error=15.08deg omega=+2.510rad_s radius=0.277m
+[2026-09-02 17:03:46.149] [info] [shot] #018 FIRED | ammo=12 target_hp=1260 pending=2
+[2026-09-02 17:03:46.508] [info] [shot] #017 HIT | damage=20 target_hp=1240 hits=13/17 hit_rate=76.5%
+[2026-09-02 17:03:46.641] [info] [ekf] a=-23.6 w=2.51 r=0.277 z=[1.085,1.278,1.177] cd=6.05 cb=83.1 id0_wh=23.1x25.3 aim_d=5.84 aim_b=84.7 aim_a=49.4 aim_wh=54.2x27.3 reproj_xy=0.6/0.1px zmap=[0.000/0,0.000/0,0.000/0] state=tracking conv=true nis_fail=0.02 det[r/b/e/p]=401/0/1/0
+[2026-09-02 17:03:46.775] [info] [fire_gate] Tongji one-face pulse face_error=15.96deg omega=+2.506rad_s radius=0.277m
+[2026-09-02 17:03:46.976] [info] [shot] #019 FIRED | ammo=11 target_hp=1240 pending=2
+[2026-09-02 17:03:47.369] [info] [shot] #018 HIT | damage=20 target_hp=1220 hits=14/18 hit_rate=77.8%
+[2026-09-02 17:03:47.403] [info] [gestalt] frames=601 det=414 cmds=406 fire_cmds=19 shots=19 hp=1220 allow=11 det_ms=14 post_ms=3 grab_avg=12 rej_avg=0 rej_n=0
+[2026-09-02 17:03:47.604] [info] [fire_gate] Tongji one-face pulse face_error=15.34deg omega=+2.506rad_s radius=0.277m
+[2026-09-02 17:03:47.689] [info] [ekf] a=124.8 w=2.51 r=0.277 z=[1.068,1.260,1.159] cd=6.01 cb=83.0 id0_wh=48.9x27.5 aim_d=5.73 aim_b=83.1 aim_a=79.4 aim_wh=66.6x27.6 reproj_xy=6.7/1.3px zmap=[0.000/0,0.000/0,0.000/0] state=tracking conv=true nis_fail=0.02 det[r/b/e/p]=430/0/1/0
+[2026-09-02 17:03:47.824] [info] [shot] #020 FIRED | ammo=10 target_hp=1220 pending=2
+[2026-09-02 17:03:48.199] [info] [shot] #019 MISS | damage=0 target_hp=1220 hits=14/19 hit_rate=73.7%
+[2026-09-02 17:03:48.458] [info] [fire_gate] Tongji one-face pulse face_error=13.67deg omega=+2.510rad_s radius=0.277m
+[2026-09-02 17:03:48.661] [info] [shot] #021 FIRED | ammo=9 target_hp=1220 pending=2
+[2026-09-02 17:03:48.691] [info] [ekf] a=-93.0 w=2.51 r=0.278 z=[1.057,1.250,1.149] cd=5.93 cb=82.8 id0_wh=62.1x23.5 aim_d=5.64 aim_b=81.9 aim_a=101.5 aim_wh=63.9x28.0 reproj_xy=1.1/0.1px zmap=[0.000/0,0.000/0,0.000/0] state=tracking conv=true nis_fail=0.00 det[r/b/e/p]=456/0/1/0
+[2026-09-02 17:03:48.976] [info] [shot] #020 HIT | damage=20 target_hp=1200 hits=15/20 hit_rate=75.0%
+[2026-09-02 17:03:49.269] [info] [fire_gate] Tongji one-face pulse face_error=15.10deg omega=+2.505rad_s radius=0.278m
+[2026-09-02 17:03:49.476] [info] [shot] #022 FIRED | ammo=8 target_hp=1200 pending=2
+[2026-09-02 17:03:49.723] [info] [ekf] a=56.9 w=2.51 r=0.278 z=[1.073,1.266,1.164] cd=5.99 cb=83.1 id0_wh=59.6x27.7 aim_d=-1.00 aim_b=999.0 aim_a=999.0 aim_wh=-1.0x-1.0 reproj_xy=2.8/2.5px zmap=[0.000/0,0.000/0,0.000/0] state=tracking conv=true nis_fail=0.01 det[r/b/e/p]=478/0/1/0
+[2026-09-02 17:03:49.809] [info] [shot] #021 HIT | damage=20 target_hp=1180 hits=16/21 hit_rate=76.2%
+[2026-09-02 17:03:50.098] [info] [fire_gate] Tongji one-face pulse face_error=15.10deg omega=+2.507rad_s radius=0.278m
+[2026-09-02 17:03:50.318] [info] [shot] #023 FIRED | ammo=7 target_hp=1180 pending=2
+[2026-09-02 17:03:50.642] [info] [shot] #022 HIT | damage=20 target_hp=1160 hits=17/22 hit_rate=77.3%
+[2026-09-02 17:03:50.740] [info] [ekf] a=-153.6 w=2.52 r=0.278 z=[1.063,1.256,1.155] cd=5.97 cb=82.9 id0_wh=37.6x24.8 aim_d=-1.00 aim_b=999.0 aim_a=999.0 aim_wh=-1.0x-1.0 reproj_xy=0.3/0.6px zmap=[0.000/0,0.000/0,0.000/0] state=tracking conv=true nis_fail=0.02 det[r/b/e/p]=500/0/1/0
+[2026-09-02 17:03:50.967] [info] [fire_gate] Tongji one-face pulse face_error=12.18deg omega=+2.508rad_s radius=0.278m
+[2026-09-02 17:03:51.175] [info] [shot] #024 FIRED | ammo=6 target_hp=1160 pending=2
+[2026-09-02 17:03:51.535] [info] [shot] #023 HIT | damage=20 target_hp=1140 hits=18/23 hit_rate=78.3%
+[2026-09-02 17:03:51.732] [info] [ekf] a=-9.6 w=2.51 r=0.278 z=[1.083,1.276,1.175] cd=6.03 cb=83.1 id0_wh=12.6x25.9 aim_d=5.77 aim_b=84.1 aim_a=62.4 aim_wh=61.8x27.5 reproj_xy=1.9/0.4px zmap=[0.000/0,0.000/0,0.000/0] state=tracking conv=true nis_fail=0.02 det[r/b/e/p]=522/0/1/0
+[2026-09-02 17:03:51.787] [info] [fire_gate] Tongji one-face pulse face_error=13.32deg omega=+2.507rad_s radius=0.278m
+[2026-09-02 17:03:51.981] [info] [shot] #025 FIRED | ammo=5 target_hp=1140 pending=2
+[2026-09-02 17:03:52.308] [info] [shot] #024 HIT | damage=20 target_hp=1120 hits=19/24 hit_rate=79.2%
+[2026-09-02 17:03:52.398] [info] [gestalt] frames=751 det=523 cmds=508 fire_cmds=25 shots=25 hp=1120 allow=5 det_ms=14 post_ms=1 grab_avg=12 rej_avg=0 rej_n=0
+[2026-09-02 17:03:52.636] [info] [fire_gate] Tongji one-face pulse face_error=12.45deg omega=+2.507rad_s radius=0.278m
+[2026-09-02 17:03:52.740] [info] [ekf] a=132.2 w=2.51 r=0.278 z=[1.072,1.265,1.164] cd=6.03 cb=82.9 id0_wh=42.2x27.3 aim_d=5.76 aim_b=82.7 aim_a=84.9 aim_wh=66.3x27.5 reproj_xy=5.3/0.2px zmap=[0.000/0,0.000/0,0.000/0] state=tracking conv=true nis_fail=0.02 det[r/b/e/p]=544/0/1/0
+[2026-09-02 17:03:52.843] [info] [shot] #026 FIRED | ammo=4 target_hp=1120 pending=2
+[2026-09-02 17:03:53.199] [info] [shot] #025 MISS | damage=0 target_hp=1120 hits=19/25 hit_rate=76.0%
+[2026-09-02 17:03:53.459] [info] [fire_gate] Tongji one-face pulse face_error=14.02deg omega=+2.518rad_s radius=0.278m
+[2026-09-02 17:03:53.652] [info] [shot] #027 FIRED | ammo=3 target_hp=1120 pending=2
+[2026-09-02 17:03:53.767] [info] [ekf] a=-78.8 w=2.51 r=0.278 z=[1.048,1.241,1.140] cd=5.89 cb=82.9 id0_wh=59.9x23.9 aim_d=5.60 aim_b=81.5 aim_a=112.2 aim_wh=59.0x28.2 reproj_xy=5.4/1.2px zmap=[0.000/0,0.000/0,0.000/0] state=tracking conv=true nis_fail=0.01 det[r/b/e/p]=563/0/1/0
+[2026-09-02 17:03:54.001] [info] [shot] #026 HIT | damage=20 target_hp=1100 hits=20/26 hit_rate=76.9%
+[2026-09-02 17:03:54.301] [info] [fire_gate] Tongji one-face pulse face_error=12.77deg omega=+2.507rad_s radius=0.278m
+[2026-09-02 17:03:54.510] [info] [shot] #028 FIRED | ammo=2 target_hp=1100 pending=2
+[2026-09-02 17:03:54.776] [info] [ekf] a=64.5 w=2.51 r=0.278 z=[1.067,1.260,1.159] cd=5.96 cb=83.0 id0_wh=63.7x27.9 aim_d=5.83 aim_b=85.5 aim_a=18.4 aim_wh=28.2x27.2 reproj_xy=1000000000.0/1000000000.0px zmap=[0.000/0,0.000/0,0.000/0] state=temp_lost conv=true nis_fail=0.03 det[r/b/e/p]=583/0/1/0
+[2026-09-02 17:03:54.842] [info] [shot] #027 HIT | damage=20 target_hp=1080 hits=21/27 hit_rate=77.8%
+[2026-09-02 17:03:55.144] [info] [fire_gate] Tongji one-face pulse face_error=12.58deg omega=+2.510rad_s radius=0.278m
+[2026-09-02 17:03:55.344] [info] [shot] #029 FIRED | ammo=1 target_hp=1080 pending=2
+[2026-09-02 17:03:55.676] [info] [shot] #028 HIT | damage=20 target_hp=1060 hits=22/28 hit_rate=78.6%
+[2026-09-02 17:03:55.809] [info] [ekf] a=-147.2 w=2.51 r=0.278 z=[1.058,1.251,1.150] cd=5.94 cb=82.8 id0_wh=42.9x24.6 aim_d=-1.00 aim_b=999.0 aim_a=999.0 aim_wh=-1.0x-1.0 reproj_xy=0.5/0.7px zmap=[0.000/0,0.000/0,0.000/0] state=tracking conv=true nis_fail=0.03 det[r/b/e/p]=602/0/1/0
+[2026-09-02 17:03:55.963] [info] [fire_gate] Tongji one-face pulse face_error=14.58deg omega=+2.511rad_s radius=0.278m
+[2026-09-02 17:03:56.180] [info] [shot] #030 FIRED | ammo=0 target_hp=1060 pending=2
+[2026-09-02 17:03:57.688] [info] [shot] #029 HIT | damage=20 target_hp=1040 hits=23/29 hit_rate=79.3%
+[2026-09-02 17:03:57.688] [info] [shot] #030 MISS | damage=0 target_hp=1040 hits=23/30 hit_rate=76.7%
+[2026-09-02 17:03:57.901] [info] [gestalt] teardown release gate passed: pid=0 current_map=1934 AITargetMode=0 terminal_inactive=false
+[2026-09-02 17:03:57.901] [info] [gestalt] hp drop histogram (calibrates bench_damage_per_hit=20): 22x-20 
+[2026-09-02 17:03:57.901] [info] [fire_gate_summary] Tongji one_face_enabled=true rearm=29 blocked_face=143 blocked_unarmed=156
+[2026-09-02 17:03:57.901] [info] [gestalt] RESULT=PARTIAL hp 1500->1040 damaging_hits=23 bullets=30 hit_rate=0.767 frames=864 det_rate=0.694 fire_cmds=30 dmg_per_hit=20 damage_dealt=460 lives_lost=0 match_status=0 match_end_seen=false takeover_gate=true pid0_hachisen=false frame_writer_pid=13168 frame_writer_gate=true view_identity_gate=true takeover_epoch=1798 ws_continuity_gate=true capture_recovery_gate=true release_restored=true
+[GameLink] connected ws://127.0.0.1:29454/

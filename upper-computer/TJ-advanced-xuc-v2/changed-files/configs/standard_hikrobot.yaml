@@ -1,0 +1,155 @@
+# 步兵自瞄运行配置（海康 HikRobot 相机）
+# 用法：./build/standard configs/standard_hikrobot.yaml
+# 基于 complete_template.yaml，相机换为海康 hikrobot，内外参已回填，附 XUC 串口键。
+
+#####-----基础配置-----#####
+# 敌方颜色：red | blue
+enemy_color: "red"
+
+#####-----神经网络参数-----#####
+# 推理后端：tensorrt | openvino
+inference_backend: openvino
+
+# 装甲板识别后端：yolov8 | yolo11 | yolov5 | yolo26
+yolo_name: yolo26
+
+# 数字/字迹分类器模型路径
+classify_model: assets/tiny_resnet.onnx
+
+#####-----OpenVINO模型路径-----#####
+# YOLO模型路径（根据yolo_name选择对应模型）
+yolo11_model_path: assets/yolo11.xml      # 输入640×640
+yolov8_model_path: assets/yolov8.xml        # 输入416×416
+yolov5_model_path: assets/yolov5.xml        # 输入640×640
+yolo26_model_path: assets/yolo26.xml
+
+# OpenVINO推理设备：CPU | GPU | AUTO
+device: CPU
+
+#####-----TensorRT模型路径-----#####
+yolo11_engine_path: assets/engines/yolo11.engine
+yolov8_engine_path: assets/engines/yolov8.engine
+
+yolo11_onnx_path: assets/yolo11.onnx
+yolov8_onnx_path: assets/yolov8.onnx
+
+tensorrt_fp16_mode: true
+tensorrt_int8_mode: false
+
+#####-----推理参数-----#####
+use_async_inference: false
+
+min_confidence: 0.45
+
+use_traditional: true
+
+#####-----功能开关-----#####
+enable_buff: false
+force_auto_aim: true
+
+#####-----ROI（感兴趣区域）参数-----#####
+roi:
+  x: 420
+  y: 50
+  width: 600
+  height: 600
+
+use_roi: false
+
+#####-----传统检测方法参数-----#####
+threshold: 150
+max_angle_error: 45
+min_lightbar_ratio: 1.5
+max_lightbar_ratio: 20
+min_lightbar_length: 8
+min_armor_ratio: 1
+max_armor_ratio: 5
+max_side_ratio: 1.5
+max_rectangular_error: 25
+
+#####-----Tracker（跟踪器）参数-----#####
+min_detect_count: 5
+max_temp_lost_count: 15
+outpost_max_temp_lost_count: 75
+
+#####-----Aimer（瞄准器）参数-----#####
+yaw_offset: 1.0
+pitch_offset: 6
+
+comming_angle: 60
+leaving_angle: 20
+
+decision_speed: 8
+high_speed_delay_time: 0.030
+low_speed_delay_time: 0.015
+
+actuation_delay_ms: 0
+
+yaw_ramp_t0: 0.10
+yaw_ramp_t0_pos: 0.10
+yaw_ramp_t0_neg: 0.10
+
+#####-----Shooter（开火控制）参数-----#####
+first_tolerance: 3
+second_tolerance: 2
+judge_distance: 2
+# 联调阶段先关自动开火，确认检测/跟踪/命令链路后再置 true
+auto_fire: false
+
+#####-----相机配置（海康 HikRobot）-----#####
+camera_name: "hikrobot"
+
+exposure_ms: 6.0
+gain: 10.0
+
+# 海康相机 VID:PID（lsusb 确认）
+vid_pid: "2bdf:0001"
+
+debug: true
+
+# 相机硬触发（与电控 CAN 命令同步触发曝光）
+trigger_enable: true
+trigger_source: 2
+trigger_activation: 0
+
+#####-----相机标定参数（海康内参/外参，1440×1080）-----#####
+# 重投影误差: 0.2769px
+camera_matrix: [2509.7069055162938, 0, 752.16447814945798, 0, 2523.5335999378231, 652.18118079409783, 0, 0, 1]
+distort_coeffs: [-0.043593795430922858, 0.086023484302093084, 0.0027761742674161836, 0.00098870722784968283, 0]
+
+R_gimbal2imubody: [-1, 0, 0, 0, 1, 0, 0, 0, -1]
+
+# 相机同理想情况的偏角: yaw-13.87 pitch4.87 roll1.39（与 calibration_hikrobot.yaml 一致，2026-08-04 外参验证用）
+R_camera2gimbal: [0.24157550427275232, 0.076512493741470511, 0.96736090164779087, -0.97008128270415694, 0.043859036134035634, 0.23878586619909239, -0.024157414646913952, -0.99610352034859051, 0.084818606842615996]
+t_camera2gimbal: [-0.17518305300474016, -0.0013669946458138922, -0.017572867856055635]
+
+#####-----CAN协议配置-----#####
+new_can_quat_id: 0x150
+new_can_cmd_id: 0x170
+can_interface: "can0"
+cboard_enable: false             # 新版IMU接到下位机，禁止等待旧CAN姿态
+debug_rx: false
+debug_tx: false
+
+#####-----轨迹规划器（Planner）参数-----#####
+fire_thresh: 0.0035
+max_yaw_acc: 100
+Q_yaw: [9e6, 0]
+R_yaw: [0.5]
+max_pitch_acc: 100
+Q_pitch: [9e6, 0]
+R_pitch: [1]
+
+#####-----XUC 新版双向串口（实际波特率接板确认）-----#####
+xuc_enable: true                 # 接收IMU，发送云台目标角
+xuc_serial_port: "/dev/ttyUSB1"  # 到 STM32 UART4 的 USB 串口设备（真机时确认 ttyUSBx）
+xuc_serial_baud: 460800          # 与下位机 UART4 一致
+xuc_yaw_sign: 1                  # 目标 yaw 符号
+xuc_pitch_sign: -1               # 目标 pitch 符号
+xuc_imu_yaw_sign: 1              # 下位机IMU yaw方向，实机小角度确认
+xuc_imu_pitch_sign: 1            # 下位机IMU pitch方向，实机小角度确认
+xuc_imu_yaw_offset_rad: 0.0
+xuc_imu_pitch_offset_rad: 0.0
+xuc_require_feedback_for_control: true
+xuc_allow_control: false         # 接板确认前禁止驱动云台
+xuc_allow_shoot: false           # 首次接板固定禁射

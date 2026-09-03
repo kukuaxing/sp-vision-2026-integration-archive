@@ -1,0 +1,55 @@
+# 相机标定配置文件（海康 HikRobot 相机专用）
+# 用法（在 Ubuntu 小电脑上）：
+#   1) 采集:   ./build/capture configs/calibration_hikrobot.yaml -o assets/img_with_q
+#   2) 内参:   ./build/calibrate_camera -c configs/calibration_hikrobot.yaml assets/img_with_q
+#   3) 手眼:   ./build/calibrate_handeye -c configs/calibration_hikrobot.yaml assets/img_with_q
+# 内参标定结果需要先回填到下面的 camera_matrix / distort_coeffs，手眼标定才能进行。
+
+#####-----标定板参数-----#####
+pattern_cols: 9                  # 棋盘格内角点列数（宽方向10格）
+pattern_rows: 7                  # 棋盘格内角点行数（高方向8格）
+square_size_mm: 20               # 棋盘格方格边长（毫米），若你的板子不同请修改
+
+#####-----云台/IMU安装矩阵（手眼标定用）-----#####
+# R_gimbal2imubody: [1, 0, 0, 0, 1, 0, 0, 0, 1]
+R_gimbal2imubody: [-1, 0, 0, 0, 1, 0, 0, 0, -1]
+
+#####-----相机内参（内参标定后回填）-----#####
+# [fx, 0, cx, 0, fy, cy, 0, 0, 1]（3×3 行优先）
+# 重投影误差: 0.2769px（1440x1080）
+camera_matrix: [2509.7069055162938, 0, 752.16447814945798, 0, 2523.5335999378231, 652.18118079409783, 0, 0, 1]
+# [k1, k2, p1, p2, k3]
+distort_coeffs: [-0.043593795430922858, 0.086023484302093084, 0.0027761742674161836, 0.00098870722784968283, 0]
+
+#####-----相机/云台外参（手眼标定后回填）-----#####
+# 相机同理想情况的偏角: yaw-13.87 pitch4.87 roll1.39 degree（roll 已去掉绕光轴 180° 伪影，原始输出为 -178.62）
+R_camera2gimbal: [0.24157550427275232, 0.076512493741470511, 0.96736090164779087, -0.97008128270415694, 0.043859036134035634, 0.23878586619909239, -0.024157414646913952, -0.99610352034859051, 0.084818606842615996]
+t_camera2gimbal: [-0.17518305300474016, -0.0013669946458138922, -0.017572867856055635]
+
+#####-----相机配置（海康）-----#####
+camera_name: "hikrobot"
+exposure_ms: 6.0
+gain: 10.0
+vid_pid: "2bdf:0001"             # 用 lsusb 确认你相机的 VID:PID，不同型号 PID 可能不同
+require_cboard: true             # 手眼标定需要读取 IMU 四元数（经 imu_to_can 转发到 can0）；仅做内参标定时改为 false
+
+#####-----CAN协议配置（capture 需要读 C板四元数，手眼标定必需）-----#####
+new_can_quat_id: 0x150           # 四元数姿态帧ID
+new_can_cmd_id: 0x170            # 自瞄指令帧ID
+can_interface: "can0"
+debug_rx: false
+debug_tx: true
+
+#####-----XUC V2双向串口（TWLInfantry UART4 @460800）-----#####
+xuc_enable: false                # 标定默认不打开下位机串口
+xuc_serial_port: "/dev/ttyUSB0"  # 到 STM32 UART4 的 USB 串口设备
+xuc_serial_baud: 460800          # 与下位机 UART4 一致
+xuc_yaw_sign: 1                  # 目标 yaw 符号
+xuc_pitch_sign: -1               # 目标 pitch 符号（与现有 CAN 发送 -command.pitch 一致）
+xuc_imu_yaw_sign: 1              # 下位机IMU yaw方向，接板后确认
+xuc_imu_pitch_sign: 1            # 下位机IMU pitch方向，接板后确认
+xuc_imu_yaw_offset_rad: 0.0
+xuc_imu_pitch_offset_rad: 0.0
+xuc_require_feedback_for_control: true
+xuc_allow_control: false         # 接板确认前禁止驱动云台
+xuc_allow_shoot: false           # 首次接板固定禁射
