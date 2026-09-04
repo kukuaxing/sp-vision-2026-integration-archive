@@ -1,4 +1,4 @@
-﻿#include "label.h"
+#include "label.h"
 #include "taskslist.h"
 #include "can.h"
 #include "motor.h"
@@ -35,7 +35,7 @@ bool RcSticksCentered()
 	return true;
 }
 
-void HoldYawAtCurrentPosition()
+void HoldGimbalAtCurrentPosition()
 {
 	ctrl.pantile.target_imu_yaw = imu_pantile.GetAngleYaw();
 	ctrl.pantile.manual_yaw_input = 0.0f;
@@ -45,6 +45,13 @@ void HoldYawAtCurrentPosition()
 		ctrl.pantile.mark_yaw = ctrl.pantile_motor[CONTROL::PANTILE::YAW]->angle[now];
 		ctrl.pantile_motor[CONTROL::PANTILE::YAW]->setangle = ctrl.pantile.mark_yaw;
 		ctrl.pantile_motor[CONTROL::PANTILE::YAW]->setspeed = 0;
+	}
+	const float pitch_feedback = DMmotor[0].pos;
+	if (pitch_feedback >= ctrl.pantile.pitch_min - 0.1f &&
+		pitch_feedback <= ctrl.pantile.pitch_max + 0.1f)
+	{
+		DMmotor[0].setPos = std::max(
+			std::min(pitch_feedback, ctrl.pantile.pitch_max), ctrl.pantile.pitch_min);
 	}
 }
 
@@ -80,22 +87,34 @@ void ApplyBoundedXucYawControl()
 		XucYawController::ProtocolYawToLowerImuYawRadians(command.yaw_TJ);
 
 	const XucYawControlOutput output = xuc_yaw_controller.Update(input);
-	if (output.armed)
+	XucPitchControlInput pitch_input{};
+	pitch_input.now_ms = now_ms;
+	pitch_input.motion_authorized = output.armed;
+	pitch_input.arm_switch_selected = arm_switch;
+	pitch_input.command_control = command.control_TJ;
+	pitch_input.current_pitch_deg = imu_pantile.GetStrictAnglePitch();
+	pitch_input.current_motor_pos_rad = DMmotor[0].pos;
+	pitch_input.command_pitch_rad = command.pitch_TJ;
+	const XucPitchControlOutput pitch_output = xuc_pitch_controller.Update(pitch_input);
+
+	if (output.armed && pitch_output.active)
 	{
 		ctrl.mode = CONTROL::AUTO;
 		ctrl.Control_Chassis(0, 0, 0);
 		ctrl.Control_Pantile(0, 0);
 		ForceShooterSafe();
 		ctrl.pantile.target_imu_yaw = output.target_yaw_deg;
+		ctrl.pantile.target_imu_pitch = pitch_output.target_pitch_deg;
+		DMmotor[0].setPos = pitch_output.target_motor_pos_rad;
 	}
 	else if (arm_switch)
 	{
-		// A selected-but-unarmed AUTO position must remain a hard stop. Any timeout
-		// requires moving the switch away and back before a new arm edge is accepted.
+		// AUTO is selected directly by switch position, but an unmet motion gate
+		// still keeps all actuators stopped until the controller can arm in place.
 		ctrl.mode = CONTROL::LOCK;
 		ctrl.Control_Chassis(0, 0, 0);
 		ForceShooterSafe();
-		HoldYawAtCurrentPosition();
+		HoldGimbalAtCurrentPosition();
 	}
 }
 }
@@ -279,11 +298,22 @@ void XucTask(void* pvParameters)
 		}
 #endif
 
-		// mode=1 is also an observable acknowledgement that every Phase 2A gate is
-		// active. Shooting remains disconnected from XUC in this phase.
-		const uint8_t feedback_mode =
-			(ctrl.mode == CONTROL::AUTO && xuc_yaw_controller.Armed()) ? 1U : 0U;
-		xuc.SendFeedback(feedback_mode, 0U, 0.0f, 0U, imu_pitch_rad, imu_yaw_rad);
+		// Report the operator-selected mode directly. Motion authorization remains
+		// independently guarded by XucYawController and is never implied by mode=1.
+		const uint8_t feedback_mode = XucArmSwitchSelected() ? 1U : 0U;
+		// Phase 2D.5 diagnostics: shooting is disabled, so the otherwise-unused
+		// bullet fields report yaw motor speed and the latched AUTO reason without
+		// changing the packet layout.
+		const float yaw_motor_speed_rpm =
+			(ctrl.pantile_motor[CONTROL::PANTILE::YAW] != nullptr)
+				? static_cast<float>(ctrl.pantile_motor[CONTROL::PANTILE::YAW]->curspeed)
+				: 0.0f;
+		const uint16_t pitch_reason = xuc_pitch_controller.LastDisarmReasonCode();
+		const uint16_t combined_reason =
+			(pitch_reason != XUC_PITCH_DISARM_NONE)
+				? pitch_reason : xuc_yaw_controller.LastDisarmReasonCode();
+		xuc.SendFeedback(feedback_mode, 0U, yaw_motor_speed_rpm,
+			combined_reason, imu_pitch_rad, imu_yaw_rad);
 		vTaskDelayUntil(&last_wake_time, pdMS_TO_TICKS(10));
 	}
 }

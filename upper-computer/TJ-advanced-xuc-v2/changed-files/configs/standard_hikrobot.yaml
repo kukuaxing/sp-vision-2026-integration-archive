@@ -41,6 +41,17 @@ use_async_inference: false
 
 min_confidence: 0.45
 
+# YOLO26 四角点可见度下限；联调先只记录，采样后再决定是否提高。
+min_keypoint_confidence: 0.0
+# 与 yolo26.xml 导出元数据保持一致。
+letterbox_value: 114
+yolo26_swap_rb: false            # 由本车相机 A/B 测试后锁定
+yolo26_refine_color: true
+yolo26_color_min_delta: 12.0
+yolo26_color_min_brightness: 60
+yolo26_color_hold_frames: 12      # bridge short PWM-dark gaps only
+detector_debug: false
+
 use_traditional: true
 
 #####-----功能开关-----#####
@@ -99,16 +110,22 @@ auto_fire: false
 #####-----相机配置（海康 HikRobot）-----#####
 camera_name: "hikrobot"
 
-exposure_ms: 6.0
+exposure_ms: 2.0
 gain: 10.0
+camera_width: 1440
+camera_height: 1080
+camera_fps: 150.0
+# 标定/运行期间禁止逐帧自动白平衡造成颜色漂移。
+white_balance_auto: "off"
+hikrobot_pixel_format: "BayerRG8"
 
 # 海康相机 VID:PID（lsusb 确认）
 vid_pid: "2bdf:0001"
 
 debug: true
 
-# 相机硬触发（与电控 CAN 命令同步触发曝光）
-trigger_enable: true
+# 海康硬触发必须单独完成电气验证后再打开；当前保持已验证的连续取流。
+trigger_enable: false
 trigger_source: 2
 trigger_activation: 0
 

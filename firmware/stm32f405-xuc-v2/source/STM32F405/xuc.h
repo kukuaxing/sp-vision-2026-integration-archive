@@ -28,8 +28,8 @@ struct RxPacket_TJ  // small computer -> lower board
 	uint8_t head[2];
 	uint8_t control_TJ;
 	uint8_t shoot_TJ;
-	float yaw_TJ;               // rad; Phase 2A uses this only through the bounded yaw gate
-	float pitch_TJ;             // rad; deliberately ignored by Phase 2A
+	float yaw_TJ;               // rad; bounded absolute yaw target
+	float pitch_TJ;             // rad; bounded absolute pitch target in Phase 2D.5
 	uint16_t crc16_TJ;
 };
 #pragma pack(pop)

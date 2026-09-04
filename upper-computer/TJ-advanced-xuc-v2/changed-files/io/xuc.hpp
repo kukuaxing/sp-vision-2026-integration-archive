@@ -57,7 +57,8 @@ public:
   void send(const Command & cmd);
   bool control_ready() const
   {
-    return allow_control_ && (!require_feedback_for_control_ || rx_valid());
+    return allow_control_ && (!require_feedback_for_control_ || rx_valid()) &&
+           (!require_auto_mode_for_control_ || mode() == 1);
   }
 
   // 下位机回传数据（接收线程更新；rx_valid() 为 false 时这些值不可信）
@@ -105,6 +106,11 @@ private:
   bool allow_control_ = false;
   bool allow_shoot_ = false;
   bool require_feedback_for_control_ = true;
+  bool require_auto_mode_for_control_ = false;
+  bool lock_pitch_for_control_ = false;
+  double max_yaw_excursion_rad_ = 0.0;
+  bool control_session_active_ = false;
+  double control_yaw_anchor_raw_ = 0.0;
 
   std::thread recv_thread_;
   std::atomic<bool> recv_quit_{false};

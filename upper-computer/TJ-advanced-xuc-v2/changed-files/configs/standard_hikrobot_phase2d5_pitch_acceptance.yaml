@@ -1,0 +1,183 @@
+# 步兵自瞄运行配置（海康 HikRobot 相机）
+# 用法：./build/standard configs/standard_hikrobot.yaml
+# 基于 complete_template.yaml，相机换为海康 hikrobot，内外参已回填，附 XUC 串口键。
+
+#####-----基础配置-----#####
+# 敌方颜色：red | blue
+enemy_color: "red"
+
+#####-----神经网络参数-----#####
+# 推理后端：tensorrt | openvino
+inference_backend: openvino
+
+# 装甲板识别后端：yolov8 | yolo11 | yolov5 | yolo26
+yolo_name: yolo26
+
+# 数字/字迹分类器模型路径
+classify_model: assets/tiny_resnet.onnx
+
+#####-----OpenVINO模型路径-----#####
+# YOLO模型路径（根据yolo_name选择对应模型）
+yolo11_model_path: assets/yolo11.xml      # 输入640×640
+yolov8_model_path: assets/yolov8.xml        # 输入416×416
+yolov5_model_path: assets/yolov5.xml        # 输入640×640
+yolo26_model_path: assets/yolo26.xml
+
+# OpenVINO推理设备：CPU | GPU | AUTO
+device: CPU
+
+#####-----TensorRT模型路径-----#####
+yolo11_engine_path: assets/engines/yolo11.engine
+yolov8_engine_path: assets/engines/yolov8.engine
+
+yolo11_onnx_path: assets/yolo11.onnx
+yolov8_onnx_path: assets/yolov8.onnx
+
+tensorrt_fp16_mode: true
+tensorrt_int8_mode: false
+
+#####-----推理参数-----#####
+use_async_inference: false
+
+min_confidence: 0.45
+
+min_keypoint_confidence: 0.0
+letterbox_value: 114
+yolo26_swap_rb: false
+yolo26_refine_color: true
+yolo26_color_min_delta: 12.0
+yolo26_color_min_brightness: 60
+yolo26_color_hold_frames: 12      # bridge short PWM-dark gaps only
+detector_debug: false
+
+use_traditional: true
+
+#####-----功能开关-----#####
+enable_buff: false
+force_auto_aim: true
+
+#####-----ROI（感兴趣区域）参数-----#####
+roi:
+  x: 420
+  y: 50
+  width: 600
+  height: 600
+
+use_roi: false
+
+#####-----传统检测方法参数-----#####
+threshold: 150
+max_angle_error: 45
+min_lightbar_ratio: 1.5
+max_lightbar_ratio: 20
+min_lightbar_length: 8
+min_armor_ratio: 1
+max_armor_ratio: 5
+max_side_ratio: 1.5
+max_rectangular_error: 25
+
+#####-----Tracker（跟踪器）参数-----#####
+min_detect_count: 5
+max_temp_lost_count: 15
+outpost_max_temp_lost_count: 75
+
+#####-----Aimer（瞄准器）参数-----#####
+yaw_offset: 0.0  # 动态视觉跟随以测量中心为零；避免静态偏置被计入预测超前量
+pitch_offset: 6
+
+comming_angle: 60
+leaving_angle: 20
+
+decision_speed: 8
+high_speed_delay_time: 0.030
+low_speed_delay_time: 0.015
+
+actuation_delay_ms: 0
+
+yaw_ramp_t0: 0.10
+yaw_ramp_t0_pos: 0.10
+yaw_ramp_t0_neg: 0.10
+
+#####-----Shooter（开火控制）参数-----#####
+first_tolerance: 3
+second_tolerance: 2
+judge_distance: 2
+# 联调阶段先关自动开火，确认检测/跟踪/命令链路后再置 true
+auto_fire: false
+
+#####-----相机配置（海康 HikRobot）-----#####
+camera_name: "hikrobot"
+
+exposure_ms: 2.0
+gain: 10.0
+camera_width: 1440
+camera_height: 1080
+camera_fps: 150.0
+white_balance_auto: "off"
+hikrobot_pixel_format: "BayerRG8"
+
+# 海康相机 VID:PID（lsusb 确认）
+vid_pid: "2bdf:0001"
+
+debug: true
+
+# 相机硬触发（与电控 CAN 命令同步触发曝光）
+trigger_enable: false
+trigger_source: 2
+trigger_activation: 0
+
+#####-----相机标定参数（海康内参/外参，1440×1080）-----#####
+# 重投影误差: 0.2769px
+camera_matrix: [2321.1448516431083, 0, 773.51514374772069, 0, 2335.8405999820166, 558.35666238582371, 0, 0, 1]
+distort_coeffs: [-0.052990616769919285, 0.13874211747473905, 0.00113447179189630067, 0.0036897020313975178, 0]
+
+R_gimbal2imubody: [-1, 0, 0, 0, 1, 0, 0, 0, -1]
+
+# 相机同理想情况的偏角: yaw-13.87 pitch4.87 roll1.39（与 calibration_hikrobot.yaml 一致，2026-08-04 外参验证用）
+# 安全候选：保留官方 yaw/pitch，移除实测水平扫动中被证伪的 4.8655° roll 串扰
+R_camera2gimbal: [0.0038423858201756295, -0.010128236856560271, 0.99994132572335792, -0.99999261800835737, -0.000038916880965041942, 0.0038421887339723146, -0.000000000000000014343086056924051, -0.99994870733635821, -0.01012831162367236]
+t_camera2gimbal: [0.01356599679910985, -0.040874146298378239, 0.061329060010173779]
+
+#####-----CAN协议配置-----#####
+new_can_quat_id: 0x150
+new_can_cmd_id: 0x170
+can_interface: "can0"
+cboard_enable: false             # 新版IMU接到下位机，禁止等待旧CAN姿态
+debug_rx: false
+debug_tx: false
+
+#####-----轨迹规划器（Planner）参数-----#####
+fire_thresh: 0.0035
+max_yaw_acc: 100
+Q_yaw: [9e6, 0]
+R_yaw: [0.5]
+max_pitch_acc: 100
+Q_pitch: [9e6, 0]
+R_pitch: [1]
+
+#####-----XUC 新版双向串口（实际波特率接板确认）-----#####
+xuc_enable: true                 # 接收IMU，发送云台目标角
+xuc_serial_port: "/dev/serial/by-id/usb-1a86_USB_Serial-if00-port0"
+xuc_serial_baud: 460800          # 与下位机 USART6 一致
+xuc_yaw_sign: 0.94074425         # 世界系目标角 -> 下位机原始yaw：同号并除以1.06298816
+xuc_pitch_sign: 1                # 实车验收：正号使目标朝图像垂直误差减小方向运动
+xuc_imu_yaw_sign: -1.06298816    # 零roll三点实测：下位机原始yaw -> 世界系yaw
+xuc_imu_pitch_sign: 1            # 下位机IMU pitch方向，实机小角度确认
+xuc_imu_yaw_offset_rad: 0.0
+xuc_imu_pitch_offset_rad: 0.0
+xuc_require_feedback_for_control: true
+xuc_require_auto_mode_for_control: false  # 下位机按当前遥控器档位直接回报 mode；避免串口互锁
+xuc_max_yaw_excursion_rad: 0.008726646  # Pitch 单轴验收：Yaw 额外锁在接管点 ±0.5°
+xuc_lock_pitch_for_control: false       # 允许下发 Pitch；下位机限制 ±15°/80°每秒
+xuc_allow_control: true                 # Pitch 移动目标连续跟随验收
+xuc_allow_shoot: false
+xuc_direct_yaw_guard: true              # 当前以稳定测量为主；保留预测接口供 EKF 调稳后启用
+xuc_max_prediction_lead_rad: 0.0         # 实测 EKF 快移后发散，动态实车阶段禁止其角度超前
+xuc_direct_yaw_filter_tau_ms: 30.0       # 保留单帧尖峰抑制，同时降低动态相位滞后
+xuc_direct_yaw_hold_ms: 180.0            # 短丢帧使用有界预测；更长丢失立即停控
+xuc_direct_yaw_max_rate_dps: 120.0       # 动态目标跟随上限；单帧仍受连续限幅
+xuc_direct_pitch_guard: true             # 使用装甲板像素纵向误差 + 当前IMU生成绝对 Pitch 目标
+xuc_direct_pitch_filter_tau_ms: 30.0     # 抑制单帧垂直检测噪声
+xuc_direct_pitch_hold_ms: 180.0          # 短丢帧保持；更长丢失停止双轴控制
+xuc_direct_pitch_max_rate_dps: 80.0      # 上位机 Pitch 测量目标连续变化上限
+xuc_direct_pitch_error_gain: 1.65        # 实车 Pitch 已通过；配合 80°/s 连续变化上限

@@ -1,4 +1,4 @@
-﻿#include "control.h"
+#include "control.h"
 #include "RC.h"
 #include "tim.h"
 #include "judgement.h"
@@ -250,52 +250,15 @@ void CONTROL::PANTILE::Keep_Pantile(float angleKeep, PANTILE::TYPE type, IMU fra
 			mark_yaw = ctrl.pantile_motor[PANTILE::YAW]->angle[now]; // 同步位置目标到当前角，避免切回POS时跳变
 			return;
 		}
-		if (ctrl.mode == CONTROL::AUTO && ctrl.pantile_motor[PANTILE::YAW] != nullptr)
+		if (ctrl.pantile_motor[PANTILE::YAW] != nullptr)
 		{
-			// Phase 2D实车整定：AUTO直接使用6020速度环，避免把一个很小的相对位置
-			// 目标反复钉在当前编码器角附近，导致云台克服一次静摩擦后再次停住。
-			constexpr float yaw_stop_deadband = 10.0f;  // 约0.44度：进入后停止
-			constexpr float yaw_start_deadband = 24.0f; // 约1.05度：超过后才重新启动
-			yaw_deadband = auto_yaw_motion_active ? yaw_stop_deadband : yaw_start_deadband;
-			yaw_output_limit = 180.0f; // 已实车验证可跟随，且低于6020的260速度上限
-			yaw_rotation_ff = 0.0f;
-			const float absolute_delta = fabsf(delta);
-			if (auto_yaw_motion_active)
-			{
-				if (absolute_delta <= yaw_stop_deadband)
-					auto_yaw_motion_active = false;
-			}
-			else if (absolute_delta >= yaw_start_deadband)
-			{
-				auto_yaw_motion_active = true;
-			}
-
-			float yaw_speed_command = 0.0f;
-			if (auto_yaw_motion_active)
-			{
-				// 上位机实车日志确认：此符号使画面目标误差从16.82度收敛到3.39度。
-				// 手动DR16轴的符号在RC.cpp独立处理，不能用来反转AUTO闭环。
-				yaw_speed_command = delta * 1.2f;
-				yaw_speed_command = std::max(
-					std::min(yaw_speed_command, yaw_output_limit), -yaw_output_limit);
-				const float minimum_start_speed = 120.0f; // 克服实车3.4度附近的静摩擦停滞
-				if (fabsf(yaw_speed_command) < minimum_start_speed)
-				{
-					yaw_speed_command = (yaw_speed_command > 0.0f)
-						? minimum_start_speed : -minimum_start_speed;
-				}
-			}
-
-			yaw_keep_output = yaw_speed_command;
-			ctrl.pantile_motor[PANTILE::YAW]->setspeed =
-				static_cast<int32_t>(yaw_speed_command);
-			mark_yaw = ctrl.pantile_motor[PANTILE::YAW]->angle[now];
-			return;
+			ctrl.pantile_motor[PANTILE::YAW]->current_feedforward = 0;
 		}
 
 		const bool manual_yaw_active = (ctrl.mode == CONTROL::SEPARATE && fabsf(manual_yaw_input) >= 35.0f); // 分离模式下右摇杆超过死区才认为在手动调yaw
-		yaw_deadband = manual_yaw_active ? 6.0f : ((ctrl.mode == CONTROL::ROTATION) ? 3.0f : 25.0f); // 不同模式使用不同yaw保持死区
-		yaw_output_limit = manual_yaw_active ? 140.0f : ((ctrl.mode == CONTROL::ROTATION) ? 240.0f : 45.0f); // 不同模式限制不同yaw输出强度
+		const bool angle_target_active = manual_yaw_active || ctrl.mode == CONTROL::AUTO;
+		yaw_deadband = angle_target_active ? 6.0f : ((ctrl.mode == CONTROL::ROTATION) ? 3.0f : 25.0f); // AUTO复用手动转动时的锁角死区
+		yaw_output_limit = angle_target_active ? 140.0f : ((ctrl.mode == CONTROL::ROTATION) ? 240.0f : 45.0f); // AUTO复用手动转动时的输出限幅
 		yaw_rotation_ff = 0.0f; // 默认不加前馈
 		if (ctrl.mode == CONTROL::ROTATION)
 		{
@@ -306,9 +269,8 @@ void CONTROL::PANTILE::Keep_Pantile(float angleKeep, PANTILE::TYPE type, IMU fra
 		float yaw_pid_output = 0.0f; // yaw PID输出初始化为0
 		if (fabsf(delta) >= yaw_deadband) // 误差超过死区才进行PID修正
 		{
-			// AUTO目标已经由XucYawController限制为距解锁原点±25度、斜率30度/秒。
-			// 这里必须把完整机械角误差交给6020自身的位置环；若再乘通用锁角
-			// PID的0.08增益，1度误差只剩约1.8个编码器刻度，实车无法克服静摩擦。
+			// AUTO目标已经由XucYawController限制在解锁原点±25度。把完整
+			// IMU机械角误差交给电控原有的6020位置环，不再另建速度/前馈环。
 			yaw_pid_output = (ctrl.mode == CONTROL::AUTO)
 				? delta
 				: pantile_PID[PANTILE::YAW].Position(delta, 1000.0f);
@@ -442,22 +404,19 @@ void CONTROL::PANTILE::Update()
 #if PANTILE_IMU_ENABLE
 		if (ctrl.pantile_motor[PANTILE::YAW] != nullptr)
 		{
-			// 6020的普通位置环参数适合锁角，但在Phase 2A仅±1度的小目标下，
-			// 稳态电流不足以克服实车静摩擦。AUTO使用更高的持续比例增益并关闭
-			// 微分尖峰；离开AUTO后立即恢复原有参数，不改变手动/小陀螺手感。
+			// AUTO仍复用电控原有位置-速度串级环，只适度提高位置比例，
+			// 克服约1.4度残差处的静摩擦；不引入独立速度状态机或前馈。
 			ctrl.pantile_motor[PANTILE::YAW]->pid[position].m_Kp =
-				(ctrl.mode == CONTROL::AUTO) ? 4.0f : 1.2f;
-			ctrl.pantile_motor[PANTILE::YAW]->pid[position].m_Td =
-				(ctrl.mode == CONTROL::AUTO) ? 0.0f : 8.0f;
+				(ctrl.mode == CONTROL::AUTO) ? 2.8f : 1.2f;
+			ctrl.pantile_motor[PANTILE::YAW]->pid[position].m_Td = 8.0f;
 			ctrl.pantile_motor[PANTILE::YAW]->mode =
-				(ctrl.mode == CONTROL::AUTO || ctrl.mode == CONTROL::ROTATION ||
+				(ctrl.mode == CONTROL::ROTATION ||
 				 ctrl.mode == CONTROL::ROTATION_FREE || ctrl.mode == CONTROL::SEPARATE_FREE)
-				? SPD : POS; // AUTO和自由yaw相关模式使用速度模式，其他模式使用位置模式
+				? SPD : POS; // AUTO与普通锁角一样使用位置模式；自由yaw相关模式使用速度模式
 		}
 
 		if (last_mode != ctrl.mode) // 模式刚切换时刷新目标，防止旧积分和旧目标造成抢舵
 		{
-			auto_yaw_motion_active = false; // 新一次AUTO必须从启动阈值重新判定
 			target_imu_yaw = imu_pantile.GetAngleYaw(); // 模式切换时把当前IMU yaw作为新的保持目标
 			target_imu_pitch = imu_pantile.GetAnglePitch(); // 模式切换时同步pitch目标参考
 			yaw_keep_error = 0.0f; // 清空yaw误差调试量
@@ -470,6 +429,10 @@ void CONTROL::PANTILE::Update()
 			{
 				mark_yaw = ctrl.pantile_motor[PANTILE::YAW]->angle[now]; // 同步位置目标到当前角，避免切回POS时跳变
 				ctrl.pantile_motor[PANTILE::YAW]->setspeed = 0; // 模式切换/复位时先清零速度命令
+				ctrl.pantile_motor[PANTILE::YAW]->current_feedforward = 0;
+				ctrl.pantile_motor[PANTILE::YAW]->pid[speed].m_error[0] = 0.0f;
+				ctrl.pantile_motor[PANTILE::YAW]->pid[speed].m_error[1] = 0.0f;
+				ctrl.pantile_motor[PANTILE::YAW]->pid[speed].m_error[2] = 0.0f;
 			}
 		}
 

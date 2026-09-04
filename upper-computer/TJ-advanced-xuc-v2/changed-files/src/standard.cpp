@@ -1,9 +1,12 @@
 #include <fmt/core.h>
+#include <algorithm>
 #include <chrono>
+#include <cmath>
+#include <cstdlib>  // for setenv
 #include <thread>
 #include <nlohmann/json.hpp>
 #include <opencv2/opencv.hpp>
-#include <cstdlib>  // for setenv
+#include <yaml-cpp/yaml.h>
 
 // ROS2 headers (仅在 ROS2 可用时编译，用于可视化)
 #ifdef AMENT_CMAKE_FOUND
@@ -63,6 +66,55 @@ int main(int argc, char * argv[])
     return 0;
   }
 
+  const auto integration_yaml = YAML::LoadFile(config_path);
+  const bool direct_yaw_guard_enabled =
+    integration_yaml["xuc_direct_yaw_guard"] &&
+    integration_yaml["xuc_direct_yaw_guard"].as<bool>();
+  const bool prediction_lead_limit_configured =
+    integration_yaml["xuc_max_prediction_lead_rad"].IsDefined();
+  const double max_prediction_lead_rad =
+    prediction_lead_limit_configured
+      ? std::max(0.0, integration_yaml["xuc_max_prediction_lead_rad"].as<double>())
+      : 0.0;
+  const double direct_yaw_filter_tau_s =
+    integration_yaml["xuc_direct_yaw_filter_tau_ms"]
+      ? std::max(0.0, integration_yaml["xuc_direct_yaw_filter_tau_ms"].as<double>()) / 1000.0
+      : 0.0;
+  const double direct_yaw_hold_s =
+    integration_yaml["xuc_direct_yaw_hold_ms"]
+      ? std::max(0.0, integration_yaml["xuc_direct_yaw_hold_ms"].as<double>()) / 1000.0
+      : 0.0;
+  const double direct_yaw_max_rate_rad_s =
+    integration_yaml["xuc_direct_yaw_max_rate_dps"]
+      ? std::max(0.0, integration_yaml["xuc_direct_yaw_max_rate_dps"].as<double>()) * M_PI / 180.0
+      : 0.0;
+  const bool direct_pitch_guard_enabled =
+    integration_yaml["xuc_direct_pitch_guard"] &&
+    integration_yaml["xuc_direct_pitch_guard"].as<bool>();
+  const double direct_pitch_filter_tau_s =
+    integration_yaml["xuc_direct_pitch_filter_tau_ms"]
+      ? std::max(0.0, integration_yaml["xuc_direct_pitch_filter_tau_ms"].as<double>()) / 1000.0
+      : 0.0;
+  const double direct_pitch_hold_s =
+    integration_yaml["xuc_direct_pitch_hold_ms"]
+      ? std::max(0.0, integration_yaml["xuc_direct_pitch_hold_ms"].as<double>()) / 1000.0
+      : 0.0;
+  const double direct_pitch_max_rate_rad_s =
+    integration_yaml["xuc_direct_pitch_max_rate_dps"]
+      ? std::max(0.0, integration_yaml["xuc_direct_pitch_max_rate_dps"].as<double>()) * M_PI / 180.0
+      : 0.0;
+  const double direct_pitch_error_gain =
+    integration_yaml["xuc_direct_pitch_error_gain"]
+      ? std::clamp(integration_yaml["xuc_direct_pitch_error_gain"].as<double>(), 0.0, 2.0)
+      : 1.0;
+  const double direct_pitch_focal_y_px =
+    integration_yaml["camera_matrix"] && integration_yaml["camera_matrix"].size() >= 5
+      ? integration_yaml["camera_matrix"][4].as<double>()
+      : 0.0;
+  const double xuc_pitch_sign_for_log = integration_yaml["xuc_pitch_sign"]
+    ? integration_yaml["xuc_pitch_sign"].as<double>()
+    : -1.0;
+
 #ifdef AMENT_CMAKE_FOUND
   // 初始化ROS2可视化
   rclcpp::init(argc, argv);
@@ -114,6 +166,20 @@ int main(int argc, char * argv[])
   double camera_fps_instant = 0.0;     // 瞬时帧率
   double camera_fps_avg = 0.0;         // 平均帧率
   int camera_frame_count = 0;          // 帧计数
+
+  // Bounded yaw conditioner.  Detector measurements remain authoritative while
+  // a small, validated native prediction lead helps fast lateral tracking.
+  // Long visual loss drops control without destroying reacquisition continuity.
+  bool direct_yaw_initialized = false;
+  double direct_yaw_filtered = 0.0;
+  bool direct_yaw_long_loss = false;
+  std::chrono::steady_clock::time_point direct_yaw_last_update;
+  std::chrono::steady_clock::time_point direct_yaw_last_measurement;
+  bool direct_pitch_initialized = false;
+  double direct_pitch_filtered = 0.0;
+  bool direct_pitch_long_loss = false;
+  std::chrono::steady_clock::time_point direct_pitch_last_update;
+  std::chrono::steady_clock::time_point direct_pitch_last_measurement;
   std::chrono::steady_clock::time_point fps_measure_start; // 平均帧率测量开始时间
   bool fps_measure_started = false;
 
@@ -203,9 +269,10 @@ int main(int argc, char * argv[])
           static int xuc_imu_log_counter = 0;
           if (++xuc_imu_log_counter % 50 == 0) {
             tools::logger()->info(
-              "[SYNC][XUC] yaw={:.2f} deg pitch={:.2f} deg bullet_speed={:.2f}",
-              imu_yaw * 180.0 / M_PI, imu_pitch * 180.0 / M_PI,
-              cboard.bullet_speed);
+              "[SYNC][XUC] mode={} disarm_reason={} yaw={:.2f} deg pitch={:.2f} deg "
+              "bullet_speed={:.2f}",
+              static_cast<int>(xuc.mode()), static_cast<unsigned>(xuc.bullet_count()),
+              imu_yaw * 180.0 / M_PI, imu_pitch * 180.0 / M_PI, cboard.bullet_speed);
           }
         } else {
           cboard.mode = io::Mode::idle;
@@ -326,7 +393,175 @@ int main(int argc, char * argv[])
 #endif
 
     auto command = aimer.aim(targets, t, cboard.bullet_speed, true);  // to_now=true，生成当前时刻命令
+    const bool native_prediction_valid =
+      command.control && !targets.empty() && std::isfinite(command.yaw);
+    const double native_predicted_yaw = command.yaw;
+
+    // Phase 2D.5 integration guard.  The detector pose is much more stable
+    // than the current high-dynamic EKF tuning at close range.  Keep the
+    // complete Tracker/Aimer prediction path, but prevent a divergent state
+    // from commanding a yaw far away from the armor actually in the image.
+    // If the tracker briefly rejects convergence while a valid enemy armor is
+    // still detected, degrade to measurement-only yaw tracking and never fire.
+    bool measurement_fallback = false;
+    if (direct_yaw_guard_enabled) {
+      bool valid_measurement = false;
+      double measured_yaw = 0.0;
+      if (!armors.empty()) {
+        const auto & measured_armor = armors.front();
+        measured_yaw =
+          std::atan2(measured_armor.xyz_in_world.y(), measured_armor.xyz_in_world.x());
+        valid_measurement = std::isfinite(measured_yaw);
+      }
+
+      if (valid_measurement) {
+        if (!direct_yaw_initialized) {
+          direct_yaw_filtered = measured_yaw;
+          direct_yaw_initialized = true;
+        } else {
+          // Cap dt so a camera stall or a long loss cannot turn the rate limit
+          // into one large step on the first recovered frame.
+          const double dt = std::clamp(
+            std::chrono::duration<double>(t - direct_yaw_last_update).count(),
+            0.0, 0.05);
+          const double yaw_error =
+            std::remainder(measured_yaw - direct_yaw_filtered, 2.0 * M_PI);
+          const double alpha = direct_yaw_filter_tau_s > 0.0
+            ? 1.0 - std::exp(-dt / direct_yaw_filter_tau_s)
+            : 1.0;
+          double yaw_step = alpha * yaw_error;
+          if (direct_yaw_max_rate_rad_s > 0.0) {
+            const double max_step = direct_yaw_max_rate_rad_s * dt;
+            yaw_step = std::clamp(yaw_step, -max_step, max_step);
+          }
+          direct_yaw_filtered = std::remainder(
+            direct_yaw_filtered + yaw_step, 2.0 * M_PI);
+        }
+        direct_yaw_last_update = t;
+        direct_yaw_last_measurement = t;
+        if (direct_yaw_long_loss) {
+          tools::logger()->info("[XUC][YAW] measurement reacquired with continuous slew");
+        }
+        direct_yaw_long_loss = false;
+
+        measurement_fallback = true;
+        command.control = true;
+        command.shoot = false;
+        if (prediction_lead_limit_configured && native_prediction_valid) {
+          const double prediction_lead =
+            std::remainder(native_predicted_yaw - measured_yaw, 2.0 * M_PI);
+          command.yaw = std::remainder(
+            direct_yaw_filtered + std::clamp(
+              prediction_lead, -max_prediction_lead_rad, max_prediction_lead_rad),
+            2.0 * M_PI);
+        } else {
+          command.yaw = direct_yaw_filtered;
+        }
+      } else if (direct_yaw_initialized) {
+        const double visual_gap =
+          std::chrono::duration<double>(t - direct_yaw_last_measurement).count();
+        if (visual_gap <= direct_yaw_hold_s) {
+          // During a short detector gap, allow only the already-bounded native
+          // prediction.  This keeps fast motion continuous without trusting an
+          // unconstrained EKF state.
+          command.control = true;
+          command.shoot = false;
+          command.yaw = direct_yaw_filtered;
+          if (prediction_lead_limit_configured && native_prediction_valid) {
+            const double prediction_delta =
+              std::remainder(native_predicted_yaw - direct_yaw_filtered, 2.0 * M_PI);
+            command.yaw = std::remainder(
+              direct_yaw_filtered + std::clamp(
+                prediction_delta, -max_prediction_lead_rad, max_prediction_lead_rad),
+              2.0 * M_PI);
+          }
+          measurement_fallback = true;
+        } else {
+          // A genuine loss must stop control, but retaining the filtered yaw and
+          // refreshing last_update prevents a full-angle jump on reacquisition.
+          if (!direct_yaw_long_loss) {
+            tools::logger()->warn("[XUC][YAW] visual loss: control stopped, yaw state retained");
+          }
+          direct_yaw_long_loss = true;
+          command.control = false;
+          command.shoot = false;
+          measurement_fallback = true;
+        }
+        direct_yaw_last_update = t;
+      } else {
+        command.control = false;
+        command.shoot = false;
+        measurement_fallback = true;
+      }
+    }
+    if (direct_pitch_guard_enabled) {
+      bool valid_pitch_measurement = false;
+      double measured_pitch = 0.0;
+      if (!armors.empty() && direct_pitch_focal_y_px > 0.0 && !img.empty()) {
+        const auto & measured_armor = armors.front();
+        double center_y_px = measured_armor.center.y;
+        if (!measured_armor.points.empty()) {
+          center_y_px = 0.0;
+          for (const auto & point : measured_armor.points) center_y_px += point.y;
+          center_y_px /= static_cast<double>(measured_armor.points.size());
+        }
+        const double pixel_pitch_error = std::atan2(
+          center_y_px - 0.5 * static_cast<double>(img.rows),
+          direct_pitch_focal_y_px);
+        // Physical acceptance established that a target below image centre
+        // requires a larger lower-board IMU pitch target.  Closing the loop in
+        // image space avoids the currently inconsistent pitch hand-eye offset.
+        measured_pitch = xuc.imu_pitch() + direct_pitch_error_gain * pixel_pitch_error;
+        valid_pitch_measurement = std::isfinite(measured_pitch);
+      }
+
+      if (valid_pitch_measurement) {
+        if (!direct_pitch_initialized) {
+          direct_pitch_filtered = measured_pitch;
+          direct_pitch_initialized = true;
+        } else {
+          const double dt = std::clamp(
+            std::chrono::duration<double>(t - direct_pitch_last_update).count(),
+            0.0, 0.05);
+          const double pitch_error = measured_pitch - direct_pitch_filtered;
+          const double alpha = direct_pitch_filter_tau_s > 0.0
+            ? 1.0 - std::exp(-dt / direct_pitch_filter_tau_s)
+            : 1.0;
+          double pitch_step = alpha * pitch_error;
+          if (direct_pitch_max_rate_rad_s > 0.0) {
+            const double max_step = direct_pitch_max_rate_rad_s * dt;
+            pitch_step = std::clamp(pitch_step, -max_step, max_step);
+          }
+          direct_pitch_filtered += pitch_step;
+        }
+        direct_pitch_last_update = t;
+        direct_pitch_last_measurement = t;
+        if (direct_pitch_long_loss) {
+          tools::logger()->info("[XUC][PITCH] measurement reacquired with continuous slew");
+        }
+        direct_pitch_long_loss = false;
+        command.pitch = direct_pitch_filtered;
+      } else if (direct_pitch_initialized) {
+        const double visual_gap =
+          std::chrono::duration<double>(t - direct_pitch_last_measurement).count();
+        if (visual_gap <= direct_pitch_hold_s) {
+          command.pitch = direct_pitch_filtered;
+        } else {
+          if (!direct_pitch_long_loss) {
+            tools::logger()->warn("[XUC][PITCH] visual loss: control stopped, pitch state retained");
+          }
+          direct_pitch_long_loss = true;
+          command.control = false;
+          command.shoot = false;
+        }
+        direct_pitch_last_update = t;
+      } else {
+        command.control = false;
+        command.shoot = false;
+      }
+    }
     command.shoot = shooter.shoot(command, aimer, targets, ypr);
+    if (measurement_fallback) command.shoot = false;
 
     // Dry-run diagnostics: world-coordinate stability and final command.
     static int dryrun_log_counter = 0;
@@ -338,6 +573,17 @@ int main(int argc, char * argv[])
           const auto & measured_gimbal = armors.front().xyz_in_gimbal;
           const auto & measured_world = armors.front().xyz_in_world;
           const auto & tracked = tracked_xyza_list.front();
+          double armor_center_y_px = armors.front().center.y;
+          if (!armors.front().points.empty()) {
+            armor_center_y_px = 0.0;
+            for (const auto & point : armors.front().points) armor_center_y_px += point.y;
+            armor_center_y_px /= static_cast<double>(armors.front().points.size());
+          }
+          const double pixel_pitch_error_deg = direct_pitch_focal_y_px > 0.0
+            ? std::atan2(
+                armor_center_y_px - 0.5 * static_cast<double>(img.rows),
+                direct_pitch_focal_y_px) * RAD2DEG
+            : 0.0;
 
           const double target_gimbal_yaw_deg =
             std::atan2(measured_gimbal.y(), measured_gimbal.x()) * RAD2DEG;
@@ -359,8 +605,9 @@ int main(int argc, char * argv[])
             "target_gimbal_deg=({:.2f},{:.2f}) "
             "target_world_deg=({:.2f},{:.2f}) "
             "gimbal_deg=({:.2f},{:.2f}) "
+            "armor_y_px={:.1f} pixel_pitch_error_deg={:.2f} "
             "q_wxyz=({:.6f},{:.6f},{:.6f},{:.6f}) "
-            "cmd_deg=({:.2f},{:.2f}) sent_pitch_deg={:.2f} "
+            "cmd_deg=({:.2f},{:.2f}) packed_pitch_deg={:.2f} "
             "control={} shoot={}",
             measured_gimbal.x(), measured_gimbal.y(), measured_gimbal.z(),
             measured_world.x(), measured_world.y(), measured_world.z(),
@@ -368,9 +615,11 @@ int main(int argc, char * argv[])
             target_gimbal_yaw_deg, target_gimbal_pitch_deg,
             target_world_yaw_deg, target_world_pitch_deg,
             ypr[0] * RAD2DEG, ypr[1] * RAD2DEG,
+            armor_center_y_px, pixel_pitch_error_deg,
             q.w(), q.x(), q.y(), q.z(),
             command.yaw * RAD2DEG, command.pitch * RAD2DEG,
-            -command.pitch * RAD2DEG, command.control, command.shoot);
+            xuc_pitch_sign_for_log * command.pitch * RAD2DEG,
+            command.control, command.shoot);
         }
       } else {
         tools::logger()->info(
@@ -384,7 +633,8 @@ int main(int argc, char * argv[])
     nlohmann::json plot_data;
     plot_data["t"] = std::chrono::duration<double>(t - std::chrono::steady_clock::time_point()).count();
     plot_data["cmd_yaw"] = command.yaw * 180.0 / M_PI;
-    plot_data["cmd_pitch"] = -command.pitch * 180.0 / M_PI;  // 取反，匹配实际发送值
+    plot_data["cmd_pitch"] =
+      xuc_pitch_sign_for_log * command.pitch * 180.0 / M_PI;
     plot_data["control"] = command.control;
     plot_data["shoot"] = command.shoot;
     // 电控的欧拉角（从MCU获取的姿态）

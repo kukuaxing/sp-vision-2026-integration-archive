@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include <vector>
 #include <cmath>
 #include <algorithm>
@@ -45,7 +45,6 @@ public:
 		float mark_pitch{}, mark_yaw{};
 		float target_imu_yaw{}, target_imu_pitch{}; // [后续修改] IMU角度目标，yaw锁角时使用
 		float yaw_keep_error{}, yaw_keep_output{}, yaw_rotation_ff{}, yaw_deadband{}, yaw_output_limit{}, manual_yaw_step{}, manual_yaw_input{}; // [后续修改] yaw锁角/手动控制调试量，便于Live Watch观察
-		bool auto_yaw_motion_active = false; // AUTO yaw启停滞回，避免静摩擦补偿在中心附近反复换向
 		float pitch_keep_error{}, pitch_keep_output{}, pitch_deadband{}, pitch_output_limit{}, manual_pitch_step{}, manual_pitch_input{}; // [后续修改] pitch自稳/手动微调调试量
 		float pitch_dir = -1.0f; // [后续修改] pitch方向符号（IMU角→电机位置）
 		float pitch_min = -0.25f; // [后续修改] pitch软限位下限(弧度)

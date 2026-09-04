@@ -16,10 +16,10 @@ R_gimbal2imubody: [-1, 0, 0, 0, 1, 0, 0, 0, -1]
 
 #####-----相机内参（内参标定后回填）-----#####
 # [fx, 0, cx, 0, fy, cy, 0, 0, 1]（3×3 行优先）
-# 重投影误差: 0.2769px（1440x1080）
-camera_matrix: [2509.7069055162938, 0, 752.16447814945798, 0, 2523.5335999378231, 652.18118079409783, 0, 0, 1]
+# 2026-09-03，16张筛选图；平均重投影误差: 0.2892px（1440x1080）
+camera_matrix: [2321.1448516431083, 0, 773.51514374772069, 0, 2335.8405999820166, 558.35666238582371, 0, 0, 1]
 # [k1, k2, p1, p2, k3]
-distort_coeffs: [-0.043593795430922858, 0.086023484302093084, 0.0027761742674161836, 0.00098870722784968283, 0]
+distort_coeffs: [-0.052990616769919285, 0.13874211747473905, 0.00113447179189630067, 0.0036897020313975178, 0]
 
 #####-----相机/云台外参（手眼标定后回填）-----#####
 # 相机同理想情况的偏角: yaw-13.87 pitch4.87 roll1.39 degree（roll 已去掉绕光轴 180° 伪影，原始输出为 -178.62）
@@ -30,8 +30,16 @@ t_camera2gimbal: [-0.17518305300474016, -0.0013669946458138922, -0.0175728678560
 camera_name: "hikrobot"
 exposure_ms: 6.0
 gain: 10.0
+camera_width: 1440
+camera_height: 1080
+camera_fps: 150.0
+white_balance_auto: "off"
+hikrobot_pixel_format: "BayerRG8"
+trigger_enable: false             # 标定使用连续取流；保存前保持云台静止
+trigger_source: 2
+trigger_activation: 0
 vid_pid: "2bdf:0001"             # 用 lsusb 确认你相机的 VID:PID，不同型号 PID 可能不同
-require_cboard: true             # 手眼标定需要读取 IMU 四元数（经 imu_to_can 转发到 can0）；仅做内参标定时改为 false
+require_cboard: false             # 本车姿态从 XUC 串口读取，不再等待旧 C 板 CAN
 
 #####-----CAN协议配置（capture 需要读 C板四元数，手眼标定必需）-----#####
 new_can_quat_id: 0x150           # 四元数姿态帧ID
@@ -41,12 +49,12 @@ debug_rx: false
 debug_tx: true
 
 #####-----XUC V2双向串口（TWLInfantry UART4 @460800）-----#####
-xuc_enable: false                # 标定默认不打开下位机串口
-xuc_serial_port: "/dev/ttyUSB0"  # 到 STM32 UART4 的 USB 串口设备
+xuc_enable: true                 # capture 只接收姿态，不调用 send()
+xuc_serial_port: "/dev/serial/by-id/usb-1a86_USB_Serial-if00-port0"
 xuc_serial_baud: 460800          # 与下位机 UART4 一致
 xuc_yaw_sign: 1                  # 目标 yaw 符号
 xuc_pitch_sign: -1               # 目标 pitch 符号（与现有 CAN 发送 -command.pitch 一致）
-xuc_imu_yaw_sign: 1              # 下位机IMU yaw方向，接板后确认
+xuc_imu_yaw_sign: -1             # 沿用 Phase 2B 已验证的世界系方向
 xuc_imu_pitch_sign: 1            # 下位机IMU pitch方向，接板后确认
 xuc_imu_yaw_offset_rad: 0.0
 xuc_imu_pitch_offset_rad: 0.0

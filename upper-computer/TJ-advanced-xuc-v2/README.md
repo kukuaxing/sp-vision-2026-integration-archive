@@ -9,9 +9,18 @@
 - 相对基线提交数：8
 - 相对基线改动文件数：15
 
-`changed-files/` 中的文件通过 GitHub Contents API 从上述精确提交取回，不是当前默认分支的滚动副本。它们覆盖 14 字节下行/20 字节上行协议、下位机 IMU 接入、旧 CBoard 链路停用、安全状态机、串口诊断、接板探测工具与操作手册。
+`changed-files/` 的原始核心文件通过 GitHub Contents API 从上述精确提交取回，后续又加入 2026-09-04 小电脑现场快照。它们覆盖 14 字节下行/20 字节上行协议、下位机 IMU 接入、旧 CBoard 链路停用、安全状态机、相机标定与颜色修正、像素 Pitch 闭环和双轴跟随。
 
 这份目录用于离线审阅和交接；实际开发、合并与构建仍应在 TJ-advanced 完整仓库对应分支进行。
+
+## 2026-09-04 实车现场快照
+
+`changed-files/` 已补充小电脑现场工作树中与相机标定、颜色修正、XUC 通信、像素 Pitch 闭环和双轴跟随相关的文件。这些现场文件尚未合并回完整 TJ-advanced 仓库，因此本归档提交是当前权威快照。
+
+- 最终双轴配置：`changed-files/configs/standard_hikrobot_phase2d5_joint_acceptance.yaml`
+- Pitch 单轴回退配置：`changed-files/configs/standard_hikrobot_phase2d5_pitch_acceptance.yaml`
+- 双轴实车日志和结论：`field-results/2026-09-04/`
+- 开火仍禁用：`auto_fire: false`、`xuc_allow_shoot: false`
 
 ## 提交序列
 

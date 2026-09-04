@@ -1,4 +1,4 @@
-﻿#include "motor.h"
+#include "motor.h"
 #include "gpio.h"
 #include "imu.h"
 #define DEG_TO_RAD 0.017453292f  // π / 180
@@ -72,6 +72,7 @@ void Motor::Ontimer(uint8_t idata[][8], uint8_t* odata)//idate: receive;odate: t
 	motor_status = 0;
 	if (temperature > 70) {
 		setspeed = 0;
+		current_feedforward = 0;
 	}
 
 	if (type == EC60)
@@ -120,7 +121,8 @@ void Motor::Ontimer(uint8_t idata[][8], uint8_t* odata)//idate: receive;odate: t
 	}
 	else if (mode == SPD)
 	{
-		current = pid[speed].Position(setspeed - curspeed, maxcurrent); // 速度模式下直接由速度误差计算电流
+		current = pid[speed].Position(setspeed - curspeed, maxcurrent) +
+			current_feedforward; // 速度环加独立限幅前馈，AUTO低速时用于连续克服静摩擦
 	}
 	recorded_the_Laps();
 	GetDistanceFromMechanicalAngle();
@@ -211,4 +213,3 @@ int32_t Motor::setrange(const int32_t original, const int32_t range)
 {
 	return std::max(std::min(range, original), -range);
 }
-

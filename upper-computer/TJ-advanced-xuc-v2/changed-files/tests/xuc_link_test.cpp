@@ -36,6 +36,12 @@ int main(int argc, char ** argv)
       << "xuc_allow_control: true\n"
       << "xuc_allow_shoot: " << (safety_profile ? "false" : "true") << "\n"
       << "xuc_require_feedback_for_control: "
+      << (safety_profile ? "true" : "false") << "\n"
+      << "xuc_require_auto_mode_for_control: "
+      << (safety_profile ? "true" : "false") << "\n"
+      << "xuc_max_yaw_excursion_rad: "
+      << (safety_profile ? "0.05" : "0.0") << "\n"
+      << "xuc_lock_pitch_for_control: "
       << (safety_profile ? "true" : "false") << "\n";
   }
   std::printf("TEST_PROFILE=%s\n", safety_profile ? "SAFETY" : "PROTOCOL");
@@ -69,6 +75,10 @@ int main(int argc, char ** argv)
 
     if (elapsed_ms >= 4000) break;
 
+    // Exercise a brief detector/tracker dropout while AUTO feedback remains
+    // active.  A bounded session must keep its original yaw anchor.
+    command.control =
+      !(safety_profile && elapsed_ms >= 1150 && elapsed_ms < 1300);
     xuc.send(command);
 
     const bool valid = xuc.rx_valid();
@@ -96,12 +106,13 @@ int main(int argc, char ** argv)
     if (valid) {
       fields_valid =
         fields_valid &&
-        xuc.mode() == 1 &&
+        (safety_profile ? xuc.mode() <= 1 : xuc.mode() == 1) &&
         xuc.robot_id() == 3 &&
         near(xuc.bullet_speed(), 14.5, 0.01) &&
         xuc.bullet_count() > 0 &&
         near(xuc.imu_pitch(), 0.10, 0.001) &&
-        near(xuc.imu_yaw(), 0.50, 0.001);
+        (near(xuc.imu_yaw(), 0.50, 0.001) ||
+         near(xuc.imu_yaw(), 0.55, 0.001));
     }
 
     std::this_thread::sleep_for(

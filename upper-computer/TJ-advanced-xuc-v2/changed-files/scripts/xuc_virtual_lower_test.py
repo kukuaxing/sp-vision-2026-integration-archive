@@ -25,16 +25,16 @@ def crc16(data):
                 crc >>= 1
     return crc & 0xFFFF
 
-def make_feedback(counter, corrupt=False):
+def make_feedback(counter, corrupt=False, imu_yaw=0.50, mode=1):
     payload = struct.pack(
         "<2sBBfHff",
         b"SP",
-        1,
+        mode,
         3,
         14.5,
         counter & 0xFFFF,
         0.10,
-        0.50,
+        imu_yaw,
     )
     packet = payload + struct.pack("<H", crc16(payload))
     if corrupt:
@@ -89,6 +89,9 @@ def main():
     active_control_checks = 0
     stale_link_checks = 0
     recovery_control_checks = 0
+    transient_dropout_checks = 0
+    transient_recovery_checks = 0
+    transient_dropout_started = False
     corrupt_feedback = 0
     valid_feedback = 0
     silence_commands = 0
@@ -171,10 +174,17 @@ def main():
                     pre_feedback_checks += 1
                     if control != 0:
                         safety_errors.append(f"{elapsed:.3f}s pre_feedback control={control}")
-                elif 0.95 <= elapsed < 1.45:
-                    active_control_checks += 1
-                    if control != 1:
-                        safety_errors.append(f"{elapsed:.3f}s active control={control}")
+                elif 0.85 <= elapsed < 1.50:
+                    # The C++ test and this process have independent monotonic
+                    # clock origins.  Follow the observed 1 -> 0 -> 1 sequence
+                    # instead of assigning packets to narrow absolute windows.
+                    if control == 0:
+                        transient_dropout_started = True
+                        transient_dropout_checks += 1
+                    elif transient_dropout_started:
+                        transient_recovery_checks += 1
+                    else:
+                        active_control_checks += 1
                 elif 2.10 <= elapsed < 2.35:
                     stale_link_checks += 1
                     if control != 0:
@@ -189,10 +199,19 @@ def main():
                 if shoot != 1:
                     field_errors.append(f"shoot={shoot}")
 
-            if not close_enough(yaw, 0.30):
-                field_errors.append(f"yaw={yaw}")
-            if not close_enough(pitch, 0.15):
-                field_errors.append(f"pitch={pitch}")
+            if safety_profile and control == 1:
+                # The session initially anchors at feedback raw yaw=0.50.  After
+                # a short command dropout feedback moves to 0.55, but the fixed
+                # session bound must still produce 0.45 rather than reanchor.
+                if not close_enough(yaw, 0.45):
+                    field_errors.append(f"bounded yaw={yaw}")
+                if not close_enough(pitch, 0.10):
+                    field_errors.append(f"locked pitch={pitch}")
+            else:
+                if not close_enough(yaw, 0.30):
+                    field_errors.append(f"yaw={yaw}")
+                if not close_enough(pitch, 0.15):
+                    field_errors.append(f"pitch={pitch}")
 
             elapsed = time.monotonic() - start
             feedback_counter += 1
@@ -205,7 +224,15 @@ def main():
                         corrupt=True))
                 corrupt_feedback += 1
             elif elapsed < 1.50:
-                packet_out = make_feedback(feedback_counter)
+                feedback_yaw = 0.50 if elapsed < 0.95 else 0.55
+                # Simulate the real-car mode acknowledgement chattering low
+                # while the operator remains in the same physical AUTO session.
+                feedback_mode = (
+                    0 if safety_profile and 0.95 <= elapsed < 1.05 else 1)
+                packet_out = make_feedback(
+                    feedback_counter,
+                    imu_yaw=feedback_yaw,
+                    mode=feedback_mode)
 
                 if not noise_sent:
                     os.write(master_fd, b"\x00\xff\x53")
@@ -218,7 +245,8 @@ def main():
             elif elapsed < 2.40:
                 silence_commands += 1
             else:
-                packet_out = make_feedback(feedback_counter)
+                packet_out = make_feedback(
+                    feedback_counter, imu_yaw=0.55)
                 os.write(master_fd, packet_out[:3])
                 time.sleep(0.003)
                 os.write(master_fd, packet_out[3:])
@@ -249,6 +277,8 @@ def main():
     print(f"ACTIVE_CONTROL_CHECKS={active_control_checks}")
     print(f"STALE_LINK_CHECKS={stale_link_checks}")
     print(f"RECOVERY_CONTROL_CHECKS={recovery_control_checks}")
+    print(f"TRANSIENT_DROPOUT_CHECKS={transient_dropout_checks}")
+    print(f"TRANSIENT_RECOVERY_CHECKS={transient_recovery_checks}")
     print(f"SAFETY_ERRORS={len(safety_errors)}")
     print(f"CPP_EXIT={return_code}")
 
@@ -265,7 +295,9 @@ def main():
         or (
             not safety_errors
             and pre_feedback_checks >= 5
-            and active_control_checks >= 5
+            and active_control_checks >= 2
+            and transient_dropout_checks >= 2
+            and transient_recovery_checks >= 2
             and stale_link_checks >= 2
             and recovery_control_checks >= 5
         )

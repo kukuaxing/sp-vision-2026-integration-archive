@@ -1,5 +1,6 @@
 #include "io/xuc.hpp"
 
+#include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <cstddef>
@@ -41,6 +42,16 @@ XucSender::XucSender(const std::string & config_path)
   if (yaml["xuc_require_feedback_for_control"]) {
     require_feedback_for_control_ = yaml["xuc_require_feedback_for_control"].as<bool>();
   }
+  if (yaml["xuc_require_auto_mode_for_control"]) {
+    require_auto_mode_for_control_ = yaml["xuc_require_auto_mode_for_control"].as<bool>();
+  }
+  if (yaml["xuc_lock_pitch_for_control"]) {
+    lock_pitch_for_control_ = yaml["xuc_lock_pitch_for_control"].as<bool>();
+  }
+  if (yaml["xuc_max_yaw_excursion_rad"]) {
+    max_yaw_excursion_rad_ =
+      std::max(0.0, yaml["xuc_max_yaw_excursion_rad"].as<double>());
+  }
 
   try {
     serial_.setPort(port);
@@ -57,9 +68,11 @@ XucSender::XucSender(const std::string & config_path)
     tools::logger()->info(
       "[XUC] serial opened {} @ {} baud, angles=rad, yaw_sign={}, pitch_sign={}, "
       "imu_yaw_sign={}, imu_pitch_sign={}, allow_control={}, allow_shoot={}, "
-      "require_feedback={}",
+      "require_feedback={}, require_auto_mode={}, max_yaw_excursion_deg={:.2f}, "
+      "lock_pitch={}",
       port, baud, yaw_sign_, pitch_sign_, imu_yaw_sign_, imu_pitch_sign_, allow_control_,
-      allow_shoot_, require_feedback_for_control_);
+      allow_shoot_, require_feedback_for_control_, require_auto_mode_for_control_,
+      max_yaw_excursion_rad_ * 180.0 / M_PI, lock_pitch_for_control_);
     if (!allow_control_) {
       tools::logger()->warn("[XUC][SAFE] control output is forced to zero");
     }
@@ -102,10 +115,45 @@ void XucSender::send(const Command & cmd)
   pkt.head[0] = 'S';
   pkt.head[1] = 'P';
   const bool link_ready = control_ready();
-  pkt.control = (link_ready && cmd.control) ? 1 : 0;
-  pkt.shoot = (link_ready && allow_shoot_ && cmd.shoot) ? 1 : 0;
-  pkt.yaw = static_cast<float>(yaw_sign_ * cmd.yaw);
-  pkt.pitch = static_cast<float>(pitch_sign_ * cmd.pitch);
+  const bool control_requested = link_ready && cmd.control;
+  pkt.control = control_requested ? 1 : 0;
+  pkt.shoot = (control_requested && allow_shoot_ && cmd.shoot) ? 1 : 0;
+
+  double target_yaw_raw = yaw_sign_ * cmd.yaw;
+  double target_pitch_raw = pitch_sign_ * cmd.pitch;
+  const bool bounded_session =
+    max_yaw_excursion_rad_ > 0.0 || lock_pitch_for_control_;
+
+  // This diagnostic profile intentionally permits only one yaw origin per
+  // process.  Detector dropouts, link recovery, or a chattering feedback mode
+  // must never move that origin.  A new physical test requires stopping and
+  // restarting the process, which is also the safest explicit re-arm boundary.
+  if (control_requested && bounded_session) {
+    if (!control_session_active_) {
+      control_yaw_anchor_raw_ =
+        static_cast<double>(imu_yaw_.load(std::memory_order_relaxed));
+      control_session_active_ = true;
+      tools::logger()->warn(
+        "[XUC][BOUNDED] control session anchored at raw yaw {:.2f} deg",
+        control_yaw_anchor_raw_ * 180.0 / M_PI);
+    }
+
+    if (max_yaw_excursion_rad_ > 0.0) {
+      double delta = target_yaw_raw - control_yaw_anchor_raw_;
+      delta = std::remainder(delta, 2.0 * M_PI);
+      delta = std::clamp(delta, -max_yaw_excursion_rad_, max_yaw_excursion_rad_);
+      target_yaw_raw = control_yaw_anchor_raw_ + delta;
+    }
+    if (lock_pitch_for_control_) {
+      target_pitch_raw =
+        static_cast<double>(imu_pitch_.load(std::memory_order_relaxed));
+    }
+  } else if (!bounded_session) {
+    control_session_active_ = false;
+  }
+
+  pkt.yaw = static_cast<float>(target_yaw_raw);
+  pkt.pitch = static_cast<float>(target_pitch_raw);
 
   // CRC16 对前 12 字节计算，低字节在前
   uint16_t crc = tools::get_crc16(reinterpret_cast<const uint8_t *>(&pkt),
