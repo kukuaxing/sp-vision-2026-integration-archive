@@ -1,0 +1,8 @@
+0001578 I Loading C:\Users\32751\Documents\Codex\2026-09-05\files-mentioned-by-the-user-handoff\outputs\phase2d5_rpm3200_cadence600_feed_latch_20260905\stm32f405_xuc_v2_rpm3200_cadence600_feed_latch.bin at 0x08000000 [load_cmd]
+0001579 I Erasing... [loader]
+[---|---|---|---|---|---|---|---|---|----]
+[========================================]
+0003827 I Programming... [loader]
+[---|---|---|---|---|---|---|---|---|----]
+[========================================]
+0018130 I Erased 49152 bytes (3 sectors), programmed 43008 bytes (42 pages), identical 0 bytes (0 pages) at 2.54 kB/s [loader]

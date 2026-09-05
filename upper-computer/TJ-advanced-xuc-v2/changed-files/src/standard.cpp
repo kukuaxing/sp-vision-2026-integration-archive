@@ -29,6 +29,7 @@
 #include "tools/math_tools.hpp"
 #include "tools/plotter.hpp"
 #include "tools/recorder.hpp"
+#include "tools/trajectory.hpp"
 
 using namespace std::chrono;
 
@@ -88,6 +89,16 @@ int main(int argc, char * argv[])
     integration_yaml["xuc_direct_yaw_max_rate_dps"]
       ? std::max(0.0, integration_yaml["xuc_direct_yaw_max_rate_dps"].as<double>()) * M_PI / 180.0
       : 0.0;
+  // Positive correction points the muzzle to image-right of the detected armor.
+  // Keep this independent from tracker prediction so a bounded prediction lead
+  // cannot cancel the empirically measured impact correction.
+  const double direct_yaw_impact_correction_rad =
+    integration_yaml["xuc_direct_yaw_impact_correction_deg"]
+      ? std::clamp(
+          integration_yaml["xuc_direct_yaw_impact_correction_deg"].as<double>(),
+          -10.0,
+          10.0) * M_PI / 180.0
+      : 0.0;
   const bool direct_pitch_guard_enabled =
     integration_yaml["xuc_direct_pitch_guard"] &&
     integration_yaml["xuc_direct_pitch_guard"].as<bool>();
@@ -107,13 +118,67 @@ int main(int argc, char * argv[])
     integration_yaml["xuc_direct_pitch_error_gain"]
       ? std::clamp(integration_yaml["xuc_direct_pitch_error_gain"].as<double>(), 0.0, 2.0)
       : 1.0;
+  // The lower-board feedback field is temporarily used for feeder diagnostics,
+  // so it must never be interpreted as projectile speed.  Keep trajectory timing
+  // on an explicit, bounded configuration value instead.
+  const double xuc_projectile_speed_mps = integration_yaml["xuc_projectile_speed_mps"]
+    ? std::clamp(integration_yaml["xuc_projectile_speed_mps"].as<double>(), 1.0, 50.0)
+    : 23.0;
+  // The real-shot reference was recorded at a specific friction-wheel speed.
+  // Keep that calibration speed independent from the current launch speed;
+  // otherwise changing wheel RPM would silently re-fit the fixed boresight bias
+  // and cancel most of the intended trajectory change.
+  const double xuc_ballistic_reference_projectile_speed_mps =
+    integration_yaml["xuc_ballistic_reference_projectile_speed_mps"]
+      ? std::clamp(
+          integration_yaml["xuc_ballistic_reference_projectile_speed_mps"].as<double>(),
+          1.0,
+          50.0)
+      : xuc_projectile_speed_mps;
+  const bool xuc_ballistic_pitch_enabled = integration_yaml["xuc_ballistic_pitch_enabled"] &&
+    integration_yaml["xuc_ballistic_pitch_enabled"].as<bool>();
+  const double xuc_camera_forward_of_muzzle_m =
+    integration_yaml["xuc_camera_forward_of_muzzle_m"]
+      ? std::max(0.0, integration_yaml["xuc_camera_forward_of_muzzle_m"].as<double>())
+      : 0.0;
+  const double xuc_camera_above_muzzle_m = integration_yaml["xuc_camera_above_muzzle_m"]
+    ? std::max(0.0, integration_yaml["xuc_camera_above_muzzle_m"].as<double>())
+    : 0.0;
+  const double xuc_ballistic_reference_camera_range_m =
+    integration_yaml["xuc_ballistic_reference_camera_range_m"]
+      ? std::max(0.10, integration_yaml["xuc_ballistic_reference_camera_range_m"].as<double>())
+      : 1.0;
+  const double xuc_ballistic_reference_total_drop_m =
+    integration_yaml["xuc_ballistic_reference_total_drop_m"]
+      ? std::max(0.0, integration_yaml["xuc_ballistic_reference_total_drop_m"].as<double>())
+      : 0.0;
+  const double xuc_ballistic_max_compensation_rad =
+    (integration_yaml["xuc_ballistic_max_compensation_deg"]
+       ? std::clamp(
+           integration_yaml["xuc_ballistic_max_compensation_deg"].as<double>(), 0.0, 25.0)
+       : 12.0) * M_PI / 180.0;
   const double direct_pitch_focal_y_px =
     integration_yaml["camera_matrix"] && integration_yaml["camera_matrix"].size() >= 5
       ? integration_yaml["camera_matrix"][4].as<double>()
       : 0.0;
+  const double direct_yaw_focal_x_px =
+    integration_yaml["camera_matrix"] && integration_yaml["camera_matrix"].size() >= 1
+      ? integration_yaml["camera_matrix"][0].as<double>()
+      : 0.0;
   const double xuc_pitch_sign_for_log = integration_yaml["xuc_pitch_sign"]
     ? integration_yaml["xuc_pitch_sign"].as<double>()
     : -1.0;
+  const bool xuc_fire_guard_enabled = integration_yaml["xuc_fire_guard_enabled"] &&
+    integration_yaml["xuc_fire_guard_enabled"].as<bool>();
+  const double xuc_fire_stable_s = integration_yaml["xuc_fire_stable_ms"]
+    ? std::max(0.0, integration_yaml["xuc_fire_stable_ms"].as<double>()) / 1000.0
+    : 0.5;
+  const double xuc_fire_yaw_tolerance_rad = integration_yaml["xuc_fire_yaw_tolerance_deg"]
+    ? std::max(0.0, integration_yaml["xuc_fire_yaw_tolerance_deg"].as<double>()) * M_PI / 180.0
+    : 1.0 * M_PI / 180.0;
+  const double xuc_fire_pitch_tolerance_rad = integration_yaml["xuc_fire_pitch_tolerance_deg"]
+    ? std::max(0.0, integration_yaml["xuc_fire_pitch_tolerance_deg"].as<double>()) * M_PI / 180.0
+    : 1.0 * M_PI / 180.0;
 
 #ifdef AMENT_CMAKE_FOUND
   // 初始化ROS2可视化
@@ -180,6 +245,9 @@ int main(int argc, char * argv[])
   bool direct_pitch_long_loss = false;
   std::chrono::steady_clock::time_point direct_pitch_last_update;
   std::chrono::steady_clock::time_point direct_pitch_last_measurement;
+  bool xuc_fire_candidate_active = false;
+  bool xuc_fire_ready_logged = false;
+  std::chrono::steady_clock::time_point xuc_fire_candidate_since;
   std::chrono::steady_clock::time_point fps_measure_start; // 平均帧率测量开始时间
   bool fps_measure_started = false;
 
@@ -263,16 +331,27 @@ int main(int argc, char * argv[])
           q.normalize();
           solver.set_R_gimbal2world(q);
           cboard.mode = static_cast<io::Mode>(xuc.mode());
-          cboard.bullet_speed = xuc.bullet_speed();
+          const double lower_diagnostic_value = xuc.bullet_speed();
+          const uint16_t packed_wheel_rpm = xuc.bullet_count();
+          const unsigned wheel0_rpm =
+            static_cast<unsigned>(packed_wheel_rpm & 0xffU) * 20U;
+          const unsigned wheel1_rpm =
+            static_cast<unsigned>((packed_wheel_rpm >> 8U) & 0xffU) * 20U;
+          cboard.bullet_speed = xuc_projectile_speed_mps;
           mode = cboard.mode;
 
           static int xuc_imu_log_counter = 0;
-          if (++xuc_imu_log_counter % 50 == 0) {
+          const int xuc_log_period_frames = (xuc.mode() == 1) ? 5 : 50;
+          if (++xuc_imu_log_counter % xuc_log_period_frames == 0) {
             tools::logger()->info(
-              "[SYNC][XUC] mode={} disarm_reason={} yaw={:.2f} deg pitch={:.2f} deg "
-              "bullet_speed={:.2f}",
-              static_cast<int>(xuc.mode()), static_cast<unsigned>(xuc.bullet_count()),
-              imu_yaw * 180.0 / M_PI, imu_pitch * 180.0 / M_PI, cboard.bullet_speed);
+              "[SYNC][XUC] mode={} yaw={:.2f} deg pitch={:.2f} deg "
+              "feeder_rpm={:.2f} wheel0_rpm={} wheel1_rpm={} wheel_delta={} "
+              "projectile_speed={:.2f}",
+              static_cast<int>(xuc.mode()),
+              imu_yaw * 180.0 / M_PI, imu_pitch * 180.0 / M_PI,
+              lower_diagnostic_value, wheel0_rpm, wheel1_rpm,
+              static_cast<int>(wheel0_rpm) - static_cast<int>(wheel1_rpm),
+              cboard.bullet_speed);
           }
         } else {
           cboard.mode = io::Mode::idle;
@@ -392,6 +471,28 @@ int main(int argc, char * argv[])
     }
 #endif
 
+    // Keep raw-measurement control associated with the currently followed
+    // bearing.  On a fast blue target YOLO can return two armor candidates in
+    // one frame; blindly taking list::front() makes the command jump between
+    // candidates and breaks both slew and fire qualification.
+    const auto_aim::Armor * direct_measurement_armor = nullptr;
+    if (!armors.empty()) {
+      direct_measurement_armor = &armors.front();
+      if (direct_yaw_initialized && armors.size() > 1) {
+        double best_yaw_distance = INFINITY;
+        for (const auto & armor : armors) {
+          const double armor_yaw =
+            std::atan2(armor.xyz_in_world.y(), armor.xyz_in_world.x());
+          const double yaw_distance = std::abs(
+            std::remainder(armor_yaw - direct_yaw_filtered, 2.0 * M_PI));
+          if (std::isfinite(yaw_distance) && yaw_distance < best_yaw_distance) {
+            best_yaw_distance = yaw_distance;
+            direct_measurement_armor = &armor;
+          }
+        }
+      }
+    }
+
     auto command = aimer.aim(targets, t, cboard.bullet_speed, true);  // to_now=true，生成当前时刻命令
     const bool native_prediction_valid =
       command.control && !targets.empty() && std::isfinite(command.yaw);
@@ -404,14 +505,34 @@ int main(int argc, char * argv[])
     // If the tracker briefly rejects convergence while a valid enemy armor is
     // still detected, degrade to measurement-only yaw tracking and never fire.
     bool measurement_fallback = false;
+    bool direct_yaw_measurement_fresh = false;
+    bool direct_pitch_measurement_fresh = false;
+    double direct_yaw_pixel_error_rad = INFINITY;
+    double direct_pitch_pixel_error_rad = INFINITY;
+    double direct_pitch_raw_pixel_error_rad = INFINITY;
+    double ballistic_pitch_compensation_rad = 0.0;
+    double ballistic_camera_range_m = NAN;
+    double ballistic_total_holdover_m = 0.0;
     if (direct_yaw_guard_enabled) {
       bool valid_measurement = false;
       double measured_yaw = 0.0;
-      if (!armors.empty()) {
-        const auto & measured_armor = armors.front();
+      if (direct_measurement_armor != nullptr) {
+        const auto & measured_armor = *direct_measurement_armor;
         measured_yaw =
           std::atan2(measured_armor.xyz_in_world.y(), measured_armor.xyz_in_world.x());
         valid_measurement = std::isfinite(measured_yaw);
+        if (valid_measurement && direct_yaw_focal_x_px > 0.0 && !img.empty()) {
+          double center_x_px = measured_armor.center.x;
+          if (!measured_armor.points.empty()) {
+            center_x_px = 0.0;
+            for (const auto & point : measured_armor.points) center_x_px += point.x;
+            center_x_px /= static_cast<double>(measured_armor.points.size());
+          }
+          direct_yaw_pixel_error_rad = std::atan2(
+            center_x_px - 0.5 * static_cast<double>(img.cols), direct_yaw_focal_x_px) +
+            direct_yaw_impact_correction_rad;
+          direct_yaw_measurement_fresh = std::isfinite(direct_yaw_pixel_error_rad);
+        }
       }
 
       if (valid_measurement) {
@@ -452,10 +573,13 @@ int main(int argc, char * argv[])
             std::remainder(native_predicted_yaw - measured_yaw, 2.0 * M_PI);
           command.yaw = std::remainder(
             direct_yaw_filtered + std::clamp(
-              prediction_lead, -max_prediction_lead_rad, max_prediction_lead_rad),
+              prediction_lead, -max_prediction_lead_rad, max_prediction_lead_rad) +
+              direct_yaw_impact_correction_rad,
             2.0 * M_PI);
         } else {
-          command.yaw = direct_yaw_filtered;
+          command.yaw = std::remainder(
+            direct_yaw_filtered + direct_yaw_impact_correction_rad,
+            2.0 * M_PI);
         }
       } else if (direct_yaw_initialized) {
         const double visual_gap =
@@ -466,13 +590,16 @@ int main(int argc, char * argv[])
           // unconstrained EKF state.
           command.control = true;
           command.shoot = false;
-          command.yaw = direct_yaw_filtered;
+          command.yaw = std::remainder(
+            direct_yaw_filtered + direct_yaw_impact_correction_rad,
+            2.0 * M_PI);
           if (prediction_lead_limit_configured && native_prediction_valid) {
             const double prediction_delta =
               std::remainder(native_predicted_yaw - direct_yaw_filtered, 2.0 * M_PI);
             command.yaw = std::remainder(
               direct_yaw_filtered + std::clamp(
-                prediction_delta, -max_prediction_lead_rad, max_prediction_lead_rad),
+                prediction_delta, -max_prediction_lead_rad, max_prediction_lead_rad) +
+                direct_yaw_impact_correction_rad,
               2.0 * M_PI);
           }
           measurement_fallback = true;
@@ -497,8 +624,8 @@ int main(int argc, char * argv[])
     if (direct_pitch_guard_enabled) {
       bool valid_pitch_measurement = false;
       double measured_pitch = 0.0;
-      if (!armors.empty() && direct_pitch_focal_y_px > 0.0 && !img.empty()) {
-        const auto & measured_armor = armors.front();
+      if (direct_measurement_armor != nullptr && direct_pitch_focal_y_px > 0.0 && !img.empty()) {
+        const auto & measured_armor = *direct_measurement_armor;
         double center_y_px = measured_armor.center.y;
         if (!measured_armor.points.empty()) {
           center_y_px = 0.0;
@@ -508,11 +635,66 @@ int main(int argc, char * argv[])
         const double pixel_pitch_error = std::atan2(
           center_y_px - 0.5 * static_cast<double>(img.rows),
           direct_pitch_focal_y_px);
+        direct_pitch_raw_pixel_error_rad = pixel_pitch_error;
+
+        if (xuc_ballistic_pitch_enabled) {
+          ballistic_camera_range_m = std::hypot(
+            measured_armor.xyz_in_gimbal.x(), measured_armor.xyz_in_gimbal.y());
+          if (std::isfinite(ballistic_camera_range_m) && ballistic_camera_range_m >= 0.10) {
+            // Reuse the same closed-form low-arc solver that is exercised by
+            // the Gestalt Tongji/SHtech Aimer.  The camera is forward of and
+            // above the muzzle, while camera/gimbal Z points down.
+            const double muzzle_x_m =
+              measured_armor.xyz_in_gimbal.x() + xuc_camera_forward_of_muzzle_m;
+            const double muzzle_y_m = measured_armor.xyz_in_gimbal.y();
+            const double muzzle_range_m = std::hypot(muzzle_x_m, muzzle_y_m);
+            const double target_height_from_muzzle_m =
+              -measured_armor.xyz_in_gimbal.z() + xuc_camera_above_muzzle_m;
+            const double camera_los_up_rad = std::atan2(
+              -measured_armor.xyz_in_gimbal.z(), ballistic_camera_range_m);
+            const double reference_muzzle_range_m =
+              xuc_ballistic_reference_camera_range_m + xuc_camera_forward_of_muzzle_m;
+            const double reference_measured_compensation_rad = std::atan2(
+              xuc_ballistic_reference_total_drop_m, reference_muzzle_range_m);
+            const tools::Trajectory reference_trajectory(
+              xuc_ballistic_reference_projectile_speed_mps,
+              reference_muzzle_range_m,
+              xuc_camera_above_muzzle_m);
+            const tools::Trajectory current_trajectory(
+              xuc_projectile_speed_mps, muzzle_range_m, target_height_from_muzzle_m);
+            if (!reference_trajectory.unsolvable && !current_trajectory.unsolvable) {
+              // The one real-shot datum calibrates only the fixed mechanical /
+              // boresight bias.  Distance, height, gravity and flight time are
+              // then solved physically instead of extrapolating a measured miss
+              // with distance squared.
+              const double fixed_boresight_bias_rad =
+                reference_measured_compensation_rad - reference_trajectory.pitch;
+              ballistic_pitch_compensation_rad = std::clamp(
+                fixed_boresight_bias_rad + current_trajectory.pitch - camera_los_up_rad,
+                0.0,
+                xuc_ballistic_max_compensation_rad);
+              ballistic_total_holdover_m =
+                std::tan(ballistic_pitch_compensation_rad) * muzzle_range_m;
+            } else {
+              ballistic_pitch_compensation_rad = NAN;
+              ballistic_total_holdover_m = NAN;
+            }
+          } else {
+            ballistic_pitch_compensation_rad = NAN;
+          }
+        }
+        const double compensated_pitch_error =
+          pixel_pitch_error - ballistic_pitch_compensation_rad;
         // Physical acceptance established that a target below image centre
         // requires a larger lower-board IMU pitch target.  Closing the loop in
         // image space avoids the currently inconsistent pitch hand-eye offset.
-        measured_pitch = xuc.imu_pitch() + direct_pitch_error_gain * pixel_pitch_error;
+        // Positive ballistic compensation deliberately settles the armor below
+        // image centre so the muzzle is elevated above the visual line of sight.
+        measured_pitch = xuc.imu_pitch() + direct_pitch_error_gain * compensated_pitch_error;
         valid_pitch_measurement = std::isfinite(measured_pitch);
+        direct_pitch_pixel_error_rad = compensated_pitch_error;
+        direct_pitch_measurement_fresh = valid_pitch_measurement &&
+          std::isfinite(direct_pitch_pixel_error_rad);
       }
 
       if (valid_pitch_measurement) {
@@ -560,8 +742,42 @@ int main(int argc, char * argv[])
         command.shoot = false;
       }
     }
-    command.shoot = shooter.shoot(command, aimer, targets, ypr);
-    if (measurement_fallback) command.shoot = false;
+    const bool native_shoot = shooter.shoot(command, aimer, targets, ypr);
+    if (xuc_fire_guard_enabled) {
+      const bool fire_candidate = command.control &&
+        direct_yaw_measurement_fresh && direct_pitch_measurement_fresh &&
+        std::abs(direct_yaw_pixel_error_rad) <= xuc_fire_yaw_tolerance_rad &&
+        std::abs(direct_pitch_pixel_error_rad) <= xuc_fire_pitch_tolerance_rad;
+      if (fire_candidate) {
+        if (!xuc_fire_candidate_active) {
+          xuc_fire_candidate_active = true;
+          xuc_fire_ready_logged = false;
+          xuc_fire_candidate_since = t;
+          tools::logger()->info("[XUC][FIRE] stable-window candidate started");
+        }
+        const double stable_time =
+          std::chrono::duration<double>(t - xuc_fire_candidate_since).count();
+        command.shoot = stable_time >= xuc_fire_stable_s;
+        if (command.shoot && !xuc_fire_ready_logged) {
+          tools::logger()->info(
+            "[XUC][FIRE] qualified after {:.0f} ms, pixel error deg=({:.2f},{:.2f})",
+            stable_time * 1000.0,
+            direct_yaw_pixel_error_rad * 180.0 / M_PI,
+            direct_pitch_pixel_error_rad * 180.0 / M_PI);
+          xuc_fire_ready_logged = true;
+        }
+      } else {
+        if (xuc_fire_candidate_active) {
+          tools::logger()->info("[XUC][FIRE] stable window reset");
+        }
+        xuc_fire_candidate_active = false;
+        xuc_fire_ready_logged = false;
+        command.shoot = false;
+      }
+    } else {
+      command.shoot = native_shoot;
+      if (measurement_fallback) command.shoot = false;
+    }
 
     // Dry-run diagnostics: world-coordinate stability and final command.
     static int dryrun_log_counter = 0;
@@ -569,15 +785,15 @@ int main(int argc, char * argv[])
       constexpr double RAD2DEG = 180.0 / M_PI;
       if (!targets.empty()) {
         auto tracked_xyza_list = targets.front().armor_xyza_list();
-        if (!tracked_xyza_list.empty() && !armors.empty()) {
-          const auto & measured_gimbal = armors.front().xyz_in_gimbal;
-          const auto & measured_world = armors.front().xyz_in_world;
+        if (!tracked_xyza_list.empty() && direct_measurement_armor != nullptr) {
+          const auto & measured_gimbal = direct_measurement_armor->xyz_in_gimbal;
+          const auto & measured_world = direct_measurement_armor->xyz_in_world;
           const auto & tracked = tracked_xyza_list.front();
-          double armor_center_y_px = armors.front().center.y;
-          if (!armors.front().points.empty()) {
+          double armor_center_y_px = direct_measurement_armor->center.y;
+          if (!direct_measurement_armor->points.empty()) {
             armor_center_y_px = 0.0;
-            for (const auto & point : armors.front().points) armor_center_y_px += point.y;
-            armor_center_y_px /= static_cast<double>(armors.front().points.size());
+            for (const auto & point : direct_measurement_armor->points) armor_center_y_px += point.y;
+            armor_center_y_px /= static_cast<double>(direct_measurement_armor->points.size());
           }
           const double pixel_pitch_error_deg = direct_pitch_focal_y_px > 0.0
             ? std::atan2(
@@ -605,7 +821,8 @@ int main(int argc, char * argv[])
             "target_gimbal_deg=({:.2f},{:.2f}) "
             "target_world_deg=({:.2f},{:.2f}) "
             "gimbal_deg=({:.2f},{:.2f}) "
-            "armor_y_px={:.1f} pixel_pitch_error_deg={:.2f} "
+            "armor_y_px={:.1f} pixel_error_deg=({:.2f},{:.2f}) "
+            "ballistic=(range={:.3f}m holdover={:.3f}m comp={:.2f}deg residual={:.2f}deg) "
             "q_wxyz=({:.6f},{:.6f},{:.6f},{:.6f}) "
             "cmd_deg=({:.2f},{:.2f}) packed_pitch_deg={:.2f} "
             "control={} shoot={}",
@@ -615,7 +832,10 @@ int main(int argc, char * argv[])
             target_gimbal_yaw_deg, target_gimbal_pitch_deg,
             target_world_yaw_deg, target_world_pitch_deg,
             ypr[0] * RAD2DEG, ypr[1] * RAD2DEG,
-            armor_center_y_px, pixel_pitch_error_deg,
+            armor_center_y_px, direct_yaw_pixel_error_rad * RAD2DEG, pixel_pitch_error_deg,
+            ballistic_camera_range_m, ballistic_total_holdover_m,
+            ballistic_pitch_compensation_rad * RAD2DEG,
+            direct_pitch_pixel_error_rad * RAD2DEG,
             q.w(), q.x(), q.y(), q.z(),
             command.yaw * RAD2DEG, command.pitch * RAD2DEG,
             xuc_pitch_sign_for_log * command.pitch * RAD2DEG,
