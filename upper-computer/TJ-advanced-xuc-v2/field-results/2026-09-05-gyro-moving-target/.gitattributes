@@ -1,0 +1,6 @@
+# Preserve the imported small-computer source bytes; these snapshots use upstream CRLF.
+snapshot/io/hikrobot/hikrobot.cpp -text -diff
+snapshot/io/hikrobot/hikrobot.hpp -text -diff
+snapshot/src/standard.cpp -text -diff
+snapshot/tasks/auto_aim/yolos/yolo26.cpp -text -diff
+snapshot/tasks/auto_aim/yolos/yolo26.hpp -text -diff

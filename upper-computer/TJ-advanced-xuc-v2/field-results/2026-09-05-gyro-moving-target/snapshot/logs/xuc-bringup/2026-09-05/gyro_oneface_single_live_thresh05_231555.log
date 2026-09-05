@@ -1,0 +1,2821 @@
+[2026-09-05 23:15:55.069] [info] [Performance] Thread limits: OpenCV=1, TBB=4, OMP=4
+[2026-09-05 23:15:55.090] [info] [ROS2Visualizer] Initialized: node=standard_node, marker_topic=standard_markers
+[2026-09-05 23:15:55.090] [info] [ROS2Visualizer] Spin thread started
+[2026-09-05 23:15:55.090] [info] [ROS2] Visualizer initialized
+[2026-09-05 23:15:55.091] [info] [CBoard] disabled (cboard_enable=false); XUC is expected to provide IMU
+[2026-09-05 23:15:55.092] [info] Camera constructor: config_path=configs/standard_hikrobot_phase2d5_rpm6500_gyro_oneface_single_live_UNVALIDATED.yaml, camera_name=hikrobot
+[2026-09-05 23:15:55.092] [info] Creating HikRobot camera
+[2026-09-05 23:15:55.092] [info] HikRobot's daemon thread started.
+[2026-09-05 23:15:55.092] [info] Camera constructor completed
+[2026-09-05 23:15:55.094] [info] [XUC] serial opened /dev/serial/by-id/usb-1a86_USB_Serial-if00-port0 @ 460800 baud, angles=rad, yaw_sign=0.94074425, pitch_sign=1, imu_yaw_sign=-1.06298816, imu_pitch_sign=1, allow_control=true, allow_shoot=true, require_feedback=true, require_auto_mode=false, max_yaw_excursion_deg=0.00, lock_pitch=false
+[2026-09-05 23:15:55.144] [info] [YOLO26] CPU cores: 16, big cores found: 4, core_type: unavailable, max_freq: 4900000
+[2026-09-05 23:15:55.144] [info] [YOLO26] Big core ids: [4,5,6,7]
+[2026-09-05 23:15:55.144] [info] [YOLO26] Successfully bound to 4 big cores
+[2026-09-05 23:15:55.144] [info] [YOLO26] Disabled OpenCV threading to avoid CPU contention
+[2026-09-05 23:15:55.160] [info] [YOLO26] Compiling model with 4 threads (LATENCY mode)
+[2026-09-05 23:15:55.431] [info] [YOLO26] Initialization complete - SYNC mode optimized
+[2026-09-05 23:15:55.431] [info] [YOLO26] Config: threads=4, streams=1, requests=1, letterbox=114, min_confidence=0.10, min_keypoint_confidence=0.00, swap_rb=false, refine_color=true, color_delta=6.0, color_hold_frames=20, save_samples=false, debug=false
+[2026-09-05 23:15:55.435] [info] === All modules initialized ===
+[2026-09-05 23:15:55.435] [info] [ROS2Visualizer] Published static TF: gimbal -> camera
+[2026-09-05 23:15:55.435] [info] [ROS2] Published static TF: gimbal -> camera
+[2026-09-05 23:15:55.435] [info] === Entering main loop ===
+[2026-09-05 23:15:55.436] [info] [SYNC] 发送默认命令，等待相机触发
+[2026-09-05 23:15:56.276] [info] [HikRobot][READBACK] image=1440x1080, pixel_format=0x1080009
+[2026-09-05 23:15:56.277] [info] [HikRobot][READBACK] exposure_us=6000.0 auto=0, gain=16.01 auto=0, white_balance_auto=0
+[2026-09-05 23:15:56.277] [info] [HikRobot][READBACK] trigger=off (continuous acquisition)
+[2026-09-05 23:15:56.277] [info] [HikRobot][READBACK] acquisition_fps=150.00
+[2026-09-05 23:15:56.289] [info] HikRobot's capture thread started.
+[2026-09-05 23:15:56.301] [info] [HikRobot] first frame: 1440x1080, pixel_type=0x1080009, frame_len=1555200
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:15:56.743] [info] [DRYRUN] measured_gimbal=(4.131,0.370,0.058) measured_world=(4.061,0.843,0.038) tracked_world=(3.993,0.828,0.037) target_gimbal_deg=(5.12,0.81) target_world_deg=(11.73,0.52) gimbal_deg=(6.61,0.29) armor_y_px=536.4 pixel_error_deg=(-4.14,-0.09) ballistic=(range=4.147m holdover=0.202m comp=2.75deg residual=-2.84deg) q_wxyz=(0.998334,0.000146,0.002530,-0.057652) cmd_deg=(10.08,-4.29) packed_pitch_deg=-4.29 control=true shoot=false
+[DEBUG] armors=1, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=0
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=0
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:15:57.011] [info] [XUC][GYRO] center_follow=true tracker=detecting omega=-0.702rad_s radius=0.276m
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=0
+[DEBUG] armors=0, targets=0
+[2026-09-05 23:15:57.119] [info] [DRYRUN] target=none gimbal_deg=(6.61,0.29) control=true shoot=false
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:15:57.284] [info] [SYNC][XUC] mode=0 yaw=-6.61 deg pitch=0.29 deg feeder_rpm=0.00 wheel0_rpm=0 wheel1_rpm=0 wheel_delta=0 projectile_speed=19.36 gate=0x3E switch=0 rc=1 sticks=1 imu=1 serial=1 control=1 yaw_armed=0 pitch_active=0
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:15:57.304] [info] [PERF] 总耗时=19.7ms (检测=15.3ms, 跟踪=0.6ms), FPS=50.8
+[2026-09-05 23:15:57.304] [info] 📊 [CAMERA FPS] 瞬时帧率=50.7fps, 平均帧率=49.9fps, 总帧数=50, 运行时间=1.0s
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:15:57.483] [info] [DRYRUN] measured_gimbal=(3.996,0.271,0.057) measured_world=(3.938,0.729,0.037) tracked_world=(3.981,0.737,0.037) target_gimbal_deg=(3.87,0.81) target_world_deg=(10.48,0.52) gimbal_deg=(6.61,0.29) armor_y_px=537.3 pixel_error_deg=(-2.91,-0.07) ballistic=(range=4.005m holdover=0.189m comp=2.66deg residual=-2.73deg) q_wxyz=(0.998334,0.000146,0.002530,-0.057652) cmd_deg=(7.49,-4.21) packed_pitch_deg=-4.21 control=true shoot=false
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:15:57.841] [info] [DRYRUN] measured_gimbal=(4.121,-0.009,0.060) measured_world=(4.095,0.465,0.040) tracked_world=(4.095,0.465,0.040) target_gimbal_deg=(-0.13,0.84) target_world_deg=(6.48,0.55) gimbal_deg=(6.61,0.29) armor_y_px=535.2 pixel_error_deg=(1.10,-0.12) ballistic=(range=4.121m holdover=0.199m comp=2.73deg residual=-2.85deg) q_wxyz=(0.998334,0.000146,0.002530,-0.057652) cmd_deg=(7.51,-4.08) packed_pitch_deg=-4.08 control=true shoot=false
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[2026-09-05 23:15:58.185] [info] [SYNC][XUC] mode=0 yaw=-6.61 deg pitch=0.29 deg feeder_rpm=-4.00 wheel0_rpm=0 wheel1_rpm=0 wheel_delta=0 projectile_speed=19.36 gate=0x3E switch=0 rc=1 sticks=1 imu=1 serial=1 control=1 yaw_armed=0 pitch_active=0
+[DEBUG] armors=0, targets=0
+[2026-09-05 23:15:58.199] [info] [DRYRUN] target=none gimbal_deg=(6.61,0.29) control=true shoot=false
+[2026-09-05 23:15:58.202] [info] [PERF] 总耗时=17.1ms (检测=14.2ms, 跟踪=0.0ms), FPS=58.5
+[2026-09-05 23:15:58.202] [info] 📊 [CAMERA FPS] 瞬时帧率=58.3fps, 平均帧率=52.7fps, 总帧数=100, 运行时间=1.9s
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=0
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:15:58.561] [info] [DRYRUN] measured_gimbal=(3.818,-0.084,0.063) measured_world=(3.803,0.356,0.044) tracked_world=(3.774,0.351,0.044) target_gimbal_deg=(-1.26,0.94) target_world_deg=(5.35,0.65) gimbal_deg=(6.61,0.29) armor_y_px=533.7 pixel_error_deg=(2.18,-0.15) ballistic=(range=3.819m holdover=0.173m comp=2.55deg residual=-2.70deg) q_wxyz=(0.998334,0.000146,0.002530,-0.057652) cmd_deg=(7.51,-4.12) packed_pitch_deg=-4.12 control=true shoot=false
+[DEBUG] armors=1, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[2026-09-05 23:15:58.913] [info] [DRYRUN] target=none gimbal_deg=(6.61,0.29) control=true shoot=false
+[2026-09-05 23:15:58.930] [info] [XUC][GYRO] center_follow=false tracker=lost omega=+0.000rad_s radius=0.000m
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[2026-09-05 23:15:58.983] [warning] [XUC][PITCH] visual loss: control stopped, pitch state retained
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[2026-09-05 23:15:59.074] [info] [SYNC][XUC] mode=0 yaw=-6.61 deg pitch=0.29 deg feeder_rpm=0.00 wheel0_rpm=0 wheel1_rpm=0 wheel_delta=0 projectile_speed=19.36 gate=0x1E switch=0 rc=1 sticks=1 imu=1 serial=1 control=0 yaw_armed=0 pitch_active=0
+[DEBUG] armors=0, targets=0
+[2026-09-05 23:15:59.090] [info] [PERF] 总耗时=16.5ms (检测=13.6ms, 跟踪=0.0ms), FPS=60.7
+[2026-09-05 23:15:59.090] [info] 📊 [CAMERA FPS] 瞬时帧率=60.3fps, 平均帧率=53.8fps, 总帧数=150, 运行时间=2.8s
+[DEBUG] armors=0, targets=0
+[2026-09-05 23:15:59.105] [warning] [XUC][YAW] visual loss: control stopped, yaw state retained
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:15:59.122] [info] [XUC][YAW] measurement reacquired with continuous slew
+[2026-09-05 23:15:59.122] [info] [XUC][PITCH] measurement reacquired with continuous slew
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:15:59.227] [info] [XUC][GYRO] center_follow=true tracker=tracking omega=-0.628rad_s radius=0.211m
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=0
+[2026-09-05 23:15:59.607] [info] [DRYRUN] target=none gimbal_deg=(6.61,0.29) control=true shoot=false
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[2026-09-05 23:15:59.949] [info] [SYNC][XUC] mode=0 yaw=-6.61 deg pitch=0.29 deg feeder_rpm=0.00 wheel0_rpm=0 wheel1_rpm=0 wheel_delta=0 projectile_speed=19.36 gate=0x3E switch=0 rc=1 sticks=1 imu=1 serial=1 control=1 yaw_armed=0 pitch_active=0
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:15:59.965] [info] [DRYRUN] measured_gimbal=(3.792,0.200,0.056) measured_world=(3.744,0.635,0.037) tracked_world=(3.744,0.635,0.037) target_gimbal_deg=(3.01,0.85) target_world_deg=(9.62,0.56) gimbal_deg=(6.61,0.29) armor_y_px=537.9 pixel_error_deg=(-2.08,-0.05) ballistic=(range=3.797m holdover=0.171m comp=2.54deg residual=-2.59deg) q_wxyz=(0.998334,0.000146,0.002530,-0.057652) cmd_deg=(7.27,-4.05) packed_pitch_deg=-4.05 control=true shoot=false
+[2026-09-05 23:15:59.968] [info] [PERF] 总耗时=18.8ms (检测=15.7ms, 跟踪=0.4ms), FPS=53.3
+[2026-09-05 23:15:59.968] [info] 📊 [CAMERA FPS] 瞬时帧率=53.1fps, 平均帧率=54.6fps, 总帧数=200, 运行时间=3.7s
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=0
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=0
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:16:00.329] [info] [DRYRUN] measured_gimbal=(4.200,-0.076,0.055) measured_world=(4.181,0.408,0.034) tracked_world=(4.181,0.408,0.034) target_gimbal_deg=(-1.04,0.76) target_world_deg=(5.57,0.47) gimbal_deg=(6.61,0.29) armor_y_px=538.0 pixel_error_deg=(2.02,-0.05) ballistic=(range=4.201m holdover=0.207m comp=2.78deg residual=-2.83deg) q_wxyz=(0.998334,0.000146,0.002530,-0.057652) cmd_deg=(7.27,-4.09) packed_pitch_deg=-4.09 control=true shoot=false
+[DEBUG] armors=2, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:16:00.861] [info] [SYNC][XUC] mode=0 yaw=-6.61 deg pitch=0.29 deg feeder_rpm=-4.00 wheel0_rpm=0 wheel1_rpm=0 wheel_delta=0 projectile_speed=19.36 gate=0x3E switch=0 rc=1 sticks=1 imu=1 serial=1 control=1 yaw_armed=0 pitch_active=0
+[DEBUG] armors=1, targets=0
+[2026-09-05 23:16:00.879] [info] [PERF] 总耗时=18.3ms (检测=14.9ms, 跟踪=0.0ms), FPS=54.6
+[2026-09-05 23:16:00.879] [info] 📊 [CAMERA FPS] 瞬时帧率=54.5fps, 平均帧率=54.6fps, 总帧数=250, 运行时间=4.6s
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[2026-09-05 23:16:01.055] [info] [DRYRUN] target=none gimbal_deg=(6.61,0.29) control=true shoot=false
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=0
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:16:01.562] [warning] [XUC][PITCH] visual loss: control stopped, pitch state retained
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:16:01.615] [info] [XUC][PITCH] measurement reacquired with continuous slew
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:16:01.757] [info] [SYNC][XUC] mode=0 yaw=-6.61 deg pitch=0.29 deg feeder_rpm=-4.00 wheel0_rpm=0 wheel1_rpm=0 wheel_delta=0 projectile_speed=19.36 gate=0x3E switch=0 rc=1 sticks=1 imu=1 serial=1 control=1 yaw_armed=0 pitch_active=0
+[DEBUG] armors=0, targets=0
+[2026-09-05 23:16:01.772] [info] [DRYRUN] target=none gimbal_deg=(6.61,0.29) control=true shoot=false
+[2026-09-05 23:16:01.774] [info] [PERF] 总耗时=17.6ms (检测=14.9ms, 跟踪=0.0ms), FPS=56.9
+[2026-09-05 23:16:01.775] [info] 📊 [CAMERA FPS] 瞬时帧率=56.7fps, 平均帧率=54.8fps, 总帧数=300, 运行时间=5.5s
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=0
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=0
+[2026-09-05 23:16:02.134] [info] [DRYRUN] target=none gimbal_deg=(6.61,0.29) control=true shoot=false
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[2026-09-05 23:16:02.453] [warning] [XUC][PITCH] visual loss: control stopped, pitch state retained
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[2026-09-05 23:16:02.487] [info] [DRYRUN] target=none gimbal_deg=(6.61,0.29) control=false shoot=false
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[2026-09-05 23:16:02.554] [warning] [XUC][YAW] visual loss: control stopped, yaw state retained
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:16:02.609] [info] [XUC][YAW] measurement reacquired with continuous slew
+[2026-09-05 23:16:02.609] [info] [XUC][PITCH] measurement reacquired with continuous slew
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:16:02.648] [info] [SYNC][XUC] mode=0 yaw=-6.61 deg pitch=0.29 deg feeder_rpm=0.00 wheel0_rpm=0 wheel1_rpm=0 wheel_delta=0 projectile_speed=19.36 gate=0x3E switch=0 rc=1 sticks=1 imu=1 serial=1 control=1 yaw_armed=0 pitch_active=0
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:16:02.666] [info] [PERF] 总耗时=18.0ms (检测=14.4ms, 跟踪=0.5ms), FPS=55.6
+[2026-09-05 23:16:02.666] [info] 📊 [CAMERA FPS] 瞬时帧率=55.5fps, 平均帧率=55.0fps, 总帧数=350, 运行时间=6.4s
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[2026-09-05 23:16:03.202] [info] [DRYRUN] target=none gimbal_deg=(6.61,0.29) control=true shoot=false
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:16:03.441] [debug] [Target] r=0.110, l=-0.090
+[2026-09-05 23:16:03.441] [debug] [Tracker] Target diverged!
+[DEBUG] armors=1, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:16:03.552] [info] [SYNC][XUC] mode=0 yaw=-6.61 deg pitch=0.29 deg feeder_rpm=0.00 wheel0_rpm=0 wheel1_rpm=0 wheel_delta=0 projectile_speed=19.36 gate=0x3E switch=0 rc=1 sticks=1 imu=1 serial=1 control=1 yaw_armed=0 pitch_active=0
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:16:03.570] [info] [PERF] 总耗时=17.4ms (检测=14.9ms, 跟踪=0.0ms), FPS=57.4
+[2026-09-05 23:16:03.570] [info] 📊 [CAMERA FPS] 瞬时帧率=57.3fps, 平均帧率=55.0fps, 总帧数=400, 运行时间=7.3s
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:16:03.919] [info] [DRYRUN] measured_gimbal=(4.089,0.373,0.060) measured_world=(4.019,0.842,0.039) tracked_world=(4.110,0.985,0.041) target_gimbal_deg=(5.22,0.83) target_world_deg=(11.83,0.54) gimbal_deg=(6.61,0.29) armor_y_px=536.0 pixel_error_deg=(-5.43,-0.10) ballistic=(range=4.106m holdover=0.198m comp=2.72deg residual=-2.82deg) q_wxyz=(0.998334,0.000146,0.002530,-0.057652) cmd_deg=(7.66,-4.35) packed_pitch_deg=-4.35 control=true shoot=false
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:16:03.985] [info] [XUC][GYRO] center_follow=false tracker=lost omega=+0.000rad_s radius=0.000m
+[DEBUG] armors=1, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[2026-09-05 23:16:04.260] [info] [DRYRUN] target=none gimbal_deg=(6.61,0.29) control=true shoot=false
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[2026-09-05 23:16:04.420] [info] [SYNC][XUC] mode=0 yaw=-6.61 deg pitch=0.29 deg feeder_rpm=0.00 wheel0_rpm=0 wheel1_rpm=0 wheel_delta=0 projectile_speed=19.36 gate=0x3E switch=0 rc=1 sticks=1 imu=1 serial=1 control=1 yaw_armed=0 pitch_active=0
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:16:04.437] [info] [PERF] 总耗时=17.6ms (检测=14.8ms, 跟踪=0.5ms), FPS=56.7
+[2026-09-05 23:16:04.437] [info] 📊 [CAMERA FPS] 瞬时帧率=56.6fps, 平均帧率=55.3fps, 总帧数=450, 运行时间=8.1s
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=0, targets=0
+[2026-09-05 23:16:04.611] [info] [DRYRUN] target=none gimbal_deg=(6.61,0.29) control=true shoot=false
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:16:04.700] [info] [XUC][GYRO] center_follow=true tracker=detecting omega=-1.341rad_s radius=0.266m
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=0
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:16:05.303] [info] [SYNC][XUC] mode=0 yaw=-6.61 deg pitch=0.29 deg feeder_rpm=0.00 wheel0_rpm=0 wheel1_rpm=0 wheel_delta=0 projectile_speed=19.36 gate=0x3E switch=0 rc=1 sticks=1 imu=1 serial=1 control=1 yaw_armed=0 pitch_active=0
+[DEBUG] armors=0, targets=0
+[2026-09-05 23:16:05.318] [info] [DRYRUN] target=none gimbal_deg=(6.61,0.29) control=true shoot=false
+[2026-09-05 23:16:05.320] [info] [PERF] 总耗时=17.4ms (检测=14.9ms, 跟踪=0.0ms), FPS=57.5
+[2026-09-05 23:16:05.320] [info] 📊 [CAMERA FPS] 瞬时帧率=57.4fps, 平均帧率=55.4fps, 总帧数=500, 运行时间=9.0s
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:16:05.682] [info] [DRYRUN] measured_gimbal=(3.710,0.393,0.064) measured_world=(3.640,0.817,0.045) tracked_world=(3.672,0.822,0.045) target_gimbal_deg=(6.04,0.98) target_world_deg=(12.65,0.69) gimbal_deg=(6.61,0.29) armor_y_px=533.4 pixel_error_deg=(-5.14,-0.16) ballistic=(range=3.730m holdover=0.165m comp=2.50deg residual=-2.66deg) q_wxyz=(0.998334,0.000146,0.002530,-0.057652) cmd_deg=(9.73,-4.11) packed_pitch_deg=-4.11 control=true shoot=false
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[2026-09-05 23:16:05.894] [warning] [XUC][PITCH] visual loss: control stopped, pitch state retained
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:16:05.983] [info] [XUC][PITCH] measurement reacquired with continuous slew
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[2026-09-05 23:16:06.036] [info] [DRYRUN] target=none gimbal_deg=(6.61,0.29) control=true shoot=false
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:16:06.199] [info] [SYNC][XUC] mode=0 yaw=-6.61 deg pitch=0.29 deg feeder_rpm=0.00 wheel0_rpm=0 wheel1_rpm=0 wheel_delta=0 projectile_speed=19.36 gate=0x3E switch=0 rc=1 sticks=1 imu=1 serial=1 control=1 yaw_armed=0 pitch_active=0
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:16:06.217] [info] [PERF] 总耗时=17.8ms (检测=15.2ms, 跟踪=0.0ms), FPS=56.1
+[2026-09-05 23:16:06.217] [info] 📊 [CAMERA FPS] 瞬时帧率=56.0fps, 平均帧率=55.5fps, 总帧数=550, 运行时间=9.9s
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:16:06.322] [info] [XUC][GYRO] center_follow=false tracker=tracking omega=-0.213rad_s radius=0.259m
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:16:06.389] [info] [DRYRUN] measured_gimbal=(3.981,0.353,0.066) measured_world=(3.914,0.809,0.046) tracked_world=(3.956,0.861,0.045) target_gimbal_deg=(5.06,0.95) target_world_deg=(11.67,0.66) gimbal_deg=(6.61,0.29) armor_y_px=539.8 pixel_error_deg=(2.16,-0.00) ballistic=(range=3.997m holdover=0.188m comp=2.66deg residual=-2.66deg) q_wxyz=(0.998334,0.000146,0.002530,-0.057652) cmd_deg=(12.99,-4.15) packed_pitch_deg=-4.15 control=true shoot=false
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:16:06.858] [debug] [Target] r=0.223, l=-0.191
+[2026-09-05 23:16:06.858] [debug] [Tracker] Target diverged!
+[DEBUG] armors=1, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:16:07.087] [info] [SYNC][XUC] mode=0 yaw=-6.61 deg pitch=0.29 deg feeder_rpm=0.00 wheel0_rpm=0 wheel1_rpm=0 wheel_delta=0 projectile_speed=19.36 gate=0x3E switch=0 rc=1 sticks=1 imu=1 serial=1 control=1 yaw_armed=0 pitch_active=0
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:16:07.104] [info] [PERF] 总耗时=17.1ms (检测=14.3ms, 跟踪=0.0ms), FPS=58.4
+[2026-09-05 23:16:07.104] [info] 📊 [CAMERA FPS] 瞬时帧率=58.1fps, 平均帧率=55.5fps, 总帧数=600, 运行时间=10.8s
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[2026-09-05 23:16:07.464] [info] [DRYRUN] target=none gimbal_deg=(6.61,0.29) control=true shoot=false
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:16:07.732] [debug] [Target] r=0.112, l=-0.088
+[2026-09-05 23:16:07.732] [debug] [Tracker] Target diverged!
+[DEBUG] armors=1, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:16:07.824] [info] [DRYRUN] measured_gimbal=(4.121,0.220,0.057) measured_world=(4.068,0.693,0.036) tracked_world=(4.068,0.693,0.036) target_gimbal_deg=(3.06,0.79) target_world_deg=(9.67,0.50) gimbal_deg=(6.61,0.29) armor_y_px=537.1 pixel_error_deg=(-2.08,-0.07) ballistic=(range=4.127m holdover=0.200m comp=2.73deg residual=-2.81deg) q_wxyz=(0.998334,0.000146,0.002530,-0.057652) cmd_deg=(8.06,-4.27) packed_pitch_deg=-4.27 control=true shoot=false
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[2026-09-05 23:16:07.990] [info] [SYNC][XUC] mode=0 yaw=-6.61 deg pitch=0.29 deg feeder_rpm=0.00 wheel0_rpm=0 wheel1_rpm=0 wheel_delta=0 projectile_speed=19.36 gate=0x3E switch=0 rc=1 sticks=1 imu=1 serial=1 control=1 yaw_armed=0 pitch_active=0
+[DEBUG] armors=0, targets=0
+[2026-09-05 23:16:08.007] [info] [PERF] 总耗时=16.9ms (检测=14.6ms, 跟踪=0.0ms), FPS=59.1
+[2026-09-05 23:16:08.007] [info] 📊 [CAMERA FPS] 瞬时帧率=59.0fps, 平均帧率=55.5fps, 总帧数=650, 运行时间=11.7s
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:16:08.190] [info] [XUC][GYRO] center_follow=true tracker=tracking omega=-1.139rad_s radius=0.220m
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:16:08.191] [info] [DRYRUN] measured_gimbal=(3.656,-0.048,0.059) measured_world=(3.637,0.373,0.040) tracked_world=(3.699,0.379,0.041) target_gimbal_deg=(-0.75,0.92) target_world_deg=(5.86,0.63) gimbal_deg=(6.61,0.29) armor_y_px=536.2 pixel_error_deg=(1.64,-0.09) ballistic=(range=3.656m holdover=0.159m comp=2.45deg residual=-2.55deg) q_wxyz=(0.998334,0.000146,0.002530,-0.057652) cmd_deg=(5.79,-3.95) packed_pitch_deg=-3.95 control=true shoot=false
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:16:08.587] [warning] [XUC][PITCH] visual loss: control stopped, pitch state retained
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=0
+[2026-09-05 23:16:08.626] [info] [XUC][PITCH] measurement reacquired with continuous slew
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:16:08.907] [info] [SYNC][XUC] mode=0 yaw=-6.61 deg pitch=0.29 deg feeder_rpm=0.00 wheel0_rpm=0 wheel1_rpm=0 wheel_delta=0 projectile_speed=19.36 gate=0x3E switch=0 rc=1 sticks=1 imu=1 serial=1 control=1 yaw_armed=0 pitch_active=0
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:16:08.922] [info] [DRYRUN] measured_gimbal=(3.667,0.301,0.063) measured_world=(3.608,0.722,0.045) tracked_world=(3.569,0.710,0.045) target_gimbal_deg=(4.70,0.99) target_world_deg=(11.31,0.70) gimbal_deg=(6.61,0.29) armor_y_px=533.4 pixel_error_deg=(-3.81,-0.16) ballistic=(range=3.679m holdover=0.161m comp=2.47deg residual=-2.63deg) q_wxyz=(0.998334,0.000146,0.002530,-0.057652) cmd_deg=(8.12,-4.03) packed_pitch_deg=-4.03 control=true shoot=false
+[2026-09-05 23:16:08.925] [info] [PERF] 总耗时=18.3ms (检测=14.3ms, 跟踪=1.2ms), FPS=54.8
+[2026-09-05 23:16:08.925] [info] 📊 [CAMERA FPS] 瞬时帧率=54.7fps, 平均帧率=55.5fps, 总帧数=700, 运行时间=12.6s
+[DEBUG] armors=1, targets=0
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:16:09.436] [warning] [XUC][PITCH] visual loss: control stopped, pitch state retained
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:16:09.525] [info] [XUC][PITCH] measurement reacquired with continuous slew
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:16:09.634] [info] [DRYRUN] measured_gimbal=(4.048,0.265,0.068) measured_world=(3.991,0.730,0.048) tracked_world=(4.019,0.729,0.048) target_gimbal_deg=(3.75,0.96) target_world_deg=(10.36,0.67) gimbal_deg=(6.61,0.29) armor_y_px=530.8 pixel_error_deg=(-2.78,-0.23) ballistic=(range=4.056m holdover=0.194m comp=2.69deg residual=-2.92deg) q_wxyz=(0.998334,0.000146,0.002530,-0.057652) cmd_deg=(9.49,-4.51) packed_pitch_deg=-4.51 control=true shoot=false
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:16:09.799] [info] [SYNC][XUC] mode=0 yaw=-6.61 deg pitch=0.29 deg feeder_rpm=0.00 wheel0_rpm=0 wheel1_rpm=0 wheel_delta=0 projectile_speed=19.36 gate=0x3E switch=0 rc=1 sticks=1 imu=1 serial=1 control=1 yaw_armed=0 pitch_active=0
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:16:09.817] [info] [PERF] 总耗时=18.5ms (检测=15.6ms, 跟踪=0.0ms), FPS=54.0
+[2026-09-05 23:16:09.817] [info] 📊 [CAMERA FPS] 瞬时帧率=53.9fps, 平均帧率=55.5fps, 总帧数=750, 运行时间=13.5s
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:16:09.995] [info] [DRYRUN] measured_gimbal=(3.874,0.334,0.066) measured_world=(3.810,0.778,0.047) tracked_world=(3.912,0.933,0.049) target_gimbal_deg=(4.93,0.98) target_world_deg=(11.54,0.69) gimbal_deg=(6.61,0.29) armor_y_px=531.1 pixel_error_deg=(-5.30,-0.22) ballistic=(range=3.888m holdover=0.179m comp=2.59deg residual=-2.81deg) q_wxyz=(0.998334,0.000146,0.002530,-0.057652) cmd_deg=(7.57,-4.30) packed_pitch_deg=-4.30 control=true shoot=false
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:16:10.358] [info] [DRYRUN] measured_gimbal=(3.869,0.168,0.057) measured_world=(3.824,0.612,0.037) tracked_world=(3.829,0.613,0.037) target_gimbal_deg=(2.48,0.84) target_world_deg=(9.09,0.55) gimbal_deg=(6.61,0.29) armor_y_px=537.4 pixel_error_deg=(-1.53,-0.06) ballistic=(range=3.872m holdover=0.177m comp=2.58deg residual=-2.64deg) q_wxyz=(0.998334,0.000146,0.002530,-0.057652) cmd_deg=(7.57,-4.00) packed_pitch_deg=-4.00 control=true shoot=false
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:16:10.701] [info] [SYNC][XUC] mode=0 yaw=-6.61 deg pitch=0.29 deg feeder_rpm=-4.00 wheel0_rpm=0 wheel1_rpm=0 wheel_delta=0 projectile_speed=19.36 gate=0x3E switch=0 rc=1 sticks=1 imu=1 serial=1 control=1 yaw_armed=0 pitch_active=0
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:16:10.717] [info] [DRYRUN] measured_gimbal=(3.693,-0.089,0.055) measured_world=(3.679,0.336,0.036) tracked_world=(3.810,0.347,0.038) target_gimbal_deg=(-1.38,0.85) target_world_deg=(5.23,0.56) gimbal_deg=(6.61,0.29) armor_y_px=538.7 pixel_error_deg=(2.28,-0.03) ballistic=(range=3.694m holdover=0.162m comp=2.47deg residual=-2.51deg) q_wxyz=(0.998334,0.000146,0.002530,-0.057652) cmd_deg=(7.57,-4.06) packed_pitch_deg=-4.06 control=true shoot=false
+[2026-09-05 23:16:10.720] [info] [PERF] 总耗时=18.9ms (检测=16.0ms, 跟踪=0.5ms), FPS=53.0
+[2026-09-05 23:16:10.720] [info] 📊 [CAMERA FPS] 瞬时帧率=52.9fps, 平均帧率=55.5fps, 总帧数=800, 运行时间=14.4s
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=0
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=0
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[2026-09-05 23:16:11.441] [info] [DRYRUN] target=none gimbal_deg=(6.61,0.29) control=true shoot=false
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=3, targets=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:16:11.610] [info] [SYNC][XUC] mode=0 yaw=-6.61 deg pitch=0.29 deg feeder_rpm=3.00 wheel0_rpm=0 wheel1_rpm=0 wheel_delta=0 projectile_speed=19.36 gate=0x3E switch=0 rc=1 sticks=1 imu=1 serial=1 control=1 yaw_armed=0 pitch_active=0
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:16:11.627] [info] [PERF] 总耗时=17.6ms (检测=14.7ms, 跟踪=0.5ms), FPS=56.8
+[2026-09-05 23:16:11.628] [info] 📊 [CAMERA FPS] 瞬时帧率=56.7fps, 平均帧率=55.5fps, 总帧数=850, 运行时间=15.3s
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:16:11.806] [info] [DRYRUN] measured_gimbal=(3.637,-0.037,0.059) measured_world=(3.618,0.382,0.040) tracked_world=(3.630,0.425,0.042) target_gimbal_deg=(-0.58,0.93) target_world_deg=(6.03,0.64) gimbal_deg=(6.61,0.29) armor_y_px=536.0 pixel_error_deg=(0.74,-0.10) ballistic=(range=3.638m holdover=0.158m comp=2.44deg residual=-2.54deg) q_wxyz=(0.998334,0.000146,0.002530,-0.057652) cmd_deg=(7.68,-3.93) packed_pitch_deg=-3.93 control=true shoot=false
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:16:12.017] [warning] [XUC][PITCH] visual loss: control stopped, pitch state retained
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:16:12.055] [info] [XUC][PITCH] measurement reacquired with continuous slew
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:16:12.164] [info] [DRYRUN] measured_gimbal=(3.879,0.205,0.061) measured_world=(3.830,0.650,0.041) tracked_world=(3.830,0.650,0.041) target_gimbal_deg=(3.02,0.90) target_world_deg=(9.63,0.61) gimbal_deg=(6.61,0.29) armor_y_px=534.8 pixel_error_deg=(-2.07,-0.13) ballistic=(range=3.884m holdover=0.178m comp=2.59deg residual=-2.71deg) q_wxyz=(0.998334,0.000146,0.002530,-0.057652) cmd_deg=(7.98,-4.10) packed_pitch_deg=-4.10 control=true shoot=false
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=0
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[2026-09-05 23:16:12.517] [info] [SYNC][XUC] mode=0 yaw=-6.61 deg pitch=0.29 deg feeder_rpm=-4.00 wheel0_rpm=0 wheel1_rpm=0 wheel_delta=0 projectile_speed=19.36 gate=0x3E switch=0 rc=1 sticks=1 imu=1 serial=1 control=1 yaw_armed=0 pitch_active=0
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:16:12.532] [info] [DRYRUN] measured_gimbal=(3.627,-0.061,0.062) measured_world=(3.610,0.357,0.044) tracked_world=(3.610,0.357,0.044) target_gimbal_deg=(-0.97,0.99) target_world_deg=(5.64,0.70) gimbal_deg=(6.61,0.29) armor_y_px=534.0 pixel_error_deg=(1.86,-0.15) ballistic=(range=3.628m holdover=0.157m comp=2.44deg residual=-2.59deg) q_wxyz=(0.998334,0.000146,0.002530,-0.057652) cmd_deg=(8.05,-4.04) packed_pitch_deg=-4.04 control=true shoot=false
+[2026-09-05 23:16:12.535] [info] [PERF] 总耗时=18.1ms (检测=14.7ms, 跟踪=0.6ms), FPS=55.1
+[2026-09-05 23:16:12.535] [info] 📊 [CAMERA FPS] 瞬时帧率=55.0fps, 平均帧率=55.4fps, 总帧数=900, 运行时间=16.2s
+[DEBUG] armors=1, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[2026-09-05 23:16:13.000] [warning] [XUC][PITCH] visual loss: control stopped, pitch state retained
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:16:13.056] [info] [XUC][PITCH] measurement reacquired with continuous slew
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:16:13.419] [info] [SYNC][XUC] mode=0 yaw=-6.61 deg pitch=0.29 deg feeder_rpm=0.00 wheel0_rpm=0 wheel1_rpm=0 wheel_delta=0 projectile_speed=19.36 gate=0x3E switch=0 rc=1 sticks=1 imu=1 serial=1 control=1 yaw_armed=0 pitch_active=0
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:16:13.436] [info] [PERF] 总耗时=17.5ms (检测=14.7ms, 跟踪=0.0ms), FPS=57.2
+[2026-09-05 23:16:13.437] [info] 📊 [CAMERA FPS] 瞬时帧率=57.1fps, 平均帧率=55.4fps, 总帧数=950, 运行时间=17.1s
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[2026-09-05 23:16:13.613] [info] [DRYRUN] target=none gimbal_deg=(6.61,0.29) control=true shoot=false
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[2026-09-05 23:16:13.973] [info] [DRYRUN] target=none gimbal_deg=(6.61,0.29) control=true shoot=false
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:16:14.129] [info] [XUC][GYRO] center_follow=false tracker=detecting omega=-0.247rad_s radius=0.210m
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:16:14.238] [info] [XUC][GYRO] center_follow=true tracker=tracking omega=-1.599rad_s radius=0.219m
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:16:14.313] [info] [SYNC][XUC] mode=0 yaw=-6.61 deg pitch=0.29 deg feeder_rpm=-4.00 wheel0_rpm=0 wheel1_rpm=0 wheel_delta=0 projectile_speed=19.36 gate=0x3E switch=0 rc=1 sticks=1 imu=1 serial=1 control=1 yaw_armed=0 pitch_active=0
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:16:14.328] [info] [DRYRUN] measured_gimbal=(3.777,-0.039,0.056) measured_world=(3.757,0.397,0.037) tracked_world=(3.675,0.389,0.037) target_gimbal_deg=(-0.58,0.85) target_world_deg=(6.03,0.56) gimbal_deg=(6.61,0.29) armor_y_px=538.0 pixel_error_deg=(1.50,-0.05) ballistic=(range=3.778m holdover=0.169m comp=2.52deg residual=-2.57deg) q_wxyz=(0.998334,0.000146,0.002530,-0.057652) cmd_deg=(7.03,-3.92) packed_pitch_deg=-3.92 control=true shoot=false
+[2026-09-05 23:16:14.330] [info] [PERF] 总耗时=17.3ms (检测=14.0ms, 跟踪=0.8ms), FPS=57.7
+[2026-09-05 23:16:14.330] [info] 📊 [CAMERA FPS] 瞬时帧率=57.7fps, 平均帧率=55.5fps, 总帧数=1000, 运行时间=18.0s
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:16:14.683] [info] [DRYRUN] measured_gimbal=(3.543,0.099,0.058) measured_world=(3.509,0.506,0.040) tracked_world=(3.491,0.541,0.040) target_gimbal_deg=(1.60,0.93) target_world_deg=(8.21,0.64) gimbal_deg=(6.61,0.29) armor_y_px=536.6 pixel_error_deg=(-1.33,-0.08) ballistic=(range=3.545m holdover=0.150m comp=2.39deg residual=-2.47deg) q_wxyz=(0.998334,0.000146,0.002530,-0.057652) cmd_deg=(7.66,-3.79) packed_pitch_deg=-3.79 control=true shoot=false
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=0
+[DEBUG] armors=0, targets=0
+[2026-09-05 23:16:15.042] [info] [DRYRUN] target=none gimbal_deg=(6.61,0.29) control=true shoot=false
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:16:15.210] [info] [SYNC][XUC] mode=0 yaw=-6.61 deg pitch=0.29 deg feeder_rpm=0.00 wheel0_rpm=0 wheel1_rpm=0 wheel_delta=0 projectile_speed=19.36 gate=0x3E switch=0 rc=1 sticks=1 imu=1 serial=1 control=1 yaw_armed=0 pitch_active=0
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:16:15.229] [info] [PERF] 总耗时=18.4ms (检测=14.9ms, 跟踪=0.5ms), FPS=54.3
+[2026-09-05 23:16:15.229] [info] 📊 [CAMERA FPS] 瞬时帧率=54.1fps, 平均帧率=55.5fps, 总帧数=1050, 运行时间=18.9s
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:16:15.511] [warning] [XUC][PITCH] visual loss: control stopped, pitch state retained
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=0
+[2026-09-05 23:16:15.546] [info] [XUC][PITCH] measurement reacquired with continuous slew
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[2026-09-05 23:16:15.761] [info] [DRYRUN] target=none gimbal_deg=(6.61,0.29) control=true shoot=false
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:16:16.111] [info] [SYNC][XUC] mode=0 yaw=-6.61 deg pitch=0.29 deg feeder_rpm=0.00 wheel0_rpm=0 wheel1_rpm=0 wheel_delta=0 projectile_speed=19.36 gate=0x3E switch=0 rc=1 sticks=1 imu=1 serial=1 control=1 yaw_armed=0 pitch_active=0
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:16:16.126] [info] [DRYRUN] measured_gimbal=(3.871,0.421,0.065) measured_world=(3.797,0.863,0.045) tracked_world=(3.719,0.410,0.044) target_gimbal_deg=(6.20,0.96) target_world_deg=(12.81,0.67) gimbal_deg=(6.61,0.29) armor_y_px=532.5 pixel_error_deg=(-5.27,-0.18) ballistic=(range=3.894m holdover=0.179m comp=2.59deg residual=-2.78deg) q_wxyz=(0.998334,0.000146,0.002530,-0.057652) cmd_deg=(7.24,-4.22) packed_pitch_deg=-4.22 control=true shoot=false
+[2026-09-05 23:16:16.128] [info] [PERF] 总耗时=17.6ms (检测=14.5ms, 跟踪=0.6ms), FPS=56.7
+[2026-09-05 23:16:16.128] [info] 📊 [CAMERA FPS] 瞬时帧率=56.5fps, 平均帧率=55.5fps, 总帧数=1100, 运行时间=19.8s
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[2026-09-05 23:16:16.483] [warning] [XUC][PITCH] visual loss: control stopped, pitch state retained
+[2026-09-05 23:16:16.483] [info] [DRYRUN] target=none gimbal_deg=(6.61,0.29) control=false shoot=false
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:16:16.520] [info] [XUC][PITCH] measurement reacquired with continuous slew
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=0
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:16:17.013] [info] [SYNC][XUC] mode=0 yaw=-6.61 deg pitch=0.29 deg feeder_rpm=0.00 wheel0_rpm=0 wheel1_rpm=0 wheel_delta=0 projectile_speed=19.36 gate=0x3E switch=0 rc=1 sticks=1 imu=1 serial=1 control=1 yaw_armed=0 pitch_active=0
+[DEBUG] armors=1, targets=0
+[2026-09-05 23:16:17.031] [info] [PERF] 总耗时=18.1ms (检测=15.1ms, 跟踪=0.0ms), FPS=55.4
+[2026-09-05 23:16:17.031] [info] 📊 [CAMERA FPS] 瞬时帧率=55.3fps, 平均帧率=55.5fps, 总帧数=1150, 运行时间=20.7s
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[2026-09-05 23:16:17.208] [info] [DRYRUN] target=none gimbal_deg=(6.61,0.29) control=true shoot=false
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:16:17.352] [debug] [Target] r=0.124, l=-0.076
+[2026-09-05 23:16:17.352] [debug] [Tracker] Target diverged!
+[DEBUG] armors=1, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:16:17.573] [info] [DRYRUN] measured_gimbal=(4.072,0.355,0.057) measured_world=(4.004,0.821,0.037) tracked_world=(3.923,0.800,0.036) target_gimbal_deg=(4.98,0.80) target_world_deg=(11.59,0.51) gimbal_deg=(6.61,0.29) armor_y_px=537.0 pixel_error_deg=(-4.01,-0.07) ballistic=(range=4.087m holdover=0.196m comp=2.71deg residual=-2.78deg) q_wxyz=(0.998334,0.000146,0.002530,-0.057652) cmd_deg=(7.43,-4.19) packed_pitch_deg=-4.19 control=true shoot=false
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:16:17.612] [info] [XUC][GYRO] center_follow=false tracker=tracking omega=-0.078rad_s radius=0.207m
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:16:17.924] [info] [SYNC][XUC] mode=0 yaw=-6.61 deg pitch=0.29 deg feeder_rpm=-4.00 wheel0_rpm=0 wheel1_rpm=0 wheel_delta=0 projectile_speed=19.36 gate=0x3E switch=0 rc=1 sticks=1 imu=1 serial=1 control=1 yaw_armed=0 pitch_active=0
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:16:17.940] [info] [DRYRUN] measured_gimbal=(4.119,0.037,0.056) measured_world=(4.087,0.511,0.035) tracked_world=(4.057,0.982,0.037) target_gimbal_deg=(0.51,0.77) target_world_deg=(7.12,0.48) gimbal_deg=(6.61,0.29) armor_y_px=538.0 pixel_error_deg=(0.48,-0.05) ballistic=(range=4.119m holdover=0.199m comp=2.73deg residual=-2.78deg) q_wxyz=(0.998334,0.000146,0.002530,-0.057652) cmd_deg=(12.39,-4.28) packed_pitch_deg=-4.28 control=true shoot=false
+[2026-09-05 23:16:17.942] [info] [PERF] 总耗时=18.3ms (检测=15.5ms, 跟踪=0.5ms), FPS=54.8
+[2026-09-05 23:16:17.942] [info] 📊 [CAMERA FPS] 瞬时帧率=54.7fps, 平均帧率=55.5fps, 总帧数=1200, 运行时间=21.6s
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:16:18.293] [info] [DRYRUN] measured_gimbal=(3.914,0.235,0.059) measured_world=(3.861,0.684,0.039) tracked_world=(4.060,0.680,0.038) target_gimbal_deg=(3.43,0.86) target_world_deg=(10.04,0.57) gimbal_deg=(6.61,0.29) armor_y_px=536.4 pixel_error_deg=(-2.48,-0.09) ballistic=(range=3.921m holdover=0.181m comp=2.61deg residual=-2.70deg) q_wxyz=(0.998334,0.000146,0.002530,-0.057652) cmd_deg=(7.51,-4.25) packed_pitch_deg=-4.25 control=true shoot=false
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:16:18.663] [info] [DRYRUN] measured_gimbal=(4.136,0.369,0.059) measured_world=(4.066,0.843,0.038) tracked_world=(4.051,0.827,0.039) target_gimbal_deg=(5.11,0.82) target_world_deg=(11.72,0.53) gimbal_deg=(6.61,0.29) armor_y_px=536.2 pixel_error_deg=(-5.13,-0.09) ballistic=(range=4.152m holdover=0.202m comp=2.75deg residual=-2.84deg) q_wxyz=(0.998334,0.000146,0.002530,-0.057652) cmd_deg=(11.15,-4.41) packed_pitch_deg=-4.41 control=true shoot=false
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:16:18.828] [info] [SYNC][XUC] mode=0 yaw=-6.61 deg pitch=0.29 deg feeder_rpm=0.00 wheel0_rpm=0 wheel1_rpm=0 wheel_delta=0 projectile_speed=19.36 gate=0x3E switch=0 rc=1 sticks=1 imu=1 serial=1 control=1 yaw_armed=0 pitch_active=0
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:16:18.847] [info] [PERF] 总耗时=18.4ms (检测=15.7ms, 跟踪=0.0ms), FPS=54.2
+[2026-09-05 23:16:18.847] [info] 📊 [CAMERA FPS] 瞬时帧率=54.1fps, 平均帧率=55.4fps, 总帧数=1250, 运行时间=22.5s
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:16:19.077] [debug] [Target] r=0.273, l=-0.227
+[2026-09-05 23:16:19.077] [debug] [Tracker] Target diverged!
+[DEBUG] armors=1, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=0
+[2026-09-05 23:16:19.386] [info] [DRYRUN] target=none gimbal_deg=(6.61,0.29) control=true shoot=false
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:16:19.658] [debug] [Target] r=0.122, l=-0.078
+[2026-09-05 23:16:19.658] [debug] [Tracker] Target diverged!
+[DEBUG] armors=1, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[2026-09-05 23:16:19.729] [info] [SYNC][XUC] mode=0 yaw=-6.61 deg pitch=0.29 deg feeder_rpm=0.00 wheel0_rpm=0 wheel1_rpm=0 wheel_delta=0 projectile_speed=19.36 gate=0x3E switch=0 rc=1 sticks=1 imu=1 serial=1 control=1 yaw_armed=0 pitch_active=0
+[DEBUG] armors=0, targets=0
+[2026-09-05 23:16:19.745] [info] [DRYRUN] target=none gimbal_deg=(6.61,0.29) control=true shoot=false
+[2026-09-05 23:16:19.748] [info] [PERF] 总耗时=18.8ms (检测=16.1ms, 跟踪=0.0ms), FPS=53.2
+[2026-09-05 23:16:19.748] [info] 📊 [CAMERA FPS] 瞬时帧率=52.8fps, 平均帧率=55.4fps, 总帧数=1300, 运行时间=23.4s
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[2026-09-05 23:16:19.854] [warning] [XUC][PITCH] visual loss: control stopped, pitch state retained
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[2026-09-05 23:16:19.961] [warning] [XUC][YAW] visual loss: control stopped, yaw state retained
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:16:19.980] [info] [XUC][YAW] measurement reacquired with continuous slew
+[2026-09-05 23:16:19.980] [info] [XUC][PITCH] measurement reacquired with continuous slew
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:16:20.054] [info] [XUC][GYRO] center_follow=true tracker=tracking omega=-0.845rad_s radius=0.196m
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:16:20.464] [info] [DRYRUN] measured_gimbal=(3.973,0.345,0.066) measured_world=(3.908,0.800,0.046) tracked_world=(3.930,0.968,0.048) target_gimbal_deg=(4.96,0.95) target_world_deg=(11.57,0.66) gimbal_deg=(6.61,0.29) armor_y_px=539.3 pixel_error_deg=(1.11,-0.02) ballistic=(range=3.988m holdover=0.187m comp=2.65deg residual=-2.67deg) q_wxyz=(0.998334,0.000146,0.002530,-0.057652) cmd_deg=(7.61,-4.16) packed_pitch_deg=-4.16 control=true shoot=false
+[DEBUG] armors=2, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[2026-09-05 23:16:20.628] [info] [SYNC][XUC] mode=0 yaw=-6.61 deg pitch=0.29 deg feeder_rpm=0.00 wheel0_rpm=0 wheel1_rpm=0 wheel_delta=0 projectile_speed=19.36 gate=0x3E switch=0 rc=1 sticks=1 imu=1 serial=1 control=1 yaw_armed=0 pitch_active=0
+[DEBUG] armors=0, targets=0
+[2026-09-05 23:16:20.646] [info] [PERF] 总耗时=18.6ms (检测=15.5ms, 跟踪=0.0ms), FPS=53.7
+[2026-09-05 23:16:20.646] [info] 📊 [CAMERA FPS] 瞬时帧率=53.6fps, 平均帧率=55.5fps, 总帧数=1350, 运行时间=24.3s
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[2026-09-05 23:16:20.713] [warning] [XUC][PITCH] visual loss: control stopped, pitch state retained
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:16:20.732] [info] [XUC][PITCH] measurement reacquired with continuous slew
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[2026-09-05 23:16:20.822] [info] [DRYRUN] target=none gimbal_deg=(6.61,0.29) control=true shoot=false
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=0, targets=0
+[2026-09-05 23:16:21.186] [info] [DRYRUN] target=none gimbal_deg=(6.61,0.29) control=true shoot=false
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=0
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=3, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:16:21.536] [info] [SYNC][XUC] mode=0 yaw=-6.61 deg pitch=0.29 deg feeder_rpm=-4.00 wheel0_rpm=0 wheel1_rpm=0 wheel_delta=0 projectile_speed=19.36 gate=0x3E switch=0 rc=1 sticks=1 imu=1 serial=1 control=1 yaw_armed=0 pitch_active=0
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:16:21.554] [info] [PERF] 总耗时=17.3ms (检测=15.0ms, 跟踪=0.0ms), FPS=57.7
+[2026-09-05 23:16:21.554] [info] 📊 [CAMERA FPS] 瞬时帧率=57.6fps, 平均帧率=55.4fps, 总帧数=1400, 运行时间=25.3s
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[2026-09-05 23:16:21.904] [info] [DRYRUN] target=none gimbal_deg=(6.61,0.29) control=true shoot=false
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:16:22.266] [info] [DRYRUN] measured_gimbal=(3.755,0.426,0.061) measured_world=(3.681,0.856,0.042) tracked_world=(3.621,0.428,0.041) target_gimbal_deg=(6.47,0.92) target_world_deg=(13.08,0.63) gimbal_deg=(6.61,0.29) armor_y_px=535.7 pixel_error_deg=(0.58,-0.11) ballistic=(range=3.779m holdover=0.169m comp=2.53deg residual=-2.63deg) q_wxyz=(0.998334,0.000146,0.002530,-0.057652) cmd_deg=(7.54,-4.01) packed_pitch_deg=-4.01 control=true shoot=false
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:16:22.428] [info] [SYNC][XUC] mode=0 yaw=-6.61 deg pitch=0.29 deg feeder_rpm=0.00 wheel0_rpm=0 wheel1_rpm=0 wheel_delta=0 projectile_speed=19.36 gate=0x3E switch=0 rc=1 sticks=1 imu=1 serial=1 control=1 yaw_armed=0 pitch_active=0
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:16:22.443] [warning] [XUC][PITCH] visual loss: control stopped, pitch state retained
+[2026-09-05 23:16:22.446] [info] [PERF] 总耗时=18.0ms (检测=15.4ms, 跟踪=0.0ms), FPS=55.5
+[2026-09-05 23:16:22.446] [info] 📊 [CAMERA FPS] 瞬时帧率=55.4fps, 平均帧率=55.5fps, 总帧数=1450, 运行时间=26.1s
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:16:22.494] [info] [XUC][PITCH] measurement reacquired with continuous slew
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:16:22.613] [info] [DRYRUN] measured_gimbal=(4.063,0.223,0.062) measured_world=(4.011,0.689,0.041) tracked_world=(3.952,0.678,0.040) target_gimbal_deg=(3.14,0.87) target_world_deg=(9.75,0.58) gimbal_deg=(6.61,0.29) armor_y_px=534.6 pixel_error_deg=(-2.17,-0.13) ballistic=(range=4.069m holdover=0.195m comp=2.70deg residual=-2.83deg) q_wxyz=(0.998334,0.000146,0.002530,-0.057652) cmd_deg=(7.80,-4.24) packed_pitch_deg=-4.24 control=true shoot=false
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:16:22.976] [info] [DRYRUN] measured_gimbal=(3.724,-0.059,0.063) measured_world=(3.706,0.370,0.045) tracked_world=(3.686,0.368,0.045) target_gimbal_deg=(-0.91,0.98) target_world_deg=(5.70,0.69) gimbal_deg=(6.61,0.29) armor_y_px=533.4 pixel_error_deg=(1.81,-0.16) ballistic=(range=3.724m holdover=0.165m comp=2.49deg residual=-2.66deg) q_wxyz=(0.998334,0.000146,0.002530,-0.057652) cmd_deg=(7.40,-4.07) packed_pitch_deg=-4.07 control=true shoot=false
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:16:23.319] [info] [SYNC][XUC] mode=0 yaw=-6.61 deg pitch=0.29 deg feeder_rpm=0.00 wheel0_rpm=0 wheel1_rpm=0 wheel_delta=0 projectile_speed=19.36 gate=0x3E switch=0 rc=1 sticks=1 imu=1 serial=1 control=1 yaw_armed=0 pitch_active=0
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:16:23.336] [info] [PERF] 总耗时=17.7ms (检测=14.8ms, 跟踪=0.0ms), FPS=56.5
+[2026-09-05 23:16:23.336] [info] 📊 [CAMERA FPS] 瞬时帧率=56.5fps, 平均帧率=55.5fps, 总帧数=1500, 运行时间=27.0s
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[2026-09-05 23:16:23.438] [warning] [XUC][PITCH] visual loss: control stopped, pitch state retained
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:16:23.491] [info] [XUC][PITCH] measurement reacquired with continuous slew
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:16:23.687] [info] [DRYRUN] measured_gimbal=(4.191,0.366,0.068) measured_world=(4.121,0.846,0.046) tracked_world=(4.028,0.825,0.045) target_gimbal_deg=(4.99,0.92) target_world_deg=(11.60,0.63) gimbal_deg=(6.61,0.29) armor_y_px=531.3 pixel_error_deg=(-4.00,-0.21) ballistic=(range=4.207m holdover=0.208m comp=2.79deg residual=-3.00deg) q_wxyz=(0.998334,0.000146,0.002530,-0.057652) cmd_deg=(7.70,-4.55) packed_pitch_deg=-4.55 control=true shoot=false
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=0
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:16:24.199] [warning] [XUC][PITCH] visual loss: control stopped, pitch state retained
+[2026-09-05 23:16:24.201] [info] [SYNC][XUC] mode=0 yaw=-6.61 deg pitch=0.29 deg feeder_rpm=0.00 wheel0_rpm=0 wheel1_rpm=0 wheel_delta=0 projectile_speed=19.36 gate=0x3E switch=0 rc=1 sticks=1 imu=1 serial=1 control=1 yaw_armed=0 pitch_active=0
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:16:24.218] [info] [PERF] 总耗时=16.9ms (检测=14.3ms, 跟踪=0.0ms), FPS=59.2
+[2026-09-05 23:16:24.218] [info] 📊 [CAMERA FPS] 瞬时帧率=59.1fps, 平均帧率=55.5fps, 总帧数=1550, 运行时间=27.9s
+[DEBUG] armors=1, targets=0
+[2026-09-05 23:16:24.236] [info] [XUC][PITCH] measurement reacquired with continuous slew
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[2026-09-05 23:16:24.393] [info] [DRYRUN] target=none gimbal_deg=(6.61,0.29) control=true shoot=false
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:16:25.088] [info] [SYNC][XUC] mode=0 yaw=-6.61 deg pitch=0.29 deg feeder_rpm=0.00 wheel0_rpm=0 wheel1_rpm=0 wheel_delta=0 projectile_speed=19.36 gate=0x3E switch=0 rc=1 sticks=1 imu=1 serial=1 control=1 yaw_armed=0 pitch_active=0
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:16:25.104] [info] [DRYRUN] measured_gimbal=(3.600,0.040,0.056) measured_world=(3.572,0.454,0.038) tracked_world=(3.560,0.536,0.039) target_gimbal_deg=(0.64,0.89) target_world_deg=(7.25,0.60) gimbal_deg=(6.61,0.29) armor_y_px=536.4 pixel_error_deg=(-1.10,-0.09) ballistic=(range=3.600m holdover=0.155m comp=2.42deg residual=-2.51deg) q_wxyz=(0.998334,0.000146,0.002530,-0.057652) cmd_deg=(7.37,-3.83) packed_pitch_deg=-3.83 control=true shoot=false
+[2026-09-05 23:16:25.107] [info] [PERF] 总耗时=19.0ms (检测=16.3ms, 跟踪=0.0ms), FPS=52.6
+[2026-09-05 23:16:25.107] [info] 📊 [CAMERA FPS] 瞬时帧率=52.5fps, 平均帧率=55.5fps, 总帧数=1600, 运行时间=28.8s
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:16:25.469] [info] [DRYRUN] measured_gimbal=(3.577,0.311,0.059) measured_world=(3.518,0.721,0.041) tracked_world=(3.601,0.755,0.038) target_gimbal_deg=(4.98,0.95) target_world_deg=(11.59,0.66) gimbal_deg=(6.61,0.29) armor_y_px=536.1 pixel_error_deg=(-4.10,-0.10) ballistic=(range=3.591m holdover=0.154m comp=2.42deg residual=-2.51deg) q_wxyz=(0.998334,0.000146,0.002530,-0.057652) cmd_deg=(8.17,-3.90) packed_pitch_deg=-3.90 control=true shoot=false
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:16:25.950] [warning] [XUC][PITCH] visual loss: control stopped, pitch state retained
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:16:25.986] [info] [XUC][PITCH] measurement reacquired with continuous slew
+[2026-09-05 23:16:25.989] [info] [SYNC][XUC] mode=0 yaw=-6.61 deg pitch=0.29 deg feeder_rpm=0.00 wheel0_rpm=0 wheel1_rpm=0 wheel_delta=0 projectile_speed=19.36 gate=0x1E switch=0 rc=1 sticks=1 imu=1 serial=1 control=0 yaw_armed=0 pitch_active=0
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:16:26.006] [info] [PERF] 总耗时=16.9ms (检测=14.1ms, 跟踪=0.0ms), FPS=59.2
+[2026-09-05 23:16:26.006] [info] 📊 [CAMERA FPS] 瞬时帧率=59.1fps, 平均帧率=55.5fps, 总帧数=1650, 运行时间=29.7s
+[DEBUG] armors=1, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:16:26.185] [info] [DRYRUN] measured_gimbal=(3.856,0.257,0.063) measured_world=(3.802,0.699,0.044) tracked_world=(3.882,0.715,0.045) target_gimbal_deg=(3.81,0.94) target_world_deg=(10.42,0.65) gimbal_deg=(6.61,0.29) armor_y_px=533.6 pixel_error_deg=(-2.86,-0.16) ballistic=(range=3.865m holdover=0.177m comp=2.58deg residual=-2.73deg) q_wxyz=(0.998334,0.000146,0.002530,-0.057652) cmd_deg=(8.23,-4.27) packed_pitch_deg=-4.27 control=true shoot=false
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=0
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:16:26.554] [info] [DRYRUN] measured_gimbal=(3.730,0.395,0.064) measured_world=(3.660,0.821,0.045) tracked_world=(3.694,0.411,0.044) target_gimbal_deg=(6.04,0.98) target_world_deg=(12.65,0.69) gimbal_deg=(6.61,0.29) armor_y_px=533.0 pixel_error_deg=(-5.14,-0.17) ballistic=(range=3.750m holdover=0.167m comp=2.51deg residual=-2.68deg) q_wxyz=(0.998334,0.000146,0.002530,-0.057652) cmd_deg=(7.46,-4.14) packed_pitch_deg=-4.14 control=true shoot=false
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:16:26.766] [warning] [XUC][PITCH] visual loss: control stopped, pitch state retained
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[2026-09-05 23:16:26.872] [warning] [XUC][YAW] visual loss: control stopped, yaw state retained
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:16:26.891] [info] [XUC][YAW] measurement reacquired with continuous slew
+[2026-09-05 23:16:26.891] [info] [XUC][PITCH] measurement reacquired with continuous slew
+[2026-09-05 23:16:26.894] [info] [SYNC][XUC] mode=0 yaw=-6.61 deg pitch=0.29 deg feeder_rpm=0.00 wheel0_rpm=0 wheel1_rpm=0 wheel_delta=0 projectile_speed=19.36 gate=0x1E switch=0 rc=1 sticks=1 imu=1 serial=1 control=0 yaw_armed=0 pitch_active=0
+[DEBUG] armors=0, targets=0
+[2026-09-05 23:16:26.909] [info] [DRYRUN] target=none gimbal_deg=(6.61,0.29) control=true shoot=false
+[2026-09-05 23:16:26.912] [info] [PERF] 总耗时=18.2ms (检测=15.7ms, 跟踪=0.0ms), FPS=54.9
+[2026-09-05 23:16:26.912] [info] 📊 [CAMERA FPS] 瞬时帧率=54.8fps, 平均帧率=55.5fps, 总帧数=1700, 运行时间=30.6s
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=0
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[2026-09-05 23:16:27.281] [info] [DRYRUN] target=none gimbal_deg=(6.61,0.29) control=true shoot=false
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=3, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:16:27.800] [info] [SYNC][XUC] mode=0 yaw=-6.61 deg pitch=0.29 deg feeder_rpm=0.00 wheel0_rpm=0 wheel1_rpm=0 wheel_delta=0 projectile_speed=19.36 gate=0x3E switch=0 rc=1 sticks=1 imu=1 serial=1 control=1 yaw_armed=0 pitch_active=0
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:16:27.818] [info] [PERF] 总耗时=18.6ms (检测=15.4ms, 跟踪=0.5ms), FPS=53.9
+[2026-09-05 23:16:27.818] [info] 📊 [CAMERA FPS] 瞬时帧率=53.7fps, 平均帧率=55.5fps, 总帧数=1750, 运行时间=31.5s
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=3, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=0
+[2026-09-05 23:16:28.354] [info] [DRYRUN] target=none gimbal_deg=(6.61,0.29) control=true shoot=false
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:16:28.600] [debug] [Target] r=0.099, l=-0.101
+[2026-09-05 23:16:28.600] [debug] [Tracker] Target diverged!
+[DEBUG] armors=1, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[2026-09-05 23:16:28.694] [info] [SYNC][XUC] mode=0 yaw=-6.61 deg pitch=0.29 deg feeder_rpm=-4.00 wheel0_rpm=0 wheel1_rpm=0 wheel_delta=0 projectile_speed=19.36 gate=0x3E switch=0 rc=1 sticks=1 imu=1 serial=1 control=1 yaw_armed=0 pitch_active=0
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:16:28.709] [info] [DRYRUN] measured_gimbal=(3.994,0.219,0.057) measured_world=(3.943,0.678,0.037) tracked_world=(3.943,0.678,0.037) target_gimbal_deg=(3.15,0.82) target_world_deg=(9.76,0.53) gimbal_deg=(6.61,0.29) armor_y_px=537.0 pixel_error_deg=(-2.18,-0.07) ballistic=(range=4.000m holdover=0.188m comp=2.66deg residual=-2.73deg) q_wxyz=(0.998334,0.000146,0.002530,-0.057652) cmd_deg=(8.60,-4.25) packed_pitch_deg=-4.25 control=true shoot=false
+[2026-09-05 23:16:28.712] [info] [PERF] 总耗时=18.3ms (检测=14.1ms, 跟踪=0.5ms), FPS=54.7
+[2026-09-05 23:16:28.712] [info] 📊 [CAMERA FPS] 瞬时帧率=54.4fps, 平均帧率=55.5fps, 总帧数=1800, 运行时间=32.4s
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=0
+[2026-09-05 23:16:29.069] [info] [DRYRUN] target=none gimbal_deg=(6.61,0.29) control=true shoot=false
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[2026-09-05 23:16:29.425] [info] [DRYRUN] target=none gimbal_deg=(6.61,0.29) control=true shoot=false
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:16:29.588] [info] [SYNC][XUC] mode=0 yaw=-6.61 deg pitch=0.29 deg feeder_rpm=0.00 wheel0_rpm=0 wheel1_rpm=0 wheel_delta=0 projectile_speed=19.36 gate=0x3E switch=0 rc=1 sticks=1 imu=1 serial=1 control=1 yaw_armed=0 pitch_active=0
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:16:29.606] [info] [PERF] 总耗时=18.3ms (检测=14.9ms, 跟踪=0.5ms), FPS=54.7
+[2026-09-05 23:16:29.606] [info] 📊 [CAMERA FPS] 瞬时帧率=54.6fps, 平均帧率=55.6fps, 总帧数=1850, 运行时间=33.3s
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:16:29.784] [info] [DRYRUN] measured_gimbal=(3.663,0.302,0.064) measured_world=(3.604,0.721,0.045) tracked_world=(3.581,0.713,0.045) target_gimbal_deg=(4.71,0.99) target_world_deg=(11.32,0.70) gimbal_deg=(6.61,0.29) armor_y_px=533.2 pixel_error_deg=(-3.81,-0.17) ballistic=(range=3.676m holdover=0.161m comp=2.47deg residual=-2.63deg) q_wxyz=(0.998334,0.000146,0.002530,-0.057652) cmd_deg=(7.43,-4.12) packed_pitch_deg=-4.12 control=true shoot=false
+[DEBUG] armors=1, targets=0
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[2026-09-05 23:16:30.138] [info] [DRYRUN] target=none gimbal_deg=(6.61,0.29) control=true shoot=false
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:16:30.479] [info] [SYNC][XUC] mode=0 yaw=-6.61 deg pitch=0.29 deg feeder_rpm=-4.00 wheel0_rpm=0 wheel1_rpm=0 wheel_delta=0 projectile_speed=19.36 gate=0x3E switch=0 rc=1 sticks=1 imu=1 serial=1 control=1 yaw_armed=0 pitch_active=0
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:16:30.496] [info] [DRYRUN] measured_gimbal=(3.954,0.254,0.066) measured_world=(3.898,0.708,0.046) tracked_world=(4.072,0.735,0.048) target_gimbal_deg=(3.68,0.95) target_world_deg=(10.29,0.66) gimbal_deg=(6.61,0.29) armor_y_px=532.0 pixel_error_deg=(-2.72,-0.20) ballistic=(range=3.962m holdover=0.185m comp=2.64deg residual=-2.83deg) q_wxyz=(0.998334,0.000146,0.002530,-0.057652) cmd_deg=(7.22,-4.48) packed_pitch_deg=-4.48 control=true shoot=false
+[2026-09-05 23:16:30.498] [info] [PERF] 总耗时=19.1ms (检测=15.6ms, 跟踪=0.5ms), FPS=52.4
+[2026-09-05 23:16:30.498] [info] 📊 [CAMERA FPS] 瞬时帧率=52.3fps, 平均帧率=55.6fps, 总帧数=1900, 运行时间=34.2s
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:16:30.852] [info] [DRYRUN] measured_gimbal=(3.767,-0.093,0.062) measured_world=(3.753,0.341,0.043) tracked_world=(3.778,0.902,0.043) target_gimbal_deg=(-1.42,0.95) target_world_deg=(5.19,0.66) gimbal_deg=(6.61,0.29) armor_y_px=538.4 pixel_error_deg=(1.46,-0.04) ballistic=(range=3.768m holdover=0.168m comp=2.52deg residual=-2.56deg) q_wxyz=(0.998334,0.000146,0.002530,-0.057652) cmd_deg=(6.96,-3.93) packed_pitch_deg=-3.93 control=true shoot=false
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=0
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:16:31.211] [info] [DRYRUN] measured_gimbal=(3.866,0.160,0.056) measured_world=(3.822,0.604,0.036) tracked_world=(3.867,0.612,0.037) target_gimbal_deg=(2.37,0.82) target_world_deg=(8.98,0.53) gimbal_deg=(6.61,0.29) armor_y_px=538.1 pixel_error_deg=(-1.42,-0.05) ballistic=(range=3.870m holdover=0.177m comp=2.58deg residual=-2.62deg) q_wxyz=(0.998334,0.000146,0.002530,-0.057652) cmd_deg=(6.96,-4.09) packed_pitch_deg=-4.09 control=true shoot=false
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[2026-09-05 23:16:31.375] [info] [SYNC][XUC] mode=0 yaw=-6.61 deg pitch=0.29 deg feeder_rpm=0.00 wheel0_rpm=0 wheel1_rpm=0 wheel_delta=0 projectile_speed=19.36 gate=0x3E switch=0 rc=1 sticks=1 imu=1 serial=1 control=1 yaw_armed=0 pitch_active=0
+[DEBUG] armors=0, targets=0
+[2026-09-05 23:16:31.394] [info] [PERF] 总耗时=18.2ms (检测=15.8ms, 跟踪=0.0ms), FPS=55.0
+[2026-09-05 23:16:31.394] [info] 📊 [CAMERA FPS] 瞬时帧率=54.8fps, 平均帧率=55.6fps, 总帧数=1950, 运行时间=35.1s
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=0
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:16:31.574] [info] [DRYRUN] measured_gimbal=(3.872,-0.097,0.056) measured_world=(3.857,0.350,0.036) tracked_world=(3.857,0.350,0.036) target_gimbal_deg=(-1.43,0.83) target_world_deg=(5.18,0.54) gimbal_deg=(6.61,0.29) armor_y_px=538.0 pixel_error_deg=(2.36,-0.05) ballistic=(range=3.873m holdover=0.177m comp=2.58deg residual=-2.63deg) q_wxyz=(0.998334,0.000146,0.002530,-0.057652) cmd_deg=(6.96,-4.15) packed_pitch_deg=-4.15 control=true shoot=false
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=0
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=0
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:16:32.278] [info] [SYNC][XUC] mode=0 yaw=-6.61 deg pitch=0.29 deg feeder_rpm=-4.00 wheel0_rpm=0 wheel1_rpm=0 wheel_delta=0 projectile_speed=19.36 gate=0x3E switch=0 rc=1 sticks=1 imu=1 serial=1 control=1 yaw_armed=0 pitch_active=0
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:16:32.293] [info] [DRYRUN] measured_gimbal=(3.945,0.285,0.060) measured_world=(3.886,0.737,0.040) tracked_world=(3.965,0.748,0.039) target_gimbal_deg=(4.13,0.87) target_world_deg=(10.74,0.58) gimbal_deg=(6.61,0.29) armor_y_px=535.6 pixel_error_deg=(-3.17,-0.11) ballistic=(range=3.955m holdover=0.184m comp=2.63deg residual=-2.74deg) q_wxyz=(0.998334,0.000146,0.002530,-0.057652) cmd_deg=(7.37,-4.24) packed_pitch_deg=-4.24 control=true shoot=false
+[2026-09-05 23:16:32.296] [info] [PERF] 总耗时=18.0ms (检测=14.7ms, 跟踪=0.5ms), FPS=55.5
+[2026-09-05 23:16:32.296] [info] 📊 [CAMERA FPS] 瞬时帧率=55.4fps, 平均帧率=55.6fps, 总帧数=2000, 运行时间=36.0s
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:16:32.664] [info] [DRYRUN] measured_gimbal=(3.664,0.406,0.060) measured_world=(3.593,0.826,0.041) tracked_world=(3.613,0.419,0.042) target_gimbal_deg=(6.33,0.93) target_world_deg=(12.94,0.64) gimbal_deg=(6.61,0.29) armor_y_px=535.8 pixel_error_deg=(0.78,-0.10) ballistic=(range=3.686m holdover=0.162m comp=2.47deg residual=-2.57deg) q_wxyz=(0.998334,0.000146,0.002530,-0.057652) cmd_deg=(7.53,-3.94) packed_pitch_deg=-3.94 control=true shoot=false
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:16:32.878] [warning] [XUC][PITCH] visual loss: control stopped, pitch state retained
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:16:32.915] [info] [XUC][PITCH] measurement reacquired with continuous slew
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[2026-09-05 23:16:33.019] [info] [DRYRUN] target=none gimbal_deg=(6.61,0.29) control=true shoot=false
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:16:33.185] [info] [SYNC][XUC] mode=0 yaw=-6.61 deg pitch=0.29 deg feeder_rpm=0.00 wheel0_rpm=0 wheel1_rpm=0 wheel_delta=0 projectile_speed=19.36 gate=0x3E switch=0 rc=1 sticks=1 imu=1 serial=1 control=1 yaw_armed=0 pitch_active=0
+[DEBUG] armors=0, targets=0
+[2026-09-05 23:16:33.202] [info] [PERF] 总耗时=17.6ms (检测=15.2ms, 跟踪=0.0ms), FPS=56.8
+[2026-09-05 23:16:33.202] [info] 📊 [CAMERA FPS] 瞬时帧率=56.7fps, 平均帧率=55.6fps, 总帧数=2050, 运行时间=36.9s
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=0
+[DEBUG] armors=0, targets=0
+[2026-09-05 23:16:33.386] [info] [DRYRUN] target=none gimbal_deg=(6.61,0.29) control=true shoot=false
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[2026-09-05 23:16:33.742] [info] [DRYRUN] target=none gimbal_deg=(6.61,0.29) control=true shoot=false
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:16:34.087] [info] [SYNC][XUC] mode=0 yaw=-6.61 deg pitch=0.29 deg feeder_rpm=0.00 wheel0_rpm=0 wheel1_rpm=0 wheel_delta=0 projectile_speed=19.36 gate=0x3E switch=0 rc=1 sticks=1 imu=1 serial=1 control=1 yaw_armed=0 pitch_active=0
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:16:34.104] [info] [DRYRUN] measured_gimbal=(4.190,0.362,0.066) measured_world=(4.121,0.842,0.045) tracked_world=(4.058,0.826,0.044) target_gimbal_deg=(4.93,0.90) target_world_deg=(11.54,0.61) gimbal_deg=(6.61,0.29) armor_y_px=532.3 pixel_error_deg=(-3.95,-0.19) ballistic=(range=4.206m holdover=0.208m comp=2.79deg residual=-2.97deg) q_wxyz=(0.998334,0.000146,0.002530,-0.057652) cmd_deg=(8.11,-4.57) packed_pitch_deg=-4.57 control=true shoot=false
+[2026-09-05 23:16:34.106] [info] [PERF] 总耗时=19.0ms (检测=15.8ms, 跟踪=0.5ms), FPS=52.7
+[2026-09-05 23:16:34.106] [info] 📊 [CAMERA FPS] 瞬时帧率=52.7fps, 平均帧率=55.6fps, 总帧数=2100, 运行时间=37.8s
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:16:34.158] [info] [XUC][GYRO] center_follow=false tracker=temp_lost omega=+0.043rad_s radius=0.222m
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[2026-09-05 23:16:34.463] [info] [DRYRUN] target=none gimbal_deg=(6.61,0.29) control=true shoot=false
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[2026-09-05 23:16:34.627] [warning] [XUC][PITCH] visual loss: control stopped, pitch state retained
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:16:34.647] [info] [XUC][PITCH] measurement reacquired with continuous slew
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:16:34.827] [info] [DRYRUN] measured_gimbal=(3.780,0.247,0.056) measured_world=(3.727,0.680,0.036) tracked_world=(3.727,0.680,0.036) target_gimbal_deg=(3.73,0.84) target_world_deg=(10.34,0.55) gimbal_deg=(6.61,0.29) armor_y_px=538.3 pixel_error_deg=(-2.80,-0.04) ballistic=(range=3.788m holdover=0.170m comp=2.53deg residual=-2.57deg) q_wxyz=(0.998334,0.000146,0.002530,-0.057652) cmd_deg=(8.66,-4.01) packed_pitch_deg=-4.01 control=true shoot=false
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:16:34.992] [info] [SYNC][XUC] mode=0 yaw=-6.61 deg pitch=0.29 deg feeder_rpm=0.00 wheel0_rpm=0 wheel1_rpm=0 wheel_delta=0 projectile_speed=19.36 gate=0x3E switch=0 rc=1 sticks=1 imu=1 serial=1 control=1 yaw_armed=0 pitch_active=0
+[DEBUG] armors=0, targets=0
+[2026-09-05 23:16:35.010] [info] [PERF] 总耗时=17.7ms (检测=15.1ms, 跟踪=0.0ms), FPS=56.4
+[2026-09-05 23:16:35.010] [info] 📊 [CAMERA FPS] 瞬时帧率=56.2fps, 平均帧率=55.5fps, 总帧数=2150, 运行时间=38.7s
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:16:35.119] [info] [XUC][GYRO] center_follow=true tracker=tracking omega=-1.046rad_s radius=0.287m
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:16:35.194] [info] [DRYRUN] measured_gimbal=(3.715,-0.037,0.055) measured_world=(3.695,0.391,0.036) tracked_world=(3.671,0.388,0.037) target_gimbal_deg=(-0.57,0.85) target_world_deg=(6.04,0.56) gimbal_deg=(6.61,0.29) armor_y_px=538.8 pixel_error_deg=(1.47,-0.03) ballistic=(range=3.715m holdover=0.164m comp=2.49deg residual=-2.52deg) q_wxyz=(0.998334,0.000146,0.002530,-0.057652) cmd_deg=(7.34,-3.88) packed_pitch_deg=-3.88 control=true shoot=false
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=0
+[DEBUG] armors=0, targets=0
+[2026-09-05 23:16:35.902] [info] [SYNC][XUC] mode=0 yaw=-6.61 deg pitch=0.29 deg feeder_rpm=0.00 wheel0_rpm=0 wheel1_rpm=0 wheel_delta=0 projectile_speed=19.36 gate=0x3E switch=0 rc=1 sticks=1 imu=1 serial=1 control=1 yaw_armed=0 pitch_active=0
+[DEBUG] armors=3, targets=1
+[2026-09-05 23:16:35.918] [info] [DRYRUN] measured_gimbal=(4.042,0.352,0.058) measured_world=(3.974,0.815,0.037) tracked_world=(3.736,0.358,0.039) target_gimbal_deg=(4.97,0.82) target_world_deg=(11.58,0.53) gimbal_deg=(6.61,0.29) armor_y_px=535.3 pixel_error_deg=(-4.35,-0.11) ballistic=(range=4.057m holdover=0.194m comp=2.69deg residual=-2.81deg) q_wxyz=(0.998334,0.000146,0.002530,-0.057652) cmd_deg=(7.60,-4.29) packed_pitch_deg=-4.29 control=true shoot=false
+[2026-09-05 23:16:35.921] [info] [PERF] 总耗时=18.9ms (检测=14.7ms, 跟踪=0.5ms), FPS=53.0
+[2026-09-05 23:16:35.921] [info] 📊 [CAMERA FPS] 瞬时帧率=52.9fps, 平均帧率=55.5fps, 总帧数=2200, 运行时间=39.6s
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:16:36.366] [warning] [XUC][PITCH] visual loss: control stopped, pitch state retained
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:16:36.385] [info] [XUC][PITCH] measurement reacquired with continuous slew
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:16:36.635] [info] [DRYRUN] measured_gimbal=(4.090,0.296,0.065) measured_world=(4.029,0.765,0.044) tracked_world=(3.938,0.742,0.042) target_gimbal_deg=(4.14,0.90) target_world_deg=(10.75,0.61) gimbal_deg=(6.61,0.29) armor_y_px=532.9 pixel_error_deg=(-3.16,-0.17) ballistic=(range=4.100m holdover=0.198m comp=2.72deg residual=-2.89deg) q_wxyz=(0.998334,0.000146,0.002530,-0.057652) cmd_deg=(7.90,-4.40) packed_pitch_deg=-4.40 control=true shoot=false
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:16:36.807] [info] [SYNC][XUC] mode=0 yaw=-6.61 deg pitch=0.29 deg feeder_rpm=-4.00 wheel0_rpm=0 wheel1_rpm=0 wheel_delta=0 projectile_speed=19.36 gate=0x3E switch=0 rc=1 sticks=1 imu=1 serial=1 control=1 yaw_armed=0 pitch_active=0
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:16:36.826] [info] [PERF] 总耗时=18.4ms (检测=14.2ms, 跟踪=0.8ms), FPS=54.4
+[2026-09-05 23:16:36.826] [info] 📊 [CAMERA FPS] 瞬时帧率=54.4fps, 平均帧率=55.5fps, 总帧数=2250, 运行时间=40.5s
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:16:37.001] [info] [DRYRUN] measured_gimbal=(3.741,-0.081,0.063) measured_world=(3.726,0.350,0.044) tracked_world=(3.695,0.411,0.044) target_gimbal_deg=(-1.24,0.97) target_world_deg=(5.37,0.68) gimbal_deg=(6.61,0.29) armor_y_px=534.1 pixel_error_deg=(1.03,-0.14) ballistic=(range=3.742m holdover=0.166m comp=2.50deg residual=-2.65deg) q_wxyz=(0.998334,0.000146,0.002530,-0.057652) cmd_deg=(7.35,-4.08) packed_pitch_deg=-4.08 control=true shoot=false
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:16:37.193] [warning] [XUC][PITCH] visual loss: control stopped, pitch state retained
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:16:37.245] [info] [XUC][PITCH] measurement reacquired with continuous slew
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:16:37.683] [info] [SYNC][XUC] mode=0 yaw=-6.61 deg pitch=0.29 deg feeder_rpm=0.00 wheel0_rpm=0 wheel1_rpm=0 wheel_delta=0 projectile_speed=19.36 gate=0x3E switch=0 rc=1 sticks=1 imu=1 serial=1 control=1 yaw_armed=0 pitch_active=0
+[DEBUG] armors=1, targets=0
+[2026-09-05 23:16:37.698] [info] [DRYRUN] target=none gimbal_deg=(6.61,0.29) control=true shoot=false
+[2026-09-05 23:16:37.700] [info] [PERF] 总耗时=16.7ms (检测=14.5ms, 跟踪=0.0ms), FPS=60.0
+[2026-09-05 23:16:37.700] [info] 📊 [CAMERA FPS] 瞬时帧率=59.7fps, 平均帧率=55.6fps, 总帧数=2300, 运行时间=41.4s
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:16:38.093] [warning] [XUC][PITCH] visual loss: control stopped, pitch state retained
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:16:38.129] [info] [XUC][PITCH] measurement reacquired with continuous slew
+[DEBUG] armors=1, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[2026-09-05 23:16:38.410] [info] [DRYRUN] target=none gimbal_deg=(6.61,0.29) control=true shoot=false
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=0, targets=0
+[2026-09-05 23:16:38.573] [info] [SYNC][XUC] mode=0 yaw=-6.61 deg pitch=0.29 deg feeder_rpm=3.00 wheel0_rpm=0 wheel1_rpm=0 wheel_delta=0 projectile_speed=19.36 gate=0x3E switch=0 rc=1 sticks=1 imu=1 serial=1 control=1 yaw_armed=0 pitch_active=0
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:16:38.590] [info] [PERF] 总耗时=16.8ms (检测=14.0ms, 跟踪=0.4ms), FPS=59.6
+[2026-09-05 23:16:38.590] [info] 📊 [CAMERA FPS] 瞬时帧率=59.5fps, 平均帧率=55.6fps, 总帧数=2350, 运行时间=42.3s
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:16:38.772] [info] [DRYRUN] measured_gimbal=(3.652,0.011,0.056) measured_world=(3.627,0.431,0.037) tracked_world=(3.668,0.434,0.037) target_gimbal_deg=(0.17,0.87) target_world_deg=(6.78,0.58) gimbal_deg=(6.61,0.29) armor_y_px=538.4 pixel_error_deg=(0.72,-0.04) ballistic=(range=3.652m holdover=0.159m comp=2.45deg residual=-2.49deg) q_wxyz=(0.998334,0.000146,0.002530,-0.057652) cmd_deg=(7.45,-3.90) packed_pitch_deg=-3.90 control=true shoot=false
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=0
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:16:39.126] [info] [DRYRUN] measured_gimbal=(4.111,0.229,0.057) measured_world=(4.057,0.701,0.036) tracked_world=(4.057,0.701,0.036) target_gimbal_deg=(3.19,0.79) target_world_deg=(9.80,0.50) gimbal_deg=(6.61,0.29) armor_y_px=537.4 pixel_error_deg=(-2.21,-0.06) ballistic=(range=4.117m holdover=0.199m comp=2.73deg residual=-2.79deg) q_wxyz=(0.998334,0.000146,0.002530,-0.057652) cmd_deg=(7.46,-4.07) packed_pitch_deg=-4.07 control=true shoot=false
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:16:39.474] [info] [SYNC][XUC] mode=0 yaw=-6.61 deg pitch=0.29 deg feeder_rpm=-4.00 wheel0_rpm=0 wheel1_rpm=0 wheel_delta=0 projectile_speed=19.36 gate=0x3E switch=0 rc=1 sticks=1 imu=1 serial=1 control=1 yaw_armed=0 pitch_active=0
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:16:39.490] [info] [DRYRUN] measured_gimbal=(3.722,-0.042,0.060) measured_world=(3.702,0.387,0.041) tracked_world=(3.665,0.380,0.040) target_gimbal_deg=(-0.64,0.92) target_world_deg=(5.97,0.63) gimbal_deg=(6.61,0.29) armor_y_px=535.8 pixel_error_deg=(1.54,-0.10) ballistic=(range=3.722m holdover=0.165m comp=2.49deg residual=-2.59deg) q_wxyz=(0.998334,0.000146,0.002530,-0.057652) cmd_deg=(7.46,-4.00) packed_pitch_deg=-4.00 control=true shoot=false
+[2026-09-05 23:16:39.492] [info] [PERF] 总耗时=18.3ms (检测=15.2ms, 跟踪=0.5ms), FPS=54.6
+[2026-09-05 23:16:39.492] [info] 📊 [CAMERA FPS] 瞬时帧率=54.5fps, 平均帧率=55.6fps, 总帧数=2400, 运行时间=43.2s
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=0, targets=0
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:16:40.194] [info] [DRYRUN] measured_gimbal=(4.132,0.291,0.063) measured_world=(4.071,0.764,0.042) tracked_world=(3.978,0.793,0.041) target_gimbal_deg=(4.02,0.87) target_world_deg=(10.63,0.58) gimbal_deg=(6.61,0.29) armor_y_px=533.1 pixel_error_deg=(-3.79,-0.17) ballistic=(range=4.142m holdover=0.201m comp=2.75deg residual=-2.91deg) q_wxyz=(0.998334,0.000146,0.002530,-0.057652) cmd_deg=(8.14,-4.47) packed_pitch_deg=-4.47 control=true shoot=false
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:16:40.358] [info] [SYNC][XUC] mode=0 yaw=-6.61 deg pitch=0.29 deg feeder_rpm=0.00 wheel0_rpm=0 wheel1_rpm=0 wheel_delta=0 projectile_speed=19.36 gate=0x3E switch=0 rc=1 sticks=1 imu=1 serial=1 control=1 yaw_armed=0 pitch_active=0
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:16:40.376] [info] [PERF] 总耗时=18.0ms (检测=14.9ms, 跟踪=0.0ms), FPS=55.6
+[2026-09-05 23:16:40.376] [info] 📊 [CAMERA FPS] 瞬时帧率=55.5fps, 平均帧率=55.6fps, 总帧数=2450, 运行时间=44.1s
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=2, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:16:40.718] [warning] [XUC][PITCH] visual loss: control stopped, pitch state retained
+[DEBUG] armors=0, targets=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:16:40.754] [info] [XUC][PITCH] measurement reacquired with continuous slew
+[DEBUG] armors=1, targets=1
+[DEBUG] armors=1, targets=1

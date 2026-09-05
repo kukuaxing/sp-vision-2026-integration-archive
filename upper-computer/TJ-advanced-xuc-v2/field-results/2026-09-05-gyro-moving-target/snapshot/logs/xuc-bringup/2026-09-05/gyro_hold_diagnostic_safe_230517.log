@@ -1,0 +1,1605 @@
+[2026-09-05 23:05:17.386] [info] [Performance] Thread limits: OpenCV=1, TBB=4, OMP=4
+[2026-09-05 23:05:17.408] [info] [ROS2Visualizer] Initialized: node=standard_node, marker_topic=standard_markers
+[2026-09-05 23:05:17.408] [info] [ROS2] Visualizer initialized
+[2026-09-05 23:05:17.408] [info] [ROS2Visualizer] Spin thread started
+[2026-09-05 23:05:17.409] [info] [CBoard] disabled (cboard_enable=false); XUC is expected to provide IMU
+[2026-09-05 23:05:17.409] [info] Camera constructor: config_path=configs/standard_hikrobot_lowlight_exp6_gain16_conf10_gyro_diagnostic_safe.yaml, camera_name=hikrobot
+[2026-09-05 23:05:17.409] [info] Creating HikRobot camera
+[2026-09-05 23:05:17.410] [info] HikRobot's daemon thread started.
+[2026-09-05 23:05:17.410] [info] Camera constructor completed
+[2026-09-05 23:05:17.411] [info] [XUC] serial opened /dev/serial/by-id/usb-1a86_USB_Serial-if00-port0 @ 460800 baud, angles=rad, yaw_sign=0.94074425, pitch_sign=1, imu_yaw_sign=-1.06298816, imu_pitch_sign=1, allow_control=false, allow_shoot=false, require_feedback=true, require_auto_mode=false, max_yaw_excursion_deg=0.00, lock_pitch=false
+[2026-09-05 23:05:17.411] [warning] [XUC][SAFE] control output is forced to zero
+[2026-09-05 23:05:17.411] [warning] [XUC][SAFE] shoot output is forced to zero
+*******XOpenDisplay Fail ******* 
+[2026-09-05 23:05:17.462] [info] [YOLO26] CPU cores: 16, big cores found: 4, core_type: unavailable, max_freq: 4900000
+[2026-09-05 23:05:17.462] [info] [YOLO26] Big core ids: [4,5,6,7]
+[2026-09-05 23:05:17.462] [info] [YOLO26] Successfully bound to 4 big cores
+[2026-09-05 23:05:17.463] [info] [YOLO26] Disabled OpenCV threading to avoid CPU contention
+[2026-09-05 23:05:17.479] [info] [YOLO26] Compiling model with 4 threads (LATENCY mode)
+[2026-09-05 23:05:17.743] [info] [YOLO26] Initialization complete - SYNC mode optimized
+[2026-09-05 23:05:17.743] [info] [YOLO26] Config: threads=4, streams=1, requests=1, letterbox=114, min_confidence=0.10, min_keypoint_confidence=0.00, swap_rb=false, refine_color=true, color_delta=6.0, color_hold_frames=20, save_samples=false, debug=true
+[2026-09-05 23:05:17.748] [info] === All modules initialized ===
+[2026-09-05 23:05:17.748] [info] [ROS2Visualizer] Published static TF: gimbal -> camera
+[2026-09-05 23:05:17.748] [info] [ROS2] Published static TF: gimbal -> camera
+[2026-09-05 23:05:17.748] [info] === Entering main loop ===
+[2026-09-05 23:05:17.748] [info] [SYNC] 发送默认命令，等待相机触发
+[2026-09-05 23:05:18.592] [info] [HikRobot][READBACK] image=1440x1080, pixel_format=0x1080009
+[2026-09-05 23:05:18.593] [info] [HikRobot][READBACK] exposure_us=6000.0 auto=0, gain=16.01 auto=0, white_balance_auto=0
+[2026-09-05 23:05:18.594] [info] [HikRobot][READBACK] trigger=off (continuous acquisition)
+[2026-09-05 23:05:18.594] [info] [HikRobot][READBACK] acquisition_fps=150.00
+[2026-09-05 23:05:18.607] [info] HikRobot's capture thread started.
+[2026-09-05 23:05:18.618] [info] [HikRobot] first frame: 1440x1080, pixel_type=0x1080009, frame_len=1555200
+[2026-09-05 23:05:18.644] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.2344 max_class=11 max_min_kpt=0.9854 refined_color=1 color_score=-80.12 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:18.723] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.4212 max_class=11 max_min_kpt=0.9967 refined_color=1 color_score=-87.30 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:18.745] [info] [YOLO26][DET] above_0p2=2 after_nms=1 accepted=1 max_conf=0.2211 max_class=11 max_min_kpt=0.9852 refined_color=1 color_score=-83.73 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:18.774] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1450 max_class=10 max_min_kpt=0.9573 refined_color=1 color_score=-88.46 color_source=1
+[DEBUG] armors=1, targets=0
+[2026-09-05 23:05:18.799] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1094 max_class=11 max_min_kpt=0.9890 refined_color=1 color_score=-89.01 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:18.824] [info] [YOLO26][DET] above_0p2=2 after_nms=1 accepted=1 max_conf=0.1813 max_class=14 max_min_kpt=0.9799 refined_color=1 color_score=-77.56 color_source=1
+[DEBUG] armors=1, targets=0
+[2026-09-05 23:05:18.848] [info] [YOLO26][DET] above_0p2=2 after_nms=2 accepted=2 max_conf=0.4442 max_class=11 max_min_kpt=0.9945 refined_color=1 color_score=-81.88 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:18.871] [info] [YOLO26][DET] above_0p2=2 after_nms=1 accepted=1 max_conf=0.4366 max_class=11 max_min_kpt=0.9919 refined_color=1 color_score=-107.04 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:18.899] [info] [YOLO26][DET] above_0p2=2 after_nms=2 accepted=2 max_conf=0.2966 max_class=11 max_min_kpt=0.9887 refined_color=1 color_score=-84.81 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:18.922] [info] [YOLO26][DET] above_0p2=3 after_nms=2 accepted=2 max_conf=0.5757 max_class=11 max_min_kpt=0.9863 refined_color=1 color_score=-85.84 color_source=1
+[2026-09-05 23:05:18.924] [info] [XUC][GYRO] center_follow=true tracker=detecting omega=-1.725rad_s radius=0.266m
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:18.948] [info] [YOLO26][DET] above_0p2=3 after_nms=2 accepted=2 max_conf=0.6939 max_class=11 max_min_kpt=0.9897 refined_color=1 color_score=-83.82 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:18.973] [info] [YOLO26][DET] above_0p2=2 after_nms=2 accepted=2 max_conf=0.5148 max_class=11 max_min_kpt=0.9830 refined_color=1 color_score=-79.00 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:18.995] [info] [YOLO26][DET] above_0p2=3 after_nms=2 accepted=2 max_conf=0.6972 max_class=11 max_min_kpt=0.9885 refined_color=1 color_score=-85.96 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:18.997] [info] [XUC][FIRE] stable-window candidate started
+[2026-09-05 23:05:19.019] [info] [YOLO26][DET] above_0p2=2 after_nms=2 accepted=2 max_conf=0.5617 max_class=11 max_min_kpt=0.9854 refined_color=1 color_score=-83.22 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:19.044] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.4224 max_class=10 max_min_kpt=0.9503 refined_color=1 color_score=-69.27 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:19.046] [info] [XUC][FIRE] qualified after 47 ms, pixel error deg=(1.65,0.04) gyro=true face_error=1.48deg omega=-1.467rad_s armed=true
+[2026-09-05 23:05:19.067] [info] [YOLO26][DET] above_0p2=2 after_nms=2 accepted=2 max_conf=0.2217 max_class=10 max_min_kpt=0.9833 refined_color=1 color_score=-86.93 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:19.069] [info] [XUC][FIRE] stable window reset
+[2026-09-05 23:05:19.088] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.2586 max_class=10 max_min_kpt=0.9578 refined_color=1 color_score=-79.43 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:19.110] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1763 max_class=10 max_min_kpt=0.9500 refined_color=1 color_score=-84.10 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:19.133] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1562 max_class=10 max_min_kpt=0.9500 refined_color=1 color_score=-92.22 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:19.152] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1499 max_class=10 max_min_kpt=0.9451 refined_color=1 color_score=-73.87 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:19.154] [info] [DRYRUN] measured_gimbal=(3.961,0.403,0.050) measured_world=(3.878,0.903,0.041) tracked_world=(3.871,0.503,0.039) target_gimbal_deg=(5.81,0.73) target_world_deg=(13.12,0.60) gimbal_deg=(7.31,0.13) armor_y_px=540.6 pixel_error_deg=(0.76,0.01) ballistic=(range=nanm holdover=0.000m comp=0.00deg residual=0.01deg) q_wxyz=(0.997967,0.000073,0.001147,-0.063723) cmd_deg=(8.01,0.15) packed_pitch_deg=0.15 control=true shoot=false
+[2026-09-05 23:05:19.173] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1159 max_class=8 max_min_kpt=0.9521 refined_color=1 color_score=-72.38 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:19.192] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0667 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:19.212] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0848 max_class=10 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:19.233] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0540 max_class=10 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:19.255] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0866 max_class=10 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:19.276] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0702 max_class=10 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:19.298] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1319 max_class=10 max_min_kpt=0.9545 refined_color=1 color_score=-70.01 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:19.316] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1460 max_class=8 max_min_kpt=0.9564 refined_color=1 color_score=-80.47 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:19.336] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0944 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:19.356] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0432 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:19.376] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0842 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:19.396] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1348 max_class=8 max_min_kpt=0.9507 refined_color=1 color_score=-82.69 color_source=1
+[DEBUG] armors=1, targets=0
+[2026-09-05 23:05:19.418] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1031 max_class=8 max_min_kpt=0.9421 refined_color=1 color_score=-68.79 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:19.441] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1666 max_class=8 max_min_kpt=0.9539 refined_color=1 color_score=-71.29 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:19.459] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0312 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=0
+[2026-09-05 23:05:19.479] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0947 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=0
+[2026-09-05 23:05:19.498] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0458 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=0
+[2026-09-05 23:05:19.516] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0882 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=0
+[2026-09-05 23:05:19.535] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0972 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=0
+[2026-09-05 23:05:19.555] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.2920 max_class=11 max_min_kpt=0.9932 refined_color=1 color_score=-88.12 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:19.557] [info] [DRYRUN] measured_gimbal=(3.585,0.207,0.054) measured_world=(3.529,0.661,0.045) tracked_world=(3.529,0.661,0.045) target_gimbal_deg=(3.30,0.86) target_world_deg=(10.61,0.73) gimbal_deg=(7.31,0.13) armor_y_px=539.7 pixel_error_deg=(-2.42,-0.01) ballistic=(range=nanm holdover=0.000m comp=0.00deg residual=-0.01deg) q_wxyz=(0.997967,0.000073,0.001147,-0.063723) cmd_deg=(8.28,0.14) packed_pitch_deg=0.14 control=true shoot=false
+[2026-09-05 23:05:19.576] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0791 max_class=11 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=0
+[2026-09-05 23:05:19.597] [info] [YOLO26][DET] above_0p2=2 after_nms=1 accepted=1 max_conf=0.2627 max_class=11 max_min_kpt=0.9957 refined_color=1 color_score=-84.99 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:19.618] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.5171 max_class=11 max_min_kpt=0.9913 refined_color=1 color_score=-79.30 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:19.639] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1156 max_class=11 max_min_kpt=0.9915 refined_color=1 color_score=-89.32 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:19.658] [info] [YOLO26][DET] above_0p2=3 after_nms=2 accepted=2 max_conf=0.2705 max_class=11 max_min_kpt=0.9926 refined_color=1 color_score=-90.41 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:19.678] [info] [YOLO26][DET] above_0p2=2 after_nms=2 accepted=2 max_conf=0.3890 max_class=11 max_min_kpt=0.9925 refined_color=1 color_score=-87.85 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:19.697] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.4740 max_class=11 max_min_kpt=0.9851 refined_color=1 color_score=-81.12 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:19.714] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0609 max_class=10 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:19.734] [info] [YOLO26][DET] above_0p2=2 after_nms=2 accepted=2 max_conf=0.2923 max_class=11 max_min_kpt=0.9941 refined_color=1 color_score=-84.52 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:19.739] [info] [SYNC][XUC] mode=0 yaw=-7.31 deg pitch=0.13 deg feeder_rpm=0.00 wheel0_rpm=0 wheel1_rpm=0 wheel_delta=0 projectile_speed=19.36 gate=0x1E switch=0 rc=1 sticks=1 imu=1 serial=1 control=0 yaw_armed=0 pitch_active=0
+[2026-09-05 23:05:19.754] [info] [YOLO26][DET] above_0p2=2 after_nms=2 accepted=2 max_conf=0.4615 max_class=11 max_min_kpt=0.9909 refined_color=1 color_score=-98.76 color_source=1
+[2026-09-05 23:05:19.760] [info] [YOLO26] ==================== Performance ====================
+[2026-09-05 23:05:19.760] [info] [YOLO26] Preprocess:  1.028 ms (4.8%)
+[2026-09-05 23:05:19.760] [info] [YOLO26] Inference:   14.461 ms (67.6%)
+[2026-09-05 23:05:19.760] [info] [YOLO26] Postprocess: 5.888 ms (27.5%)
+[2026-09-05 23:05:19.760] [info] [YOLO26] Total:       21.377 ms (46.8 FPS)
+[2026-09-05 23:05:19.760] [info] [YOLO26] ======================================================
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:19.764] [info] [PERF] 总耗时=25.6ms (检测=21.4ms, 跟踪=0.9ms), FPS=39.1
+[2026-09-05 23:05:19.764] [info] 📊 [CAMERA FPS] 瞬时帧率=38.9fps, 平均帧率=43.7fps, 总帧数=50, 运行时间=1.1s
+[2026-09-05 23:05:19.779] [info] [YOLO26][DET] above_0p2=3 after_nms=2 accepted=2 max_conf=0.2595 max_class=11 max_min_kpt=0.9902 refined_color=1 color_score=-87.71 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:19.800] [info] [YOLO26][DET] above_0p2=2 after_nms=2 accepted=2 max_conf=0.3815 max_class=11 max_min_kpt=0.9858 refined_color=1 color_score=-74.23 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:19.822] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.3306 max_class=11 max_min_kpt=0.9941 refined_color=1 color_score=-83.87 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:19.840] [info] [YOLO26][DET] above_0p2=3 after_nms=2 accepted=2 max_conf=0.3244 max_class=11 max_min_kpt=0.9921 refined_color=1 color_score=-81.38 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:19.842] [info] [XUC][FIRE] stable-window candidate started
+[2026-09-05 23:05:19.861] [info] [YOLO26][DET] above_0p2=3 after_nms=2 accepted=2 max_conf=0.3701 max_class=11 max_min_kpt=0.9926 refined_color=1 color_score=-77.63 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:19.880] [info] [YOLO26][DET] above_0p2=4 after_nms=2 accepted=2 max_conf=0.3323 max_class=10 max_min_kpt=0.9912 refined_color=1 color_score=-83.58 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:19.882] [info] [XUC][FIRE] qualified after 33 ms, pixel error deg=(2.06,-0.03) gyro=true face_error=3.94deg omega=-1.654rad_s armed=true
+[2026-09-05 23:05:19.900] [info] [YOLO26][DET] above_0p2=2 after_nms=2 accepted=2 max_conf=0.4166 max_class=10 max_min_kpt=0.9933 refined_color=1 color_score=-77.77 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:19.902] [info] [XUC][FIRE] stable window reset
+[2026-09-05 23:05:19.920] [info] [YOLO26][DET] above_0p2=3 after_nms=3 accepted=3 max_conf=0.3414 max_class=10 max_min_kpt=0.9934 refined_color=1 color_score=-72.44 color_source=1
+[DEBUG] armors=3, targets=1
+[2026-09-05 23:05:19.941] [info] [YOLO26][DET] above_0p2=2 after_nms=1 accepted=1 max_conf=0.2589 max_class=10 max_min_kpt=0.9915 refined_color=1 color_score=-70.32 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:19.961] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1756 max_class=10 max_min_kpt=0.9601 refined_color=1 color_score=-85.01 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:19.964] [info] [DRYRUN] measured_gimbal=(3.983,0.386,0.053) measured_world=(3.902,0.889,0.044) tracked_world=(3.811,0.872,0.045) target_gimbal_deg=(5.53,0.76) target_world_deg=(12.84,0.62) gimbal_deg=(7.31,0.13) armor_y_px=538.6 pixel_error_deg=(1.45,-0.03) ballistic=(range=nanm holdover=0.000m comp=0.00deg residual=-0.03deg) q_wxyz=(0.997967,0.000073,0.001147,-0.063723) cmd_deg=(7.99,0.08) packed_pitch_deg=0.08 control=true shoot=false
+[2026-09-05 23:05:19.981] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0659 max_class=10 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:20.001] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0610 max_class=11 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:20.020] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0949 max_class=11 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:20.039] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0501 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:20.058] [info] [YOLO26][DET] above_0p2=2 after_nms=1 accepted=1 max_conf=0.1729 max_class=11 max_min_kpt=0.9934 refined_color=1 color_score=-89.16 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:20.077] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1015 max_class=8 max_min_kpt=0.9482 refined_color=1 color_score=-88.79 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:20.096] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1275 max_class=8 max_min_kpt=0.9585 refined_color=1 color_score=-80.04 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:20.116] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0635 max_class=11 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:20.135] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0388 max_class=10 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:20.155] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0571 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:20.176] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1197 max_class=11 max_min_kpt=0.9928 refined_color=1 color_score=-89.59 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:20.198] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0730 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:20.218] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1347 max_class=8 max_min_kpt=0.9527 refined_color=1 color_score=-69.29 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:20.237] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0317 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:20.256] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0761 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:20.274] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0753 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:20.293] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0924 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:20.311] [info] [YOLO26][DET] above_0p2=2 after_nms=1 accepted=1 max_conf=0.2569 max_class=11 max_min_kpt=0.9945 refined_color=1 color_score=-78.74 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:20.331] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0694 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:20.350] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1043 max_class=8 max_min_kpt=0.9622 refined_color=1 color_score=-58.49 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:20.351] [info] [DRYRUN] measured_gimbal=(3.533,0.148,0.056) measured_world=(3.486,0.597,0.048) tracked_world=(3.906,0.872,0.049) target_gimbal_deg=(2.41,0.91) target_world_deg=(9.71,0.78) gimbal_deg=(7.31,0.13) armor_y_px=538.9 pixel_error_deg=(-1.81,-0.03) ballistic=(range=nanm holdover=0.000m comp=0.00deg residual=-0.03deg) q_wxyz=(0.997967,0.000073,0.001147,-0.063723) cmd_deg=(7.45,0.07) packed_pitch_deg=0.07 control=true shoot=false
+[2026-09-05 23:05:20.369] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.2500 max_class=11 max_min_kpt=0.9908 refined_color=1 color_score=-81.38 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:20.390] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0414 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:20.409] [info] [YOLO26][DET] above_0p2=2 after_nms=1 accepted=1 max_conf=0.1610 max_class=11 max_min_kpt=0.9939 refined_color=1 color_score=-76.14 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:20.431] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1167 max_class=11 max_min_kpt=0.9903 refined_color=1 color_score=-78.06 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:20.453] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.2994 max_class=11 max_min_kpt=0.9931 refined_color=1 color_score=-81.16 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:20.473] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.4104 max_class=11 max_min_kpt=0.9918 refined_color=1 color_score=-82.96 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:20.491] [info] [YOLO26][DET] above_0p2=2 after_nms=1 accepted=1 max_conf=0.1552 max_class=11 max_min_kpt=0.9893 refined_color=1 color_score=-82.19 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:20.510] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0989 max_class=10 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:20.529] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.3771 max_class=11 max_min_kpt=0.9835 refined_color=1 color_score=-74.21 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:20.549] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.5307 max_class=11 max_min_kpt=0.9863 refined_color=1 color_score=-92.11 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:20.569] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.5212 max_class=11 max_min_kpt=0.9869 refined_color=1 color_score=-86.62 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:20.590] [info] [YOLO26][DET] above_0p2=3 after_nms=2 accepted=2 max_conf=0.2108 max_class=11 max_min_kpt=0.9920 refined_color=1 color_score=-90.17 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:20.612] [info] [YOLO26][DET] above_0p2=3 after_nms=2 accepted=2 max_conf=0.2415 max_class=11 max_min_kpt=0.9854 refined_color=1 color_score=-79.37 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:20.631] [info] [YOLO26][DET] above_0p2=2 after_nms=2 accepted=2 max_conf=0.3536 max_class=11 max_min_kpt=0.9892 refined_color=1 color_score=-78.30 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:20.651] [info] [YOLO26][DET] above_0p2=3 after_nms=2 accepted=2 max_conf=0.3170 max_class=11 max_min_kpt=0.9927 refined_color=1 color_score=-79.66 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:20.654] [info] [XUC][FIRE] stable-window candidate started
+[2026-09-05 23:05:20.672] [info] [YOLO26][DET] above_0p2=2 after_nms=2 accepted=2 max_conf=0.3562 max_class=11 max_min_kpt=0.9865 refined_color=1 color_score=-80.32 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:20.690] [info] [YOLO26][DET] above_0p2=3 after_nms=2 accepted=2 max_conf=0.3397 max_class=11 max_min_kpt=0.9847 refined_color=1 color_score=-73.87 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:20.692] [info] [XUC][FIRE] qualified after 40 ms, pixel error deg=(2.38,0.11) gyro=true face_error=2.72deg omega=-1.738rad_s armed=true
+[2026-09-05 23:05:20.709] [info] [YOLO26][DET] above_0p2=2 after_nms=2 accepted=2 max_conf=0.5693 max_class=11 max_min_kpt=0.9848 refined_color=1 color_score=-71.18 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:20.712] [info] [XUC][FIRE] stable window reset
+[2026-09-05 23:05:20.729] [info] [YOLO26][DET] above_0p2=3 after_nms=2 accepted=2 max_conf=0.5311 max_class=11 max_min_kpt=0.9898 refined_color=1 color_score=-76.90 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:20.734] [info] [SYNC][XUC] mode=0 yaw=-7.31 deg pitch=0.13 deg feeder_rpm=0.00 wheel0_rpm=0 wheel1_rpm=0 wheel_delta=0 projectile_speed=19.36 gate=0x1E switch=0 rc=1 sticks=1 imu=1 serial=1 control=0 yaw_armed=0 pitch_active=0
+[2026-09-05 23:05:20.748] [info] [YOLO26][DET] above_0p2=3 after_nms=3 accepted=3 max_conf=0.3683 max_class=11 max_min_kpt=0.9896 refined_color=1 color_score=-77.75 color_source=1
+[2026-09-05 23:05:20.752] [info] [YOLO26] ==================== Performance ====================
+[2026-09-05 23:05:20.752] [info] [YOLO26] Preprocess:  1.247 ms (6.9%)
+[2026-09-05 23:05:20.752] [info] [YOLO26] Inference:   12.517 ms (69.3%)
+[2026-09-05 23:05:20.752] [info] [YOLO26] Postprocess: 4.303 ms (23.8%)
+[2026-09-05 23:05:20.752] [info] [YOLO26] Total:       18.069 ms (55.3 FPS)
+[2026-09-05 23:05:20.752] [info] [YOLO26] ======================================================
+[DEBUG] armors=3, targets=1
+[2026-09-05 23:05:20.753] [info] [DRYRUN] measured_gimbal=(3.606,-0.071,0.046) measured_world=(3.586,0.388,0.038) tracked_world=(4.064,0.826,0.040) target_gimbal_deg=(-1.13,0.73) target_world_deg=(6.18,0.60) gimbal_deg=(7.31,0.13) armor_y_px=544.8 pixel_error_deg=(2.01,0.12) ballistic=(range=nanm holdover=0.000m comp=0.00deg residual=0.12deg) q_wxyz=(0.997967,0.000073,0.001147,-0.063723) cmd_deg=(7.66,0.32) packed_pitch_deg=0.32 control=true shoot=false
+[2026-09-05 23:05:20.756] [info] [PERF] 总耗时=22.0ms (检测=18.1ms, 跟踪=0.9ms), FPS=45.4
+[2026-09-05 23:05:20.756] [info] 📊 [CAMERA FPS] 瞬时帧率=45.4fps, 平均帧率=46.8fps, 总帧数=100, 运行时间=2.1s
+[2026-09-05 23:05:20.772] [info] [YOLO26][DET] above_0p2=3 after_nms=3 accepted=3 max_conf=0.2708 max_class=11 max_min_kpt=0.9828 refined_color=1 color_score=-82.66 color_source=1
+[DEBUG] armors=3, targets=1
+[2026-09-05 23:05:20.794] [info] [YOLO26][DET] above_0p2=2 after_nms=2 accepted=2 max_conf=0.4790 max_class=10 max_min_kpt=0.9859 refined_color=1 color_score=-69.75 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:20.814] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1818 max_class=11 max_min_kpt=0.9946 refined_color=1 color_score=-94.85 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:20.832] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1575 max_class=11 max_min_kpt=0.9819 refined_color=1 color_score=-87.14 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:20.851] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1048 max_class=11 max_min_kpt=0.9857 refined_color=1 color_score=-84.37 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:20.870] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0284 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:20.889] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0168 max_class=11 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:20.906] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1144 max_class=11 max_min_kpt=0.9883 refined_color=1 color_score=-85.14 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:20.925] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1770 max_class=11 max_min_kpt=0.9911 refined_color=1 color_score=-81.20 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:20.944] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0975 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:20.963] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1461 max_class=8 max_min_kpt=0.9586 refined_color=1 color_score=-72.95 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:20.982] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0772 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:21.002] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0695 max_class=10 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:21.021] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0965 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:21.041] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1522 max_class=8 max_min_kpt=0.9471 refined_color=1 color_score=-84.01 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:21.061] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1999 max_class=8 max_min_kpt=0.9412 refined_color=1 color_score=-63.25 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:21.081] [info] [YOLO26][DET] above_0p2=2 after_nms=1 accepted=1 max_conf=0.1578 max_class=11 max_min_kpt=0.9928 refined_color=1 color_score=-91.03 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:21.102] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0385 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:21.121] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0682 max_class=11 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:21.140] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1064 max_class=8 max_min_kpt=0.9199 refined_color=1 color_score=-74.56 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:21.141] [info] [DRYRUN] measured_gimbal=(3.529,0.093,0.048) measured_world=(3.489,0.542,0.040) tracked_world=(4.150,0.574,0.038) target_gimbal_deg=(1.52,0.78) target_world_deg=(8.82,0.64) gimbal_deg=(7.31,0.13) armor_y_px=543.7 pixel_error_deg=(-1.22,0.09) ballistic=(range=nanm holdover=0.000m comp=0.00deg residual=0.09deg) q_wxyz=(0.997967,0.000073,0.001147,-0.063723) cmd_deg=(7.42,0.29) packed_pitch_deg=0.29 control=true shoot=false
+[2026-09-05 23:05:21.159] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0722 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:21.178] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1788 max_class=8 max_min_kpt=0.9479 refined_color=1 color_score=-64.34 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:21.198] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1207 max_class=10 max_min_kpt=0.9601 refined_color=1 color_score=-60.02 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:21.215] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0771 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:21.234] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0676 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:21.253] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0692 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:21.272] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0860 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:21.291] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0682 max_class=11 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:21.310] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0313 max_class=11 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:21.330] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.3668 max_class=11 max_min_kpt=0.9912 refined_color=1 color_score=-85.75 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:21.351] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0640 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:21.371] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1174 max_class=10 max_min_kpt=0.9540 refined_color=1 color_score=-74.50 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:21.393] [info] [YOLO26][DET] above_0p2=2 after_nms=2 accepted=2 max_conf=0.1892 max_class=10 max_min_kpt=0.9716 refined_color=1 color_score=-73.78 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:21.412] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1318 max_class=10 max_min_kpt=0.9668 refined_color=1 color_score=-74.59 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:21.431] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1331 max_class=11 max_min_kpt=0.9747 refined_color=1 color_score=-58.77 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:21.448] [info] [YOLO26][DET] above_0p2=2 after_nms=2 accepted=2 max_conf=0.3805 max_class=11 max_min_kpt=0.9851 refined_color=1 color_score=-83.60 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:21.468] [info] [YOLO26][DET] above_0p2=2 after_nms=1 accepted=1 max_conf=0.2745 max_class=11 max_min_kpt=0.9909 refined_color=1 color_score=-88.89 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:21.488] [info] [YOLO26][DET] above_0p2=2 after_nms=2 accepted=2 max_conf=0.2321 max_class=11 max_min_kpt=0.9809 refined_color=1 color_score=-90.61 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:21.509] [info] [YOLO26][DET] above_0p2=3 after_nms=2 accepted=2 max_conf=0.2112 max_class=11 max_min_kpt=0.9949 refined_color=1 color_score=-77.43 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:21.530] [info] [YOLO26][DET] above_0p2=2 after_nms=2 accepted=2 max_conf=0.6793 max_class=11 max_min_kpt=0.9832 refined_color=1 color_score=-81.80 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:21.533] [info] [DRYRUN] measured_gimbal=(3.624,0.324,0.050) measured_world=(3.554,0.782,0.042) tracked_world=(4.081,0.465,0.037) target_gimbal_deg=(5.11,0.79) target_world_deg=(12.41,0.65) gimbal_deg=(7.31,0.13) armor_y_px=542.2 pixel_error_deg=(-4.22,0.05) ballistic=(range=nanm holdover=0.000m comp=0.00deg residual=0.05deg) q_wxyz=(0.997967,0.000073,0.001147,-0.063723) cmd_deg=(7.89,0.22) packed_pitch_deg=0.22 control=true shoot=false
+[2026-09-05 23:05:21.551] [info] [YOLO26][DET] above_0p2=2 after_nms=2 accepted=2 max_conf=0.4496 max_class=11 max_min_kpt=0.9750 refined_color=1 color_score=-81.49 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:21.572] [info] [YOLO26][DET] above_0p2=2 after_nms=2 accepted=2 max_conf=0.6562 max_class=11 max_min_kpt=0.9881 refined_color=1 color_score=-72.01 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:21.592] [info] [YOLO26][DET] above_0p2=2 after_nms=2 accepted=2 max_conf=0.6631 max_class=11 max_min_kpt=0.9891 refined_color=1 color_score=-81.25 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:21.596] [info] [XUC][FIRE] stable-window candidate started
+[2026-09-05 23:05:21.614] [info] [YOLO26][DET] above_0p2=2 after_nms=2 accepted=2 max_conf=0.5561 max_class=11 max_min_kpt=0.9892 refined_color=1 color_score=-73.72 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:21.632] [info] [YOLO26][DET] above_0p2=3 after_nms=2 accepted=2 max_conf=0.4239 max_class=11 max_min_kpt=0.9927 refined_color=1 color_score=-71.32 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:21.634] [info] [XUC][FIRE] qualified after 40 ms, pixel error deg=(2.08,0.11) gyro=true face_error=0.18deg omega=-1.600rad_s armed=true
+[2026-09-05 23:05:21.652] [info] [YOLO26][DET] above_0p2=3 after_nms=3 accepted=3 max_conf=0.5326 max_class=11 max_min_kpt=0.9830 refined_color=1 color_score=-83.17 color_source=1
+[DEBUG] armors=3, targets=1
+[2026-09-05 23:05:21.654] [info] [XUC][FIRE] stable window reset
+[2026-09-05 23:05:21.673] [info] [YOLO26][DET] above_0p2=2 after_nms=1 accepted=1 max_conf=0.3744 max_class=10 max_min_kpt=0.9870 refined_color=1 color_score=-73.96 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:21.692] [info] [YOLO26][DET] above_0p2=4 after_nms=3 accepted=3 max_conf=0.3064 max_class=11 max_min_kpt=0.9950 refined_color=1 color_score=-84.37 color_source=1
+[DEBUG] armors=3, targets=1
+[2026-09-05 23:05:21.712] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1461 max_class=11 max_min_kpt=0.9826 refined_color=1 color_score=-89.63 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:21.718] [info] [SYNC][XUC] mode=0 yaw=-7.31 deg pitch=0.13 deg feeder_rpm=0.00 wheel0_rpm=0 wheel1_rpm=0 wheel_delta=0 projectile_speed=19.36 gate=0x1E switch=0 rc=1 sticks=1 imu=1 serial=1 control=0 yaw_armed=0 pitch_active=0
+[2026-09-05 23:05:21.732] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1517 max_class=10 max_min_kpt=0.9496 refined_color=1 color_score=-87.47 color_source=1
+[2026-09-05 23:05:21.736] [info] [YOLO26] ==================== Performance ====================
+[2026-09-05 23:05:21.736] [info] [YOLO26] Preprocess:  1.114 ms (6.0%)
+[2026-09-05 23:05:21.736] [info] [YOLO26] Inference:   13.086 ms (70.2%)
+[2026-09-05 23:05:21.736] [info] [YOLO26] Postprocess: 4.430 ms (23.8%)
+[2026-09-05 23:05:21.736] [info] [YOLO26] Total:       18.632 ms (53.7 FPS)
+[2026-09-05 23:05:21.736] [info] [YOLO26] ======================================================
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:21.740] [info] [PERF] 总耗时=22.9ms (检测=18.7ms, 跟踪=0.0ms), FPS=43.7
+[2026-09-05 23:05:21.740] [info] 📊 [CAMERA FPS] 瞬时帧率=43.7fps, 平均帧率=48.1fps, 总帧数=150, 运行时间=3.1s
+[2026-09-05 23:05:21.754] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0995 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:21.772] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1413 max_class=11 max_min_kpt=0.9824 refined_color=1 color_score=-91.21 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:21.791] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0929 max_class=11 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:21.811] [info] [YOLO26][DET] above_0p2=2 after_nms=1 accepted=1 max_conf=0.1389 max_class=8 max_min_kpt=0.9926 refined_color=1 color_score=-88.62 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:21.830] [info] [YOLO26][DET] above_0p2=2 after_nms=1 accepted=1 max_conf=0.1343 max_class=11 max_min_kpt=0.9833 refined_color=1 color_score=-82.98 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:21.848] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0835 max_class=11 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:21.867] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0946 max_class=10 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:21.885] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0952 max_class=10 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:21.905] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0690 max_class=10 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:21.925] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1129 max_class=10 max_min_kpt=0.9394 refined_color=1 color_score=-79.91 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:21.927] [info] [DRYRUN] measured_gimbal=(3.605,0.022,0.048) measured_world=(3.573,0.480,0.039) tracked_world=(3.949,0.334,0.036) target_gimbal_deg=(0.35,0.76) target_world_deg=(7.66,0.63) gimbal_deg=(7.31,0.13) armor_y_px=543.1 pixel_error_deg=(-0.27,0.08) ballistic=(range=nanm holdover=0.000m comp=0.00deg residual=0.08deg) q_wxyz=(0.997967,0.000073,0.001147,-0.063723) cmd_deg=(7.92,0.27) packed_pitch_deg=0.27 control=true shoot=false
+[2026-09-05 23:05:21.944] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1012 max_class=10 max_min_kpt=0.9461 refined_color=1 color_score=-90.64 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:21.965] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1718 max_class=8 max_min_kpt=0.9384 refined_color=1 color_score=-71.66 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:21.984] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0183 max_class=10 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:22.005] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0764 max_class=11 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:22.024] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1322 max_class=11 max_min_kpt=0.9858 refined_color=1 color_score=-90.10 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:22.046] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0594 max_class=11 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:22.066] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1735 max_class=11 max_min_kpt=0.9926 refined_color=1 color_score=-79.74 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:22.084] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0391 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:22.103] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.3591 max_class=11 max_min_kpt=0.9963 refined_color=1 color_score=-96.62 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:22.123] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.2902 max_class=11 max_min_kpt=0.9842 refined_color=1 color_score=-81.35 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:22.142] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.3453 max_class=11 max_min_kpt=0.9860 refined_color=1 color_score=-81.17 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:22.163] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.3123 max_class=11 max_min_kpt=0.9919 refined_color=1 color_score=-87.62 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:22.183] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1011 max_class=11 max_min_kpt=0.9826 refined_color=1 color_score=-91.89 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:22.204] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.2675 max_class=11 max_min_kpt=0.9971 refined_color=1 color_score=-94.64 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:22.224] [info] [YOLO26][DET] above_0p2=2 after_nms=1 accepted=1 max_conf=0.2111 max_class=11 max_min_kpt=0.9878 refined_color=1 color_score=-82.97 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:22.242] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1097 max_class=8 max_min_kpt=0.9453 refined_color=1 color_score=-79.25 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:22.262] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1744 max_class=10 max_min_kpt=0.9634 refined_color=1 color_score=-86.75 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:22.280] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1138 max_class=11 max_min_kpt=0.9866 refined_color=1 color_score=-92.36 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:22.299] [info] [YOLO26][DET] above_0p2=2 after_nms=1 accepted=1 max_conf=0.1081 max_class=11 max_min_kpt=0.9811 refined_color=1 color_score=-77.66 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:22.319] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1497 max_class=11 max_min_kpt=0.9825 refined_color=1 color_score=-81.58 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:22.321] [info] [XUC][FIRE] stable-window candidate started
+[2026-09-05 23:05:22.321] [info] [DRYRUN] measured_gimbal=(3.746,-0.118,0.049) measured_world=(3.731,0.359,0.040) tracked_world=(3.682,0.336,0.040) target_gimbal_deg=(-1.81,0.75) target_world_deg=(5.50,0.62) gimbal_deg=(7.31,0.13) armor_y_px=542.4 pixel_error_deg=(2.72,0.06) ballistic=(range=nanm holdover=0.000m comp=0.00deg residual=0.06deg) q_wxyz=(0.997967,0.000073,0.001147,-0.063723) cmd_deg=(7.70,0.22) packed_pitch_deg=0.22 control=true shoot=false
+[2026-09-05 23:05:22.339] [info] [YOLO26][DET] above_0p2=3 after_nms=2 accepted=2 max_conf=0.3571 max_class=11 max_min_kpt=0.9924 refined_color=1 color_score=-82.62 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:22.342] [info] [XUC][FIRE] stable window reset
+[2026-09-05 23:05:22.360] [info] [YOLO26][DET] above_0p2=2 after_nms=1 accepted=1 max_conf=0.3373 max_class=11 max_min_kpt=0.9907 refined_color=1 color_score=-96.93 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:22.380] [info] [YOLO26][DET] above_0p2=2 after_nms=2 accepted=2 max_conf=0.4034 max_class=11 max_min_kpt=0.9898 refined_color=1 color_score=-86.52 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:22.401] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.3183 max_class=11 max_min_kpt=0.9904 refined_color=1 color_score=-82.73 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:22.422] [info] [YOLO26][DET] above_0p2=2 after_nms=2 accepted=2 max_conf=0.7545 max_class=11 max_min_kpt=0.9856 refined_color=1 color_score=-86.94 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:22.426] [info] [XUC][FIRE] stable-window candidate started
+[2026-09-05 23:05:22.444] [info] [YOLO26][DET] above_0p2=3 after_nms=2 accepted=2 max_conf=0.5231 max_class=11 max_min_kpt=0.9901 refined_color=1 color_score=-81.86 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:22.464] [info] [YOLO26][DET] above_0p2=2 after_nms=2 accepted=2 max_conf=0.5491 max_class=10 max_min_kpt=0.9872 refined_color=1 color_score=-62.81 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:22.466] [info] [XUC][FIRE] qualified after 47 ms, pixel error deg=(2.07,0.02) gyro=true face_error=2.37deg omega=-1.678rad_s armed=true
+[2026-09-05 23:05:22.481] [info] [YOLO26][DET] above_0p2=3 after_nms=2 accepted=2 max_conf=0.7892 max_class=11 max_min_kpt=0.9895 refined_color=1 color_score=-79.43 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:22.483] [info] [XUC][FIRE] stable window reset
+[2026-09-05 23:05:22.501] [info] [YOLO26][DET] above_0p2=2 after_nms=2 accepted=2 max_conf=0.5805 max_class=11 max_min_kpt=0.9870 refined_color=1 color_score=-82.67 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:22.520] [info] [YOLO26][DET] above_0p2=2 after_nms=2 accepted=2 max_conf=0.2861 max_class=10 max_min_kpt=0.9805 refined_color=1 color_score=-60.68 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:22.541] [info] [YOLO26][DET] above_0p2=2 after_nms=2 accepted=2 max_conf=0.1268 max_class=11 max_min_kpt=0.9795 refined_color=1 color_score=-81.93 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:22.562] [info] [YOLO26][DET] above_0p2=2 after_nms=2 accepted=2 max_conf=0.2084 max_class=11 max_min_kpt=0.9861 refined_color=1 color_score=-86.35 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:22.582] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.2780 max_class=10 max_min_kpt=0.9580 refined_color=1 color_score=-82.53 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:22.602] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1091 max_class=10 max_min_kpt=0.9491 refined_color=1 color_score=-88.14 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:22.622] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1772 max_class=10 max_min_kpt=0.9506 refined_color=1 color_score=-90.99 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:22.642] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1244 max_class=10 max_min_kpt=0.9530 refined_color=1 color_score=-80.55 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:22.660] [info] [YOLO26][DET] above_0p2=2 after_nms=1 accepted=1 max_conf=0.1380 max_class=10 max_min_kpt=0.9515 refined_color=1 color_score=-78.37 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:22.680] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1131 max_class=8 max_min_kpt=0.9564 refined_color=1 color_score=-83.27 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:22.698] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1205 max_class=10 max_min_kpt=0.9680 refined_color=1 color_score=-72.45 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:22.702] [info] [SYNC][XUC] mode=0 yaw=-7.31 deg pitch=0.13 deg feeder_rpm=0.00 wheel0_rpm=0 wheel1_rpm=0 wheel_delta=0 projectile_speed=19.36 gate=0x1E switch=0 rc=1 sticks=1 imu=1 serial=1 control=0 yaw_armed=0 pitch_active=0
+[2026-09-05 23:05:22.717] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0650 max_class=10 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[2026-09-05 23:05:22.720] [info] [YOLO26] ==================== Performance ====================
+[2026-09-05 23:05:22.720] [info] [YOLO26] Preprocess:  0.965 ms (5.2%)
+[2026-09-05 23:05:22.720] [info] [YOLO26] Inference:   13.914 ms (75.4%)
+[2026-09-05 23:05:22.720] [info] [YOLO26] Postprocess: 3.569 ms (19.3%)
+[2026-09-05 23:05:22.720] [info] [YOLO26] Total:       18.449 ms (54.2 FPS)
+[2026-09-05 23:05:22.720] [info] [YOLO26] ======================================================
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:22.723] [info] [PERF] 总耗时=21.1ms (检测=18.5ms, 跟踪=0.0ms), FPS=47.4
+[2026-09-05 23:05:22.723] [info] 📊 [CAMERA FPS] 瞬时帧率=47.3fps, 平均帧率=48.7fps, 总帧数=200, 运行时间=4.1s
+[2026-09-05 23:05:22.738] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0708 max_class=10 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:22.758] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0712 max_class=10 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:22.777] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0887 max_class=10 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:22.797] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1909 max_class=8 max_min_kpt=0.9555 refined_color=1 color_score=-76.02 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:22.817] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.2062 max_class=8 max_min_kpt=0.9502 refined_color=1 color_score=-84.68 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:22.836] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0415 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:22.857] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0449 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:22.877] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1183 max_class=8 max_min_kpt=0.9448 refined_color=1 color_score=-75.77 color_source=1
+[DEBUG] armors=1, targets=0
+[2026-09-05 23:05:22.897] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1416 max_class=8 max_min_kpt=0.9342 refined_color=1 color_score=-70.96 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:22.915] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1334 max_class=8 max_min_kpt=0.9572 refined_color=1 color_score=-73.05 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:22.934] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1039 max_class=8 max_min_kpt=0.9588 refined_color=1 color_score=-69.75 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:22.954] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1015 max_class=8 max_min_kpt=0.9641 refined_color=1 color_score=-66.33 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:22.973] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0884 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=0
+[2026-09-05 23:05:22.992] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0416 max_class=11 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=0
+[2026-09-05 23:05:23.012] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0731 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=0
+[2026-09-05 23:05:23.031] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.3390 max_class=11 max_min_kpt=0.9942 refined_color=1 color_score=-92.60 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:23.052] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1373 max_class=11 max_min_kpt=0.9924 refined_color=1 color_score=-81.63 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:23.072] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1580 max_class=11 max_min_kpt=0.9921 refined_color=1 color_score=-85.89 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:23.092] [info] [YOLO26][DET] above_0p2=2 after_nms=1 accepted=1 max_conf=0.4786 max_class=11 max_min_kpt=0.9939 refined_color=1 color_score=-87.26 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:23.113] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.3595 max_class=11 max_min_kpt=0.9921 refined_color=1 color_score=-85.36 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:23.116] [info] [XUC][FIRE] stable-window candidate started
+[2026-09-05 23:05:23.116] [info] [DRYRUN] measured_gimbal=(3.660,0.246,0.053) measured_world=(3.599,0.710,0.044) tracked_world=(3.569,0.701,0.044) target_gimbal_deg=(3.85,0.82) target_world_deg=(11.16,0.69) gimbal_deg=(7.31,0.13) armor_y_px=540.4 pixel_error_deg=(-2.96,0.01) ballistic=(range=nanm holdover=0.000m comp=0.00deg residual=0.01deg) q_wxyz=(0.997967,0.000073,0.001147,-0.063723) cmd_deg=(7.98,0.14) packed_pitch_deg=0.14 control=true shoot=false
+[2026-09-05 23:05:23.132] [info] [YOLO26][DET] above_0p2=2 after_nms=1 accepted=1 max_conf=0.2210 max_class=8 max_min_kpt=0.9912 refined_color=1 color_score=-92.81 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:23.134] [info] [XUC][FIRE] stable window reset
+[2026-09-05 23:05:23.150] [info] [YOLO26][DET] above_0p2=2 after_nms=2 accepted=2 max_conf=0.4381 max_class=11 max_min_kpt=0.9954 refined_color=1 color_score=-94.34 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:23.171] [info] [YOLO26][DET] above_0p2=2 after_nms=2 accepted=2 max_conf=0.3789 max_class=11 max_min_kpt=0.9923 refined_color=1 color_score=-91.14 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:23.189] [info] [YOLO26][DET] above_0p2=2 after_nms=2 accepted=2 max_conf=0.4137 max_class=11 max_min_kpt=0.9904 refined_color=1 color_score=-83.99 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:23.208] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0825 max_class=11 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:23.227] [info] [YOLO26][DET] above_0p2=2 after_nms=2 accepted=2 max_conf=0.3220 max_class=11 max_min_kpt=0.9940 refined_color=1 color_score=-87.29 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:23.247] [info] [YOLO26][DET] above_0p2=2 after_nms=2 accepted=2 max_conf=0.5347 max_class=11 max_min_kpt=0.9903 refined_color=1 color_score=-95.84 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:23.267] [info] [YOLO26][DET] above_0p2=3 after_nms=2 accepted=2 max_conf=0.3394 max_class=11 max_min_kpt=0.9880 refined_color=1 color_score=-81.93 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:23.287] [info] [YOLO26][DET] above_0p2=2 after_nms=2 accepted=2 max_conf=0.4456 max_class=11 max_min_kpt=0.9852 refined_color=1 color_score=-74.14 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:23.307] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.4230 max_class=11 max_min_kpt=0.9924 refined_color=1 color_score=-82.88 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:23.328] [info] [YOLO26][DET] above_0p2=3 after_nms=2 accepted=2 max_conf=0.5379 max_class=11 max_min_kpt=0.9899 refined_color=1 color_score=-79.70 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:23.330] [info] [XUC][FIRE] stable-window candidate started
+[2026-09-05 23:05:23.348] [info] [YOLO26][DET] above_0p2=3 after_nms=2 accepted=2 max_conf=0.1717 max_class=11 max_min_kpt=0.9904 refined_color=1 color_score=-84.98 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:23.367] [info] [YOLO26][DET] above_0p2=2 after_nms=2 accepted=2 max_conf=0.4944 max_class=11 max_min_kpt=0.9825 refined_color=1 color_score=-79.23 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:23.371] [info] [XUC][FIRE] qualified after 40 ms, pixel error deg=(2.05,-0.02) gyro=true face_error=10.25deg omega=-1.845rad_s armed=true
+[2026-09-05 23:05:23.389] [info] [YOLO26][DET] above_0p2=2 after_nms=2 accepted=2 max_conf=0.3617 max_class=10 max_min_kpt=0.9910 refined_color=1 color_score=-74.56 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:23.391] [info] [XUC][FIRE] stable window reset
+[2026-09-05 23:05:23.407] [info] [YOLO26][DET] above_0p2=2 after_nms=2 accepted=2 max_conf=0.4871 max_class=10 max_min_kpt=0.9894 refined_color=1 color_score=-81.44 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:23.427] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0939 max_class=10 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:23.448] [info] [YOLO26][DET] above_0p2=2 after_nms=1 accepted=1 max_conf=0.1445 max_class=10 max_min_kpt=0.9572 refined_color=1 color_score=-85.95 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:23.469] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0619 max_class=11 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:23.490] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1440 max_class=11 max_min_kpt=0.9925 refined_color=1 color_score=-82.19 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:23.512] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0256 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:23.533] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1365 max_class=8 max_min_kpt=0.9481 refined_color=1 color_score=-81.18 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:23.553] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1254 max_class=11 max_min_kpt=0.9936 refined_color=1 color_score=-90.29 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:23.573] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0961 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:23.593] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0985 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:23.613] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0500 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:23.633] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0383 max_class=10 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:23.653] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1778 max_class=11 max_min_kpt=0.9914 refined_color=1 color_score=-70.28 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:23.672] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0827 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:23.690] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1035 max_class=8 max_min_kpt=0.9469 refined_color=1 color_score=-61.65 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:23.696] [info] [SYNC][XUC] mode=0 yaw=-7.31 deg pitch=0.13 deg feeder_rpm=0.00 wheel0_rpm=0 wheel1_rpm=0 wheel_delta=0 projectile_speed=19.36 gate=0x1E switch=0 rc=1 sticks=1 imu=1 serial=1 control=0 yaw_armed=0 pitch_active=0
+[2026-09-05 23:05:23.709] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0803 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[2026-09-05 23:05:23.714] [info] [YOLO26] ==================== Performance ====================
+[2026-09-05 23:05:23.714] [info] [YOLO26] Preprocess:  1.079 ms (6.0%)
+[2026-09-05 23:05:23.714] [info] [YOLO26] Inference:   12.409 ms (68.5%)
+[2026-09-05 23:05:23.714] [info] [YOLO26] Postprocess: 4.637 ms (25.6%)
+[2026-09-05 23:05:23.714] [info] [YOLO26] Total:       18.126 ms (55.2 FPS)
+[2026-09-05 23:05:23.714] [info] [YOLO26] ======================================================
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:23.717] [info] [PERF] 总耗时=20.8ms (检测=18.2ms, 跟踪=0.0ms), FPS=48.0
+[2026-09-05 23:05:23.717] [info] 📊 [CAMERA FPS] 瞬时帧率=48.0fps, 平均帧率=49.1fps, 总帧数=250, 运行时间=5.1s
+[2026-09-05 23:05:23.733] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0541 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:23.750] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0981 max_class=11 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:23.769] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1021 max_class=8 max_min_kpt=0.9139 refined_color=1 color_score=-65.68 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:23.787] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.2902 max_class=11 max_min_kpt=0.9955 refined_color=1 color_score=-82.35 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:23.807] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0596 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:23.826] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1034 max_class=8 max_min_kpt=0.9608 refined_color=1 color_score=-53.12 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:23.845] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.2055 max_class=11 max_min_kpt=0.9914 refined_color=1 color_score=-79.83 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:23.865] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0716 max_class=11 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:23.884] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1113 max_class=11 max_min_kpt=0.9956 refined_color=1 color_score=-75.29 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:23.904] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.4266 max_class=11 max_min_kpt=0.9909 refined_color=1 color_score=-78.97 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:23.906] [info] [DRYRUN] measured_gimbal=(3.607,0.214,0.057) measured_world=(3.550,0.671,0.049) tracked_world=(3.937,0.897,0.050) target_gimbal_deg=(3.39,0.90) target_world_deg=(10.70,0.77) gimbal_deg=(7.31,0.13) armor_y_px=537.6 pixel_error_deg=(-2.51,-0.06) ballistic=(range=nanm holdover=0.000m comp=0.00deg residual=-0.06deg) q_wxyz=(0.997967,0.000073,0.001147,-0.063723) cmd_deg=(7.62,0.04) packed_pitch_deg=0.04 control=true shoot=false
+[2026-09-05 23:05:23.924] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0706 max_class=11 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:23.943] [info] [YOLO26][DET] above_0p2=2 after_nms=1 accepted=1 max_conf=0.2834 max_class=11 max_min_kpt=0.9939 refined_color=1 color_score=-87.50 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:23.964] [info] [YOLO26][DET] above_0p2=2 after_nms=1 accepted=1 max_conf=0.3250 max_class=11 max_min_kpt=0.9897 refined_color=1 color_score=-84.39 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:23.982] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1239 max_class=10 max_min_kpt=0.9478 refined_color=1 color_score=-87.54 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:24.001] [info] [YOLO26][DET] above_0p2=2 after_nms=2 accepted=2 max_conf=0.2094 max_class=11 max_min_kpt=0.9932 refined_color=1 color_score=-65.73 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:24.023] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.2788 max_class=11 max_min_kpt=0.9822 refined_color=1 color_score=-80.24 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:24.042] [info] [YOLO26][DET] above_0p2=2 after_nms=2 accepted=2 max_conf=0.4935 max_class=11 max_min_kpt=0.9883 refined_color=1 color_score=-86.90 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:24.063] [info] [YOLO26][DET] above_0p2=3 after_nms=2 accepted=2 max_conf=0.4733 max_class=11 max_min_kpt=0.9952 refined_color=1 color_score=-89.49 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:24.084] [info] [YOLO26][DET] above_0p2=2 after_nms=2 accepted=2 max_conf=0.4143 max_class=11 max_min_kpt=0.9883 refined_color=1 color_score=-76.85 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:24.104] [info] [YOLO26][DET] above_0p2=2 after_nms=1 accepted=1 max_conf=0.4115 max_class=11 max_min_kpt=0.9762 refined_color=1 color_score=-78.68 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:24.106] [info] [XUC][FIRE] stable-window candidate started
+[2026-09-05 23:05:24.124] [info] [YOLO26][DET] above_0p2=2 after_nms=2 accepted=2 max_conf=0.4189 max_class=11 max_min_kpt=0.9940 refined_color=1 color_score=-78.42 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:24.127] [info] [XUC][FIRE] stable window reset
+[2026-09-05 23:05:24.143] [info] [YOLO26][DET] above_0p2=2 after_nms=2 accepted=2 max_conf=0.5571 max_class=11 max_min_kpt=0.9867 refined_color=1 color_score=-76.44 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:24.146] [info] [XUC][FIRE] stable-window candidate started
+[2026-09-05 23:05:24.163] [info] [YOLO26][DET] above_0p2=3 after_nms=2 accepted=2 max_conf=0.1768 max_class=11 max_min_kpt=0.9883 refined_color=1 color_score=-78.60 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:24.182] [info] [YOLO26][DET] above_0p2=2 after_nms=2 accepted=2 max_conf=0.6450 max_class=11 max_min_kpt=0.9873 refined_color=1 color_score=-83.40 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:24.184] [info] [XUC][FIRE] qualified after 40 ms, pixel error deg=(2.31,0.12) gyro=true face_error=0.35deg omega=-1.760rad_s armed=true
+[2026-09-05 23:05:24.201] [info] [YOLO26][DET] above_0p2=2 after_nms=2 accepted=2 max_conf=0.4865 max_class=11 max_min_kpt=0.9909 refined_color=1 color_score=-75.83 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:24.203] [info] [XUC][FIRE] stable window reset
+[2026-09-05 23:05:24.221] [info] [YOLO26][DET] above_0p2=2 after_nms=2 accepted=2 max_conf=0.6181 max_class=11 max_min_kpt=0.9875 refined_color=1 color_score=-79.53 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:24.240] [info] [YOLO26][DET] above_0p2=2 after_nms=2 accepted=2 max_conf=0.2506 max_class=11 max_min_kpt=0.9834 refined_color=1 color_score=-71.11 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:24.261] [info] [YOLO26][DET] above_0p2=3 after_nms=3 accepted=3 max_conf=0.3484 max_class=10 max_min_kpt=0.9837 refined_color=1 color_score=-72.24 color_source=1
+[DEBUG] armors=3, targets=1
+[2026-09-05 23:05:24.280] [info] [YOLO26][DET] above_0p2=2 after_nms=2 accepted=2 max_conf=0.3260 max_class=10 max_min_kpt=0.9854 refined_color=1 color_score=-66.74 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:24.300] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.2700 max_class=11 max_min_kpt=0.9922 refined_color=1 color_score=-88.97 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:24.303] [info] [DRYRUN] measured_gimbal=(3.829,0.396,0.058) measured_world=(3.748,0.880,0.049) tracked_world=(4.142,0.820,0.040) target_gimbal_deg=(5.90,0.86) target_world_deg=(13.21,0.73) gimbal_deg=(7.31,0.13) armor_y_px=537.1 pixel_error_deg=(-4.98,-0.07) ballistic=(range=nanm holdover=0.000m comp=0.00deg residual=-0.07deg) q_wxyz=(0.997967,0.000073,0.001147,-0.063723) cmd_deg=(7.78,0.17) packed_pitch_deg=0.17 control=true shoot=false
+[2026-09-05 23:05:24.321] [info] [YOLO26][DET] above_0p2=3 after_nms=2 accepted=2 max_conf=0.6635 max_class=14 max_min_kpt=0.9886 refined_color=1 color_score=-94.55 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:24.341] [info] [YOLO26][DET] above_0p2=2 after_nms=1 accepted=1 max_conf=0.2150 max_class=10 max_min_kpt=0.9461 refined_color=1 color_score=-88.13 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:24.359] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0504 max_class=11 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:24.379] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0565 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:24.398] [info] [YOLO26][DET] above_0p2=2 after_nms=1 accepted=1 max_conf=0.1699 max_class=8 max_min_kpt=0.9920 refined_color=1 color_score=-75.44 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:24.416] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0583 max_class=11 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:24.435] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0669 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:24.455] [info] [YOLO26][DET] above_0p2=2 after_nms=1 accepted=1 max_conf=0.1291 max_class=11 max_min_kpt=0.9879 refined_color=1 color_score=-81.20 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:24.473] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1023 max_class=10 max_min_kpt=0.9611 refined_color=1 color_score=-73.40 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:24.492] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0655 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:24.512] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1094 max_class=11 max_min_kpt=0.9859 refined_color=1 color_score=-80.62 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:24.533] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1311 max_class=8 max_min_kpt=0.9322 refined_color=1 color_score=-66.54 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:24.554] [info] [YOLO26][DET] above_0p2=2 after_nms=1 accepted=1 max_conf=0.1825 max_class=11 max_min_kpt=0.9926 refined_color=1 color_score=-88.88 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:24.578] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0665 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:24.598] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0390 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:24.618] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0622 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:24.638] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0830 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:24.659] [info] [YOLO26][DET] above_0p2=2 after_nms=1 accepted=1 max_conf=0.2189 max_class=8 max_min_kpt=0.9593 refined_color=1 color_score=-63.00 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:24.680] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0888 max_class=10 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:24.684] [info] [SYNC][XUC] mode=0 yaw=-7.31 deg pitch=0.13 deg feeder_rpm=0.00 wheel0_rpm=0 wheel1_rpm=0 wheel_delta=0 projectile_speed=19.36 gate=0x1E switch=0 rc=1 sticks=1 imu=1 serial=1 control=0 yaw_armed=0 pitch_active=0
+[2026-09-05 23:05:24.699] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0503 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[2026-09-05 23:05:24.703] [info] [YOLO26] ==================== Performance ====================
+[2026-09-05 23:05:24.703] [info] [YOLO26] Preprocess:  1.141 ms (6.1%)
+[2026-09-05 23:05:24.703] [info] [YOLO26] Inference:   13.442 ms (72.0%)
+[2026-09-05 23:05:24.703] [info] [YOLO26] Postprocess: 4.086 ms (21.9%)
+[2026-09-05 23:05:24.703] [info] [YOLO26] Total:       18.671 ms (53.6 FPS)
+[2026-09-05 23:05:24.703] [info] [YOLO26] ======================================================
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:24.707] [info] [PERF] 总耗时=22.9ms (检测=18.7ms, 跟踪=0.0ms), FPS=43.8
+[2026-09-05 23:05:24.707] [info] 📊 [CAMERA FPS] 瞬时帧率=43.7fps, 平均帧率=49.3fps, 总帧数=300, 运行时间=6.1s
+[2026-09-05 23:05:24.721] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0654 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:24.741] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0596 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:24.758] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0921 max_class=11 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:24.779] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0312 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:24.797] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1199 max_class=11 max_min_kpt=0.9961 refined_color=1 color_score=-86.17 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:24.817] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1260 max_class=11 max_min_kpt=0.9835 refined_color=1 color_score=-83.11 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:24.837] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0581 max_class=10 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:24.857] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1507 max_class=10 max_min_kpt=0.9613 refined_color=1 color_score=-86.60 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:24.877] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1873 max_class=10 max_min_kpt=0.9623 refined_color=1 color_score=-75.78 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:24.896] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1122 max_class=10 max_min_kpt=0.9646 refined_color=1 color_score=-43.14 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:24.915] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.4437 max_class=11 max_min_kpt=0.9861 refined_color=1 color_score=-77.01 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:24.936] [info] [YOLO26][DET] above_0p2=2 after_nms=2 accepted=2 max_conf=0.2617 max_class=11 max_min_kpt=0.9900 refined_color=1 color_score=-86.42 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:24.956] [info] [YOLO26][DET] above_0p2=2 after_nms=2 accepted=2 max_conf=0.2056 max_class=11 max_min_kpt=0.9839 refined_color=1 color_score=-94.12 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:24.974] [info] [YOLO26][DET] above_0p2=2 after_nms=2 accepted=2 max_conf=0.4971 max_class=11 max_min_kpt=0.9931 refined_color=1 color_score=-73.59 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:24.996] [info] [YOLO26][DET] above_0p2=3 after_nms=2 accepted=2 max_conf=0.6448 max_class=11 max_min_kpt=0.9835 refined_color=1 color_score=-78.11 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:25.015] [info] [YOLO26][DET] above_0p2=2 after_nms=2 accepted=2 max_conf=0.5565 max_class=11 max_min_kpt=0.9828 refined_color=1 color_score=-82.86 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:25.035] [info] [YOLO26][DET] above_0p2=2 after_nms=2 accepted=2 max_conf=0.5647 max_class=11 max_min_kpt=0.9877 refined_color=1 color_score=-68.85 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:25.037] [info] [XUC][FIRE] stable-window candidate started
+[2026-09-05 23:05:25.056] [info] [YOLO26][DET] above_0p2=2 after_nms=2 accepted=2 max_conf=0.7214 max_class=11 max_min_kpt=0.9927 refined_color=1 color_score=-85.38 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:25.076] [info] [YOLO26][DET] above_0p2=2 after_nms=2 accepted=2 max_conf=0.7636 max_class=11 max_min_kpt=0.9870 refined_color=1 color_score=-80.21 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:25.079] [info] [XUC][FIRE] qualified after 33 ms, pixel error deg=(2.21,0.11) gyro=true face_error=1.32deg omega=-1.745rad_s armed=true
+[2026-09-05 23:05:25.097] [info] [YOLO26][DET] above_0p2=3 after_nms=2 accepted=2 max_conf=0.4435 max_class=11 max_min_kpt=0.9921 refined_color=1 color_score=-74.24 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:25.099] [info] [XUC][FIRE] stable window reset
+[2026-09-05 23:05:25.099] [info] [DRYRUN] measured_gimbal=(3.638,-0.074,0.046) measured_world=(3.618,0.389,0.038) tracked_world=(4.080,0.417,0.037) target_gimbal_deg=(-1.17,0.73) target_world_deg=(6.13,0.60) gimbal_deg=(7.31,0.13) armor_y_px=544.4 pixel_error_deg=(2.06,0.11) ballistic=(range=nanm holdover=0.000m comp=0.00deg residual=0.11deg) q_wxyz=(0.997967,0.000073,0.001147,-0.063723) cmd_deg=(7.92,0.30) packed_pitch_deg=0.30 control=true shoot=false
+[2026-09-05 23:05:25.117] [info] [YOLO26][DET] above_0p2=3 after_nms=3 accepted=3 max_conf=0.5254 max_class=11 max_min_kpt=0.9826 refined_color=1 color_score=-85.10 color_source=1
+[DEBUG] armors=3, targets=1
+[2026-09-05 23:05:25.139] [info] [YOLO26][DET] above_0p2=2 after_nms=1 accepted=1 max_conf=0.3642 max_class=10 max_min_kpt=0.9865 refined_color=1 color_score=-71.48 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:25.157] [info] [YOLO26][DET] above_0p2=3 after_nms=2 accepted=2 max_conf=0.3558 max_class=11 max_min_kpt=0.9889 refined_color=1 color_score=-78.28 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:25.176] [info] [YOLO26][DET] above_0p2=2 after_nms=1 accepted=1 max_conf=0.1120 max_class=10 max_min_kpt=0.9814 refined_color=1 color_score=-83.64 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:25.194] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1095 max_class=10 max_min_kpt=0.9524 refined_color=1 color_score=-87.92 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:25.213] [info] [YOLO26][DET] above_0p2=3 after_nms=1 accepted=1 max_conf=0.1398 max_class=8 max_min_kpt=0.9878 refined_color=1 color_score=-87.95 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:25.232] [info] [YOLO26][DET] above_0p2=2 after_nms=1 accepted=1 max_conf=0.1052 max_class=8 max_min_kpt=0.9848 refined_color=1 color_score=-86.70 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:25.251] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0579 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:25.269] [info] [YOLO26][DET] above_0p2=2 after_nms=1 accepted=1 max_conf=0.2097 max_class=11 max_min_kpt=0.9950 refined_color=1 color_score=-92.03 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:25.289] [info] [YOLO26][DET] above_0p2=2 after_nms=1 accepted=1 max_conf=0.2261 max_class=11 max_min_kpt=0.9840 refined_color=1 color_score=-98.91 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:25.308] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0866 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:25.328] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1039 max_class=8 max_min_kpt=0.9632 refined_color=1 color_score=-73.83 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:25.347] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1045 max_class=10 max_min_kpt=0.9644 refined_color=1 color_score=-84.79 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:25.367] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1011 max_class=10 max_min_kpt=0.9651 refined_color=1 color_score=-57.70 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:25.386] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0777 max_class=11 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:25.406] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1011 max_class=10 max_min_kpt=0.9505 refined_color=1 color_score=-86.60 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:25.426] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1792 max_class=8 max_min_kpt=0.9509 refined_color=1 color_score=-67.39 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:25.446] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0592 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:25.465] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0274 max_class=11 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:25.483] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1994 max_class=11 max_min_kpt=0.9906 refined_color=1 color_score=-79.73 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:25.485] [info] [DRYRUN] measured_gimbal=(3.466,0.119,0.050) measured_world=(3.423,0.559,0.042) tracked_world=(3.846,0.286,0.038) target_gimbal_deg=(1.97,0.82) target_world_deg=(9.27,0.69) gimbal_deg=(7.31,0.13) armor_y_px=542.5 pixel_error_deg=(-1.11,0.06) ballistic=(range=nanm holdover=0.000m comp=0.00deg residual=0.06deg) q_wxyz=(0.997967,0.000073,0.001147,-0.063723) cmd_deg=(7.70,0.25) packed_pitch_deg=0.25 control=true shoot=false
+[2026-09-05 23:05:25.501] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0205 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:25.520] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1178 max_class=11 max_min_kpt=0.9814 refined_color=1 color_score=-91.02 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:25.539] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.2484 max_class=11 max_min_kpt=0.9894 refined_color=1 color_score=-76.77 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:25.559] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0929 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:25.578] [info] [YOLO26][DET] above_0p2=2 after_nms=1 accepted=1 max_conf=0.3528 max_class=11 max_min_kpt=0.9959 refined_color=1 color_score=-85.80 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:25.599] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.2526 max_class=11 max_min_kpt=0.9854 refined_color=1 color_score=-84.27 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:25.619] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.2542 max_class=11 max_min_kpt=0.9845 refined_color=1 color_score=-88.08 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:25.639] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.4404 max_class=11 max_min_kpt=0.9913 refined_color=1 color_score=-83.10 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:25.659] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0632 max_class=11 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:25.665] [info] [SYNC][XUC] mode=0 yaw=-7.31 deg pitch=0.13 deg feeder_rpm=0.00 wheel0_rpm=0 wheel1_rpm=0 wheel_delta=0 projectile_speed=19.36 gate=0x1E switch=0 rc=1 sticks=1 imu=1 serial=1 control=0 yaw_armed=0 pitch_active=0
+[2026-09-05 23:05:25.678] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.2542 max_class=11 max_min_kpt=0.9969 refined_color=1 color_score=-90.37 color_source=1
+[2026-09-05 23:05:25.683] [info] [YOLO26] ==================== Performance ====================
+[2026-09-05 23:05:25.683] [info] [YOLO26] Preprocess:  1.007 ms (5.5%)
+[2026-09-05 23:05:25.683] [info] [YOLO26] Inference:   12.602 ms (69.4%)
+[2026-09-05 23:05:25.683] [info] [YOLO26] Postprocess: 4.560 ms (25.1%)
+[2026-09-05 23:05:25.683] [info] [YOLO26] Total:       18.171 ms (55.0 FPS)
+[2026-09-05 23:05:25.683] [info] [YOLO26] ======================================================
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:25.686] [info] [PERF] 总耗时=21.4ms (检测=18.2ms, 跟踪=0.5ms), FPS=46.7
+[2026-09-05 23:05:25.686] [info] 📊 [CAMERA FPS] 瞬时帧率=46.7fps, 平均帧率=49.5fps, 总帧数=350, 运行时间=7.1s
+[2026-09-05 23:05:25.699] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.3705 max_class=11 max_min_kpt=0.9876 refined_color=1 color_score=-84.75 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:25.717] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1091 max_class=10 max_min_kpt=0.9484 refined_color=1 color_score=-69.12 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:25.737] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.2037 max_class=10 max_min_kpt=0.9609 refined_color=1 color_score=-89.70 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:25.757] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1730 max_class=11 max_min_kpt=0.9870 refined_color=1 color_score=-87.99 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:25.775] [info] [YOLO26][DET] above_0p2=3 after_nms=2 accepted=2 max_conf=0.1405 max_class=10 max_min_kpt=0.9808 refined_color=1 color_score=-82.11 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:25.794] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1080 max_class=11 max_min_kpt=0.9806 refined_color=1 color_score=-79.87 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:25.813] [info] [YOLO26][DET] above_0p2=3 after_nms=2 accepted=2 max_conf=0.3468 max_class=11 max_min_kpt=0.9936 refined_color=1 color_score=-86.10 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:25.833] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.3146 max_class=11 max_min_kpt=0.9842 refined_color=1 color_score=-103.82 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:25.853] [info] [YOLO26][DET] above_0p2=2 after_nms=2 accepted=2 max_conf=0.4063 max_class=11 max_min_kpt=0.9898 refined_color=1 color_score=-81.80 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:25.872] [info] [YOLO26][DET] above_0p2=3 after_nms=2 accepted=2 max_conf=0.3646 max_class=11 max_min_kpt=0.9908 refined_color=1 color_score=-79.13 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:25.876] [info] [DRYRUN] measured_gimbal=(3.719,0.326,0.051) measured_world=(3.647,0.797,0.042) tracked_world=(3.701,0.366,0.040) target_gimbal_deg=(5.02,0.78) target_world_deg=(12.32,0.65) gimbal_deg=(7.31,0.13) armor_y_px=541.3 pixel_error_deg=(-4.11,0.03) ballistic=(range=nanm holdover=0.000m comp=0.00deg residual=0.03deg) q_wxyz=(0.997967,0.000073,0.001147,-0.063723) cmd_deg=(7.86,0.19) packed_pitch_deg=0.19 control=true shoot=false
+[2026-09-05 23:05:25.892] [info] [YOLO26][DET] above_0p2=2 after_nms=2 accepted=2 max_conf=0.7556 max_class=11 max_min_kpt=0.9857 refined_color=1 color_score=-84.47 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:25.895] [info] [XUC][FIRE] stable-window candidate started
+[2026-09-05 23:05:25.913] [info] [YOLO26][DET] above_0p2=3 after_nms=2 accepted=2 max_conf=0.5495 max_class=11 max_min_kpt=0.9891 refined_color=1 color_score=-79.16 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:25.933] [info] [YOLO26][DET] above_0p2=2 after_nms=2 accepted=2 max_conf=0.7143 max_class=11 max_min_kpt=0.9844 refined_color=1 color_score=-74.00 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:25.936] [info] [XUC][FIRE] qualified after 40 ms, pixel error deg=(2.09,0.04) gyro=true face_error=3.03deg omega=-1.661rad_s armed=true
+[2026-09-05 23:05:25.953] [info] [YOLO26][DET] above_0p2=3 after_nms=2 accepted=2 max_conf=0.7335 max_class=11 max_min_kpt=0.9909 refined_color=1 color_score=-79.73 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:25.956] [info] [XUC][FIRE] stable window reset
+[2026-09-05 23:05:25.972] [info] [YOLO26][DET] above_0p2=3 after_nms=3 accepted=3 max_conf=0.4965 max_class=11 max_min_kpt=0.9876 refined_color=1 color_score=-84.81 color_source=1
+[DEBUG] armors=3, targets=1
+[2026-09-05 23:05:25.991] [info] [YOLO26][DET] above_0p2=2 after_nms=2 accepted=2 max_conf=0.4276 max_class=10 max_min_kpt=0.9818 refined_color=1 color_score=-74.11 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:26.012] [info] [YOLO26][DET] above_0p2=2 after_nms=2 accepted=2 max_conf=0.1433 max_class=10 max_min_kpt=0.9822 refined_color=1 color_score=-91.48 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:26.032] [info] [YOLO26][DET] above_0p2=2 after_nms=2 accepted=2 max_conf=0.3344 max_class=10 max_min_kpt=0.9942 refined_color=1 color_score=-82.72 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:26.052] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1951 max_class=10 max_min_kpt=0.9524 refined_color=1 color_score=-80.36 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:26.071] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1978 max_class=10 max_min_kpt=0.9501 refined_color=1 color_score=-87.72 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:26.091] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1248 max_class=10 max_min_kpt=0.9577 refined_color=1 color_score=-85.05 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:26.110] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1742 max_class=10 max_min_kpt=0.9462 refined_color=1 color_score=-73.28 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:26.130] [info] [YOLO26][DET] above_0p2=2 after_nms=1 accepted=1 max_conf=0.1342 max_class=8 max_min_kpt=0.9511 refined_color=1 color_score=-94.33 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:26.150] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1128 max_class=8 max_min_kpt=0.9529 refined_color=1 color_score=-73.26 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:26.169] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0929 max_class=10 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:26.188] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0595 max_class=10 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:26.206] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1423 max_class=10 max_min_kpt=0.9688 refined_color=1 color_score=-68.73 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:26.225] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0720 max_class=10 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:26.242] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0781 max_class=10 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:26.262] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1581 max_class=8 max_min_kpt=0.9502 refined_color=1 color_score=-71.13 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:26.265] [info] [DRYRUN] measured_gimbal=(4.024,0.413,0.050) measured_world=(3.939,0.922,0.041) tracked_world=(3.684,0.550,0.038) target_gimbal_deg=(5.86,0.71) target_world_deg=(13.17,0.58) gimbal_deg=(7.31,0.13) armor_y_px=540.4 pixel_error_deg=(-0.49,0.01) ballistic=(range=nanm holdover=0.000m comp=0.00deg residual=0.01deg) q_wxyz=(0.997967,0.000073,0.001147,-0.063723) cmd_deg=(8.04,0.17) packed_pitch_deg=0.17 control=true shoot=false
+[2026-09-05 23:05:26.282] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.2687 max_class=8 max_min_kpt=0.9487 refined_color=1 color_score=-75.54 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:26.300] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0909 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:26.319] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0346 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:26.339] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1432 max_class=8 max_min_kpt=0.9400 refined_color=1 color_score=-66.66 color_source=1
+[DEBUG] armors=1, targets=0
+[2026-09-05 23:05:26.358] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1438 max_class=8 max_min_kpt=0.9422 refined_color=1 color_score=-76.33 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:26.379] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1517 max_class=8 max_min_kpt=0.9517 refined_color=1 color_score=-76.24 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:26.399] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1502 max_class=8 max_min_kpt=0.9593 refined_color=1 color_score=-74.26 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:26.419] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0950 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=0
+[2026-09-05 23:05:26.438] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1015 max_class=8 max_min_kpt=0.9667 refined_color=1 color_score=-75.39 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:26.458] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0476 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=0
+[2026-09-05 23:05:26.476] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0780 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=0
+[2026-09-05 23:05:26.496] [info] [YOLO26][DET] above_0p2=2 after_nms=1 accepted=1 max_conf=0.3337 max_class=11 max_min_kpt=0.9950 refined_color=1 color_score=-87.79 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:26.515] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1257 max_class=11 max_min_kpt=0.9919 refined_color=1 color_score=-91.12 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:26.535] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1113 max_class=11 max_min_kpt=0.9927 refined_color=1 color_score=-79.63 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:26.556] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.3680 max_class=11 max_min_kpt=0.9951 refined_color=1 color_score=-86.59 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:26.576] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.4893 max_class=11 max_min_kpt=0.9909 refined_color=1 color_score=-82.56 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:26.596] [info] [YOLO26][DET] above_0p2=2 after_nms=1 accepted=1 max_conf=0.2184 max_class=11 max_min_kpt=0.9912 refined_color=1 color_score=-87.43 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:26.617] [info] [YOLO26][DET] above_0p2=3 after_nms=2 accepted=2 max_conf=0.2602 max_class=11 max_min_kpt=0.9922 refined_color=1 color_score=-93.13 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:26.638] [info] [YOLO26][DET] above_0p2=2 after_nms=2 accepted=2 max_conf=0.3494 max_class=11 max_min_kpt=0.9930 refined_color=1 color_score=-88.61 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:26.644] [info] [SYNC][XUC] mode=0 yaw=-7.31 deg pitch=0.13 deg feeder_rpm=0.00 wheel0_rpm=0 wheel1_rpm=0 wheel_delta=0 projectile_speed=19.36 gate=0x1E switch=0 rc=1 sticks=1 imu=1 serial=1 control=0 yaw_armed=0 pitch_active=0
+[2026-09-05 23:05:26.658] [info] [YOLO26][DET] above_0p2=3 after_nms=2 accepted=2 max_conf=0.5108 max_class=11 max_min_kpt=0.9913 refined_color=1 color_score=-84.43 color_source=1
+[2026-09-05 23:05:26.662] [info] [YOLO26] ==================== Performance ====================
+[2026-09-05 23:05:26.662] [info] [YOLO26] Preprocess:  1.633 ms (9.3%)
+[2026-09-05 23:05:26.662] [info] [YOLO26] Inference:   12.120 ms (68.7%)
+[2026-09-05 23:05:26.662] [info] [YOLO26] Postprocess: 3.895 ms (22.1%)
+[2026-09-05 23:05:26.662] [info] [YOLO26] Total:       17.649 ms (56.7 FPS)
+[2026-09-05 23:05:26.662] [info] [YOLO26] ======================================================
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:26.663] [info] [DRYRUN] measured_gimbal=(3.780,-0.140,0.052) measured_world=(3.767,0.342,0.043) tracked_world=(3.663,0.756,0.046) target_gimbal_deg=(-2.12,0.78) target_world_deg=(5.19,0.65) gimbal_deg=(7.31,0.13) armor_y_px=540.6 pixel_error_deg=(3.04,0.02) ballistic=(range=nanm holdover=0.000m comp=0.00deg residual=0.02deg) q_wxyz=(0.997967,0.000073,0.001147,-0.063723) cmd_deg=(7.80,0.14) packed_pitch_deg=0.14 control=true shoot=false
+[2026-09-05 23:05:26.665] [info] [PERF] 总耗时=20.8ms (检测=17.7ms, 跟踪=0.5ms), FPS=48.1
+[2026-09-05 23:05:26.665] [info] 📊 [CAMERA FPS] 瞬时帧率=48.0fps, 平均帧率=49.7fps, 总帧数=400, 运行时间=8.0s
+[2026-09-05 23:05:26.680] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1101 max_class=11 max_min_kpt=0.9932 refined_color=1 color_score=-84.23 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:26.700] [info] [YOLO26][DET] above_0p2=2 after_nms=2 accepted=2 max_conf=0.3775 max_class=11 max_min_kpt=0.9914 refined_color=1 color_score=-84.52 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:26.721] [info] [YOLO26][DET] above_0p2=2 after_nms=2 accepted=2 max_conf=0.4852 max_class=11 max_min_kpt=0.9913 refined_color=1 color_score=-94.00 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:26.741] [info] [YOLO26][DET] above_0p2=2 after_nms=2 accepted=2 max_conf=0.3420 max_class=11 max_min_kpt=0.9867 refined_color=1 color_score=-77.92 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:26.762] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.4754 max_class=11 max_min_kpt=0.9863 refined_color=1 color_score=-76.26 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:26.782] [info] [YOLO26][DET] above_0p2=2 after_nms=2 accepted=2 max_conf=0.2550 max_class=11 max_min_kpt=0.9906 refined_color=1 color_score=-83.83 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:26.784] [info] [XUC][FIRE] stable-window candidate started
+[2026-09-05 23:05:26.802] [info] [YOLO26][DET] above_0p2=2 after_nms=2 accepted=2 max_conf=0.1810 max_class=11 max_min_kpt=0.9820 refined_color=1 color_score=-78.71 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:26.823] [info] [YOLO26][DET] above_0p2=3 after_nms=2 accepted=2 max_conf=0.4467 max_class=11 max_min_kpt=0.9918 refined_color=1 color_score=-80.79 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:26.825] [info] [XUC][FIRE] qualified after 40 ms, pixel error deg=(2.13,-0.01) gyro=true face_error=6.34deg omega=-1.786rad_s armed=true
+[2026-09-05 23:05:26.843] [info] [YOLO26][DET] above_0p2=2 after_nms=2 accepted=2 max_conf=0.5428 max_class=11 max_min_kpt=0.9797 refined_color=1 color_score=-81.44 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:26.845] [info] [XUC][FIRE] stable window reset
+[2026-09-05 23:05:26.864] [info] [YOLO26][DET] above_0p2=3 after_nms=2 accepted=2 max_conf=0.3348 max_class=10 max_min_kpt=0.9931 refined_color=1 color_score=-77.69 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:26.884] [info] [YOLO26][DET] above_0p2=3 after_nms=3 accepted=3 max_conf=0.4584 max_class=10 max_min_kpt=0.9924 refined_color=1 color_score=-65.63 color_source=1
+[DEBUG] armors=3, targets=1
+[2026-09-05 23:05:26.905] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.2010 max_class=10 max_min_kpt=0.9550 refined_color=1 color_score=-85.21 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:26.924] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1090 max_class=10 max_min_kpt=0.9598 refined_color=1 color_score=-81.27 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:26.941] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0921 max_class=11 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:26.962] [info] [YOLO26][DET] above_0p2=2 after_nms=1 accepted=1 max_conf=0.1076 max_class=8 max_min_kpt=0.9924 refined_color=1 color_score=-74.16 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:26.981] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0354 max_class=11 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:27.001] [info] [YOLO26][DET] above_0p2=2 after_nms=1 accepted=1 max_conf=0.1162 max_class=11 max_min_kpt=0.9935 refined_color=1 color_score=-86.99 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:27.021] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0930 max_class=11 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:27.040] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0416 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:27.059] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1857 max_class=8 max_min_kpt=0.9580 refined_color=1 color_score=-88.76 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:27.060] [info] [DRYRUN] measured_gimbal=(3.636,0.014,0.055) measured_world=(3.605,0.476,0.047) tracked_world=(3.915,0.906,0.047) target_gimbal_deg=(0.22,0.87) target_world_deg=(7.53,0.74) gimbal_deg=(7.31,0.13) armor_y_px=539.4 pixel_error_deg=(0.23,-0.02) ballistic=(range=nanm holdover=0.000m comp=0.00deg residual=-0.02deg) q_wxyz=(0.997967,0.000073,0.001147,-0.063723) cmd_deg=(7.68,0.09) packed_pitch_deg=0.09 control=true shoot=false
+[2026-09-05 23:05:27.079] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0425 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:27.099] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0478 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:27.118] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1176 max_class=11 max_min_kpt=0.9929 refined_color=1 color_score=-95.15 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:27.138] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1093 max_class=8 max_min_kpt=0.9474 refined_color=1 color_score=-51.47 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:27.157] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1013 max_class=8 max_min_kpt=0.9422 refined_color=1 color_score=-83.94 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:27.178] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0753 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:27.197] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0456 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:27.217] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0818 max_class=11 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:27.235] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1285 max_class=8 max_min_kpt=0.9139 refined_color=1 color_score=-67.38 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:27.254] [info] [YOLO26][DET] above_0p2=2 after_nms=1 accepted=1 max_conf=0.2135 max_class=11 max_min_kpt=0.9965 refined_color=1 color_score=-77.24 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:27.273] [info] [YOLO26][DET] above_0p2=2 after_nms=1 accepted=1 max_conf=0.1074 max_class=8 max_min_kpt=0.9916 refined_color=1 color_score=-78.10 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:27.291] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1032 max_class=8 max_min_kpt=0.9550 refined_color=1 color_score=-54.70 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:27.310] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.2224 max_class=11 max_min_kpt=0.9929 refined_color=1 color_score=-76.69 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:27.329] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1245 max_class=11 max_min_kpt=0.9911 refined_color=1 color_score=-75.28 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:27.348] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1626 max_class=11 max_min_kpt=0.9960 refined_color=1 color_score=-82.68 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:27.368] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1922 max_class=11 max_min_kpt=0.9924 refined_color=1 color_score=-79.01 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:27.387] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1156 max_class=11 max_min_kpt=0.9901 refined_color=1 color_score=-73.66 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:27.407] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0822 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:27.426] [info] [YOLO26][DET] above_0p2=2 after_nms=1 accepted=1 max_conf=0.3793 max_class=11 max_min_kpt=0.9913 refined_color=1 color_score=-81.04 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:27.446] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1114 max_class=8 max_min_kpt=0.9459 refined_color=1 color_score=-77.20 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:27.448] [info] [DRYRUN] measured_gimbal=(3.611,0.241,0.057) measured_world=(3.551,0.698,0.048) tracked_world=(3.924,0.880,0.050) target_gimbal_deg=(3.81,0.90) target_world_deg=(11.12,0.77) gimbal_deg=(7.31,0.13) armor_y_px=537.6 pixel_error_deg=(-3.08,-0.06) ballistic=(range=nanm holdover=0.000m comp=0.00deg residual=-0.06deg) q_wxyz=(0.997967,0.000073,0.001147,-0.063723) cmd_deg=(7.68,0.04) packed_pitch_deg=0.04 control=true shoot=false
+[2026-09-05 23:05:27.466] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1207 max_class=11 max_min_kpt=0.9958 refined_color=1 color_score=-83.61 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:27.486] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.2730 max_class=11 max_min_kpt=0.9812 refined_color=1 color_score=-83.36 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:27.506] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.6203 max_class=11 max_min_kpt=0.9884 refined_color=1 color_score=-88.14 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:27.525] [info] [YOLO26][DET] above_0p2=2 after_nms=2 accepted=2 max_conf=0.3403 max_class=11 max_min_kpt=0.9953 refined_color=1 color_score=-88.35 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:27.544] [info] [YOLO26][DET] above_0p2=3 after_nms=2 accepted=2 max_conf=0.4183 max_class=11 max_min_kpt=0.9896 refined_color=1 color_score=-83.71 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:27.563] [info] [YOLO26][DET] above_0p2=2 after_nms=1 accepted=1 max_conf=0.4995 max_class=11 max_min_kpt=0.9729 refined_color=1 color_score=-80.87 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:27.566] [info] [XUC][FIRE] stable-window candidate started
+[2026-09-05 23:05:27.583] [info] [YOLO26][DET] above_0p2=2 after_nms=2 accepted=2 max_conf=0.4997 max_class=11 max_min_kpt=0.9947 refined_color=1 color_score=-75.80 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:27.586] [info] [XUC][FIRE] stable window reset
+[2026-09-05 23:05:27.603] [info] [YOLO26][DET] above_0p2=2 after_nms=2 accepted=2 max_conf=0.4156 max_class=11 max_min_kpt=0.9890 refined_color=1 color_score=-80.83 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:27.606] [info] [XUC][FIRE] stable-window candidate started
+[2026-09-05 23:05:27.624] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.2074 max_class=11 max_min_kpt=0.9792 refined_color=1 color_score=-80.26 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:27.626] [info] [XUC][FIRE] stable window reset
+[2026-09-05 23:05:27.629] [info] [SYNC][XUC] mode=0 yaw=-7.31 deg pitch=0.13 deg feeder_rpm=0.00 wheel0_rpm=0 wheel1_rpm=0 wheel_delta=0 projectile_speed=19.36 gate=0x1E switch=0 rc=1 sticks=1 imu=1 serial=1 control=0 yaw_armed=0 pitch_active=0
+[2026-09-05 23:05:27.645] [info] [YOLO26][DET] above_0p2=2 after_nms=2 accepted=2 max_conf=0.6850 max_class=11 max_min_kpt=0.9847 refined_color=1 color_score=-84.58 color_source=1
+[2026-09-05 23:05:27.649] [info] [YOLO26] ==================== Performance ====================
+[2026-09-05 23:05:27.649] [info] [YOLO26] Preprocess:  1.048 ms (5.4%)
+[2026-09-05 23:05:27.649] [info] [YOLO26] Inference:   14.234 ms (72.7%)
+[2026-09-05 23:05:27.649] [info] [YOLO26] Postprocess: 4.292 ms (21.9%)
+[2026-09-05 23:05:27.649] [info] [YOLO26] Total:       19.575 ms (51.1 FPS)
+[2026-09-05 23:05:27.649] [info] [YOLO26] ======================================================
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:27.650] [info] [XUC][FIRE] stable-window candidate started
+[2026-09-05 23:05:27.654] [info] [PERF] 总耗时=24.5ms (检测=19.6ms, 跟踪=0.9ms), FPS=40.8
+[2026-09-05 23:05:27.654] [info] 📊 [CAMERA FPS] 瞬时帧率=40.8fps, 平均帧率=49.8fps, 总帧数=450, 运行时间=9.0s
+[2026-09-05 23:05:27.667] [info] [YOLO26][DET] above_0p2=2 after_nms=2 accepted=2 max_conf=0.5693 max_class=11 max_min_kpt=0.9924 refined_color=1 color_score=-78.71 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:27.686] [info] [YOLO26][DET] above_0p2=2 after_nms=2 accepted=2 max_conf=0.4351 max_class=11 max_min_kpt=0.9877 refined_color=1 color_score=-78.24 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:27.689] [info] [XUC][FIRE] qualified after 40 ms, pixel error deg=(2.13,0.10) gyro=true face_error=4.38deg omega=-1.777rad_s armed=true
+[2026-09-05 23:05:27.706] [info] [YOLO26][DET] above_0p2=3 after_nms=3 accepted=3 max_conf=0.2256 max_class=10 max_min_kpt=0.9811 refined_color=1 color_score=-83.87 color_source=1
+[DEBUG] armors=3, targets=1
+[2026-09-05 23:05:27.710] [info] [XUC][FIRE] stable window reset
+[2026-09-05 23:05:27.725] [info] [YOLO26][DET] above_0p2=3 after_nms=2 accepted=2 max_conf=0.3644 max_class=10 max_min_kpt=0.9870 refined_color=1 color_score=-67.10 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:27.744] [info] [YOLO26][DET] above_0p2=2 after_nms=2 accepted=2 max_conf=0.3720 max_class=10 max_min_kpt=0.9949 refined_color=1 color_score=-70.23 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:27.764] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.2930 max_class=11 max_min_kpt=0.9817 refined_color=1 color_score=-84.68 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:27.784] [info] [YOLO26][DET] above_0p2=2 after_nms=2 accepted=2 max_conf=0.5821 max_class=14 max_min_kpt=0.9901 refined_color=1 color_score=-86.96 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:27.803] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0406 max_class=10 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:27.822] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0434 max_class=11 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:27.841] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0686 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:27.860] [info] [YOLO26][DET] above_0p2=2 after_nms=1 accepted=1 max_conf=0.1905 max_class=11 max_min_kpt=0.9930 refined_color=1 color_score=-94.39 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:27.880] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.2274 max_class=11 max_min_kpt=0.9842 refined_color=1 color_score=-83.10 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:27.900] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0910 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:27.919] [info] [YOLO26][DET] above_0p2=2 after_nms=1 accepted=1 max_conf=0.1333 max_class=11 max_min_kpt=0.9896 refined_color=1 color_score=-84.06 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:27.941] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0743 max_class=10 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:27.959] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0853 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:27.978] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0953 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:27.998] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1678 max_class=8 max_min_kpt=0.9460 refined_color=1 color_score=-89.24 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:28.018] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1541 max_class=11 max_min_kpt=0.9899 refined_color=1 color_score=-58.21 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:28.038] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0384 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:28.057] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0382 max_class=11 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:28.077] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1071 max_class=8 max_min_kpt=0.9193 refined_color=1 color_score=-53.56 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:28.097] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1022 max_class=8 max_min_kpt=0.9417 refined_color=1 color_score=-79.46 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:28.116] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1502 max_class=8 max_min_kpt=0.9573 refined_color=1 color_score=-72.72 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:28.136] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1089 max_class=10 max_min_kpt=0.9660 refined_color=1 color_score=-67.61 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:28.156] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0571 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:28.174] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0602 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:28.192] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0425 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:28.212] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0783 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:28.230] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0650 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:28.250] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0446 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:28.268] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.3359 max_class=11 max_min_kpt=0.9894 refined_color=1 color_score=-74.57 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:28.287] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1762 max_class=11 max_min_kpt=0.9816 refined_color=1 color_score=-83.50 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:28.306] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1927 max_class=10 max_min_kpt=0.9554 refined_color=1 color_score=-79.82 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:28.326] [info] [YOLO26][DET] above_0p2=2 after_nms=2 accepted=2 max_conf=0.2530 max_class=14 max_min_kpt=0.9668 refined_color=1 color_score=-86.79 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:28.345] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0953 max_class=10 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:28.364] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1205 max_class=10 max_min_kpt=0.9705 refined_color=1 color_score=-73.14 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:28.384] [info] [YOLO26][DET] above_0p2=2 after_nms=2 accepted=2 max_conf=0.5220 max_class=11 max_min_kpt=0.9943 refined_color=1 color_score=-82.73 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:28.404] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.3898 max_class=11 max_min_kpt=0.9863 refined_color=1 color_score=-89.64 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:28.424] [info] [YOLO26][DET] above_0p2=2 after_nms=2 accepted=2 max_conf=0.1915 max_class=11 max_min_kpt=0.9841 refined_color=1 color_score=-97.68 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:28.444] [info] [YOLO26][DET] above_0p2=2 after_nms=2 accepted=2 max_conf=0.2754 max_class=11 max_min_kpt=0.9936 refined_color=1 color_score=-78.77 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:28.466] [info] [YOLO26][DET] above_0p2=2 after_nms=2 accepted=2 max_conf=0.6907 max_class=11 max_min_kpt=0.9821 refined_color=1 color_score=-79.14 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:28.486] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.5836 max_class=11 max_min_kpt=0.9754 refined_color=1 color_score=-77.11 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:28.505] [info] [YOLO26][DET] above_0p2=2 after_nms=2 accepted=2 max_conf=0.6167 max_class=11 max_min_kpt=0.9888 refined_color=1 color_score=-76.84 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:28.524] [info] [YOLO26][DET] above_0p2=2 after_nms=2 accepted=2 max_conf=0.6633 max_class=11 max_min_kpt=0.9899 refined_color=1 color_score=-74.95 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:28.526] [info] [XUC][FIRE] stable-window candidate started
+[2026-09-05 23:05:28.544] [info] [YOLO26][DET] above_0p2=2 after_nms=2 accepted=2 max_conf=0.5966 max_class=11 max_min_kpt=0.9878 refined_color=1 color_score=-81.63 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:28.565] [info] [YOLO26][DET] above_0p2=4 after_nms=2 accepted=2 max_conf=0.4381 max_class=11 max_min_kpt=0.9918 refined_color=1 color_score=-74.11 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:28.567] [info] [XUC][FIRE] qualified after 40 ms, pixel error deg=(2.08,0.11) gyro=true face_error=0.66deg omega=-1.651rad_s armed=true
+[2026-09-05 23:05:28.584] [info] [YOLO26][DET] above_0p2=3 after_nms=3 accepted=3 max_conf=0.5193 max_class=11 max_min_kpt=0.9848 refined_color=1 color_score=-82.72 color_source=1
+[DEBUG] armors=3, targets=1
+[2026-09-05 23:05:28.587] [info] [XUC][FIRE] stable window reset
+[2026-09-05 23:05:28.605] [info] [YOLO26][DET] above_0p2=3 after_nms=2 accepted=2 max_conf=0.2925 max_class=10 max_min_kpt=0.9935 refined_color=1 color_score=-68.52 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:28.610] [info] [SYNC][XUC] mode=0 yaw=-7.31 deg pitch=0.13 deg feeder_rpm=0.00 wheel0_rpm=0 wheel1_rpm=0 wheel_delta=0 projectile_speed=19.36 gate=0x1E switch=0 rc=1 sticks=1 imu=1 serial=1 control=0 yaw_armed=0 pitch_active=0
+[2026-09-05 23:05:28.625] [info] [YOLO26][DET] above_0p2=3 after_nms=2 accepted=2 max_conf=0.2432 max_class=11 max_min_kpt=0.9886 refined_color=1 color_score=-87.99 color_source=1
+[2026-09-05 23:05:28.630] [info] [YOLO26] ==================== Performance ====================
+[2026-09-05 23:05:28.630] [info] [YOLO26] Preprocess:  1.969 ms (10.2%)
+[2026-09-05 23:05:28.630] [info] [YOLO26] Inference:   12.680 ms (65.6%)
+[2026-09-05 23:05:28.630] [info] [YOLO26] Postprocess: 4.668 ms (24.2%)
+[2026-09-05 23:05:28.630] [info] [YOLO26] Total:       19.319 ms (51.8 FPS)
+[2026-09-05 23:05:28.630] [info] [YOLO26] ======================================================
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:28.631] [info] [DRYRUN] measured_gimbal=(3.672,0.369,0.050) measured_world=(3.595,0.833,0.041) tracked_world=(4.079,0.404,0.038) target_gimbal_deg=(5.74,0.77) target_world_deg=(13.04,0.64) gimbal_deg=(7.31,0.13) armor_y_px=543.6 pixel_error_deg=(1.75,0.09) ballistic=(range=nanm holdover=0.000m comp=0.00deg residual=0.09deg) q_wxyz=(0.997967,0.000073,0.001147,-0.063723) cmd_deg=(7.97,0.29) packed_pitch_deg=0.29 control=true shoot=false
+[2026-09-05 23:05:28.634] [info] [PERF] 总耗时=23.1ms (检测=19.4ms, 跟踪=0.6ms), FPS=43.3
+[2026-09-05 23:05:28.634] [info] 📊 [CAMERA FPS] 瞬时帧率=43.3fps, 平均帧率=49.9fps, 总帧数=500, 运行时间=10.0s
+[2026-09-05 23:05:28.648] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0539 max_class=11 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:28.667] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1695 max_class=10 max_min_kpt=0.9478 refined_color=1 color_score=-88.66 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:28.686] [info] [YOLO26][DET] above_0p2=2 after_nms=1 accepted=1 max_conf=0.1337 max_class=10 max_min_kpt=0.9545 refined_color=1 color_score=-83.96 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:28.706] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0992 max_class=10 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:28.726] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0233 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:28.745] [info] [YOLO26][DET] above_0p2=2 after_nms=1 accepted=1 max_conf=0.1145 max_class=11 max_min_kpt=0.9936 refined_color=1 color_score=-92.76 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:28.765] [info] [YOLO26][DET] above_0p2=2 after_nms=1 accepted=1 max_conf=0.1599 max_class=11 max_min_kpt=0.9859 refined_color=1 color_score=-93.65 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:28.785] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0814 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:28.804] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1276 max_class=11 max_min_kpt=0.9898 refined_color=1 color_score=-77.93 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:28.824] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1383 max_class=10 max_min_kpt=0.9635 refined_color=1 color_score=-64.84 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:28.842] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0693 max_class=10 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:28.862] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1277 max_class=10 max_min_kpt=0.9461 refined_color=1 color_score=-76.54 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:28.882] [info] [YOLO26][DET] above_0p2=2 after_nms=1 accepted=1 max_conf=0.1334 max_class=8 max_min_kpt=0.9472 refined_color=1 color_score=-78.84 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:28.900] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1214 max_class=8 max_min_kpt=0.9414 refined_color=1 color_score=-65.29 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:28.919] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0349 max_class=10 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:28.939] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0202 max_class=11 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:28.959] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1985 max_class=11 max_min_kpt=0.9854 refined_color=1 color_score=-68.95 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:28.980] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0267 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:28.999] [info] [YOLO26][DET] above_0p2=2 after_nms=1 accepted=1 max_conf=0.2297 max_class=11 max_min_kpt=0.9913 refined_color=1 color_score=-83.55 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:29.019] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0779 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:29.039] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1463 max_class=11 max_min_kpt=0.9969 refined_color=1 color_score=-74.40 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:29.060] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.4154 max_class=11 max_min_kpt=0.9895 refined_color=1 color_score=-92.55 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:29.081] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1006 max_class=11 max_min_kpt=0.9832 refined_color=1 color_score=-89.17 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:29.099] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.5195 max_class=11 max_min_kpt=0.9925 refined_color=1 color_score=-86.59 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:29.118] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0356 max_class=11 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:29.136] [info] [YOLO26][DET] above_0p2=2 after_nms=1 accepted=1 max_conf=0.2943 max_class=11 max_min_kpt=0.9975 refined_color=1 color_score=-84.40 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:29.156] [info] [YOLO26][DET] above_0p2=2 after_nms=1 accepted=1 max_conf=0.1608 max_class=11 max_min_kpt=0.9868 refined_color=1 color_score=-82.05 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:29.176] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0874 max_class=10 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:29.196] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.2013 max_class=10 max_min_kpt=0.9626 refined_color=1 color_score=-80.28 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:29.216] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0556 max_class=10 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:29.235] [info] [YOLO26][DET] above_0p2=2 after_nms=1 accepted=1 max_conf=0.1530 max_class=10 max_min_kpt=0.9837 refined_color=1 color_score=-74.79 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:29.255] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1723 max_class=11 max_min_kpt=0.9810 refined_color=1 color_score=-82.04 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:29.275] [info] [YOLO26][DET] above_0p2=3 after_nms=2 accepted=2 max_conf=0.4016 max_class=11 max_min_kpt=0.9924 refined_color=1 color_score=-79.50 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:29.296] [info] [YOLO26][DET] above_0p2=2 after_nms=1 accepted=1 max_conf=0.4233 max_class=11 max_min_kpt=0.9909 refined_color=1 color_score=-101.38 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:29.315] [info] [YOLO26][DET] above_0p2=2 after_nms=2 accepted=2 max_conf=0.2846 max_class=11 max_min_kpt=0.9908 refined_color=1 color_score=-84.17 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:29.333] [info] [YOLO26][DET] above_0p2=2 after_nms=2 accepted=2 max_conf=0.4303 max_class=11 max_min_kpt=0.9867 refined_color=1 color_score=-84.63 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:29.354] [info] [YOLO26][DET] above_0p2=3 after_nms=2 accepted=2 max_conf=0.6787 max_class=11 max_min_kpt=0.9870 refined_color=1 color_score=-85.58 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:29.357] [info] [XUC][FIRE] stable-window candidate started
+[2026-09-05 23:05:29.374] [info] [YOLO26][DET] above_0p2=2 after_nms=2 accepted=2 max_conf=0.5305 max_class=11 max_min_kpt=0.9790 refined_color=1 color_score=-82.07 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:29.394] [info] [YOLO26][DET] above_0p2=2 after_nms=2 accepted=2 max_conf=0.7327 max_class=11 max_min_kpt=0.9848 refined_color=1 color_score=-76.64 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:29.396] [info] [XUC][FIRE] qualified after 40 ms, pixel error deg=(2.08,0.05) gyro=true face_error=3.38deg omega=-1.667rad_s armed=true
+[2026-09-05 23:05:29.414] [info] [YOLO26][DET] above_0p2=3 after_nms=2 accepted=2 max_conf=0.7486 max_class=11 max_min_kpt=0.9920 refined_color=1 color_score=-78.39 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:29.417] [info] [XUC][FIRE] stable window reset
+[2026-09-05 23:05:29.417] [info] [DRYRUN] measured_gimbal=(3.841,-0.093,0.050) measured_world=(3.821,0.396,0.042) tracked_world=(3.717,0.400,0.039) target_gimbal_deg=(-1.39,0.75) target_world_deg=(5.92,0.62) gimbal_deg=(7.31,0.13) armor_y_px=541.0 pixel_error_deg=(1.97,0.02) ballistic=(range=nanm holdover=0.000m comp=0.00deg residual=0.02deg) q_wxyz=(0.997967,0.000073,0.001147,-0.063723) cmd_deg=(7.94,0.18) packed_pitch_deg=0.18 control=true shoot=false
+[2026-09-05 23:05:29.434] [info] [YOLO26][DET] above_0p2=3 after_nms=3 accepted=3 max_conf=0.6029 max_class=11 max_min_kpt=0.9933 refined_color=1 color_score=-82.89 color_source=1
+[DEBUG] armors=3, targets=1
+[2026-09-05 23:05:29.455] [info] [YOLO26][DET] above_0p2=2 after_nms=2 accepted=2 max_conf=0.2618 max_class=10 max_min_kpt=0.9799 refined_color=1 color_score=-60.88 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:29.475] [info] [YOLO26][DET] above_0p2=2 after_nms=2 accepted=2 max_conf=0.1329 max_class=11 max_min_kpt=0.9816 refined_color=1 color_score=-77.93 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:29.495] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1843 max_class=10 max_min_kpt=0.9556 refined_color=1 color_score=-77.45 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:29.514] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.3409 max_class=10 max_min_kpt=0.9585 refined_color=1 color_score=-90.23 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:29.533] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1192 max_class=10 max_min_kpt=0.9523 refined_color=1 color_score=-79.75 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:29.551] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1502 max_class=10 max_min_kpt=0.9506 refined_color=1 color_score=-90.33 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:29.571] [info] [YOLO26][DET] above_0p2=2 after_nms=1 accepted=1 max_conf=0.1642 max_class=10 max_min_kpt=0.9499 refined_color=1 color_score=-73.95 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:29.590] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1358 max_class=8 max_min_kpt=0.9599 refined_color=1 color_score=-82.36 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:29.595] [info] [SYNC][XUC] mode=0 yaw=-7.31 deg pitch=0.13 deg feeder_rpm=0.00 wheel0_rpm=0 wheel1_rpm=0 wheel_delta=0 projectile_speed=19.36 gate=0x1E switch=0 rc=1 sticks=1 imu=1 serial=1 control=0 yaw_armed=0 pitch_active=0
+[2026-09-05 23:05:29.610] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1168 max_class=8 max_min_kpt=0.9596 refined_color=1 color_score=-87.16 color_source=1
+[2026-09-05 23:05:29.613] [info] [YOLO26] ==================== Performance ====================
+[2026-09-05 23:05:29.613] [info] [YOLO26] Preprocess:  0.936 ms (5.1%)
+[2026-09-05 23:05:29.613] [info] [YOLO26] Inference:   13.736 ms (74.3%)
+[2026-09-05 23:05:29.613] [info] [YOLO26] Postprocess: 3.802 ms (20.6%)
+[2026-09-05 23:05:29.613] [info] [YOLO26] Total:       18.475 ms (54.1 FPS)
+[2026-09-05 23:05:29.613] [info] [YOLO26] ======================================================
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:29.617] [info] [PERF] 总耗时=21.8ms (检测=18.5ms, 跟踪=0.0ms), FPS=45.9
+[2026-09-05 23:05:29.617] [info] 📊 [CAMERA FPS] 瞬时帧率=45.8fps, 平均帧率=50.0fps, 总帧数=550, 运行时间=11.0s
+[2026-09-05 23:05:29.632] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0870 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:29.651] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0557 max_class=10 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:29.671] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0560 max_class=10 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:29.691] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0776 max_class=10 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:29.712] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1525 max_class=10 max_min_kpt=0.9411 refined_color=1 color_score=-69.74 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:29.732] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.2049 max_class=8 max_min_kpt=0.9558 refined_color=1 color_score=-82.99 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:29.751] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.2284 max_class=8 max_min_kpt=0.9508 refined_color=1 color_score=-90.07 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:29.770] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0827 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:29.789] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0615 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=0
+[2026-09-05 23:05:29.808] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1456 max_class=8 max_min_kpt=0.9486 refined_color=1 color_score=-85.30 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:29.810] [info] [DRYRUN] measured_gimbal=(3.834,0.131,0.053) measured_world=(3.786,0.617,0.044) tracked_world=(3.786,0.617,0.044) target_gimbal_deg=(1.95,0.79) target_world_deg=(9.26,0.66) gimbal_deg=(7.31,0.13) armor_y_px=539.8 pixel_error_deg=(-1.01,-0.00) ballistic=(range=nanm holdover=0.000m comp=0.00deg residual=-0.00deg) q_wxyz=(0.997967,0.000073,0.001147,-0.063723) cmd_deg=(8.04,0.14) packed_pitch_deg=0.14 control=true shoot=false
+[2026-09-05 23:05:29.829] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1399 max_class=8 max_min_kpt=0.9442 refined_color=1 color_score=-79.66 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:29.849] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1523 max_class=8 max_min_kpt=0.9457 refined_color=1 color_score=-81.78 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:29.870] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1513 max_class=8 max_min_kpt=0.9580 refined_color=1 color_score=-73.95 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:29.890] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0663 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=0
+[2026-09-05 23:05:29.910] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0815 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=0
+[2026-09-05 23:05:29.930] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0400 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=0
+[2026-09-05 23:05:29.949] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0638 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=0
+[2026-09-05 23:05:29.967] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.3086 max_class=11 max_min_kpt=0.9942 refined_color=1 color_score=-91.37 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:29.989] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.3046 max_class=11 max_min_kpt=0.9928 refined_color=1 color_score=-92.24 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:30.008] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0471 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=0
+[2026-09-05 23:05:30.027] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.3168 max_class=11 max_min_kpt=0.9945 refined_color=1 color_score=-90.85 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:30.046] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.5091 max_class=11 max_min_kpt=0.9918 refined_color=1 color_score=-80.11 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:30.067] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1405 max_class=11 max_min_kpt=0.9920 refined_color=1 color_score=-88.39 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:30.088] [info] [YOLO26][DET] above_0p2=2 after_nms=2 accepted=2 max_conf=0.3037 max_class=11 max_min_kpt=0.9920 refined_color=1 color_score=-91.63 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:30.109] [info] [YOLO26][DET] above_0p2=2 after_nms=2 accepted=2 max_conf=0.4402 max_class=11 max_min_kpt=0.9923 refined_color=1 color_score=-86.16 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:30.130] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.4725 max_class=11 max_min_kpt=0.9849 refined_color=1 color_score=-81.90 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:30.149] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0982 max_class=10 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:30.167] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.3664 max_class=11 max_min_kpt=0.9922 refined_color=1 color_score=-83.45 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:30.188] [info] [YOLO26][DET] above_0p2=2 after_nms=2 accepted=2 max_conf=0.5345 max_class=11 max_min_kpt=0.9910 refined_color=1 color_score=-94.57 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:30.209] [info] [YOLO26][DET] above_0p2=2 after_nms=2 accepted=2 max_conf=0.3172 max_class=11 max_min_kpt=0.9880 refined_color=1 color_score=-79.56 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:30.212] [info] [DRYRUN] measured_gimbal=(3.743,0.318,0.053) measured_world=(3.672,0.792,0.045) tracked_world=(3.678,0.789,0.046) target_gimbal_deg=(4.86,0.81) target_world_deg=(12.17,0.68) gimbal_deg=(7.31,0.13) armor_y_px=539.7 pixel_error_deg=(-3.95,-0.01) ballistic=(range=nanm holdover=0.000m comp=0.00deg residual=-0.01deg) q_wxyz=(0.997967,0.000073,0.001147,-0.063723) cmd_deg=(7.76,0.12) packed_pitch_deg=0.12 control=true shoot=false
+[2026-09-05 23:05:30.231] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.3735 max_class=11 max_min_kpt=0.9878 refined_color=1 color_score=-79.28 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:30.251] [info] [YOLO26][DET] above_0p2=2 after_nms=2 accepted=2 max_conf=0.5445 max_class=11 max_min_kpt=0.9895 refined_color=1 color_score=-78.78 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:30.255] [info] [XUC][FIRE] stable-window candidate started
+[2026-09-05 23:05:30.272] [info] [YOLO26][DET] above_0p2=3 after_nms=2 accepted=2 max_conf=0.2511 max_class=11 max_min_kpt=0.9916 refined_color=1 color_score=-77.65 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:30.291] [info] [YOLO26][DET] above_0p2=4 after_nms=2 accepted=2 max_conf=0.2332 max_class=11 max_min_kpt=0.9926 refined_color=1 color_score=-74.78 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:30.293] [info] [XUC][FIRE] qualified after 40 ms, pixel error deg=(2.12,-0.00) gyro=true face_error=6.95deg omega=-1.806rad_s armed=true
+[2026-09-05 23:05:30.311] [info] [YOLO26][DET] above_0p2=2 after_nms=2 accepted=2 max_conf=0.5450 max_class=10 max_min_kpt=0.9765 refined_color=1 color_score=-86.86 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:30.313] [info] [XUC][FIRE] stable window reset
+[2026-09-05 23:05:30.332] [info] [YOLO26][DET] above_0p2=3 after_nms=2 accepted=2 max_conf=0.3714 max_class=10 max_min_kpt=0.9930 refined_color=1 color_score=-79.18 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:30.353] [info] [YOLO26][DET] above_0p2=2 after_nms=2 accepted=2 max_conf=0.4268 max_class=10 max_min_kpt=0.9849 refined_color=1 color_score=-75.43 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:30.374] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0730 max_class=11 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:30.394] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1136 max_class=10 max_min_kpt=0.9591 refined_color=1 color_score=-78.42 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:30.414] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1530 max_class=11 max_min_kpt=0.9908 refined_color=1 color_score=-90.75 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:30.435] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0891 max_class=11 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:30.454] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0191 max_class=10 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:30.473] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1247 max_class=8 max_min_kpt=0.9446 refined_color=1 color_score=-81.25 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:30.491] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0637 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:30.510] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1479 max_class=8 max_min_kpt=0.9556 refined_color=1 color_score=-77.29 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:30.529] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.2084 max_class=8 max_min_kpt=0.9598 refined_color=1 color_score=-89.69 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:30.550] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0520 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:30.570] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0745 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:30.590] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0621 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:30.597] [info] [SYNC][XUC] mode=0 yaw=-7.31 deg pitch=0.13 deg feeder_rpm=0.00 wheel0_rpm=0 wheel1_rpm=0 wheel_delta=0 projectile_speed=19.36 gate=0x1E switch=0 rc=1 sticks=1 imu=1 serial=1 control=0 yaw_armed=0 pitch_active=0
+[2026-09-05 23:05:30.611] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0715 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[2026-09-05 23:05:30.616] [info] [YOLO26] ==================== Performance ====================
+[2026-09-05 23:05:30.616] [info] [YOLO26] Preprocess:  1.118 ms (5.8%)
+[2026-09-05 23:05:30.616] [info] [YOLO26] Inference:   13.659 ms (70.7%)
+[2026-09-05 23:05:30.616] [info] [YOLO26] Postprocess: 4.541 ms (23.5%)
+[2026-09-05 23:05:30.616] [info] [YOLO26] Total:       19.319 ms (51.8 FPS)
+[2026-09-05 23:05:30.616] [info] [YOLO26] ======================================================
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:30.619] [info] [PERF] 总耗时=22.1ms (检测=19.3ms, 跟踪=0.0ms), FPS=45.2
+[2026-09-05 23:05:30.619] [info] 📊 [CAMERA FPS] 瞬时帧率=45.1fps, 平均帧率=50.0fps, 总帧数=600, 运行时间=12.0s
+[2026-09-05 23:05:30.633] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1027 max_class=8 max_min_kpt=0.9499 refined_color=1 color_score=-58.00 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:30.651] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0678 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:30.670] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0394 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:30.689] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0869 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:30.706] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0991 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:30.725] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0908 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=0
+[2026-09-05 23:05:30.745] [info] [YOLO26][DET] above_0p2=2 after_nms=1 accepted=1 max_conf=0.1178 max_class=8 max_min_kpt=0.9924 refined_color=1 color_score=-61.41 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:30.764] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0881 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=0
+[2026-09-05 23:05:30.782] [info] [YOLO26][DET] above_0p2=2 after_nms=1 accepted=1 max_conf=0.1391 max_class=11 max_min_kpt=0.9936 refined_color=1 color_score=-78.84 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:30.802] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1525 max_class=11 max_min_kpt=0.9890 refined_color=1 color_score=-71.48 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:30.823] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0313 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=0
+[2026-09-05 23:05:30.843] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.3951 max_class=11 max_min_kpt=0.9935 refined_color=1 color_score=-86.49 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:30.864] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0886 max_class=11 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=0
+[2026-09-05 23:05:30.885] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1915 max_class=11 max_min_kpt=0.9953 refined_color=1 color_score=-80.00 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:30.904] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.3395 max_class=11 max_min_kpt=0.9917 refined_color=1 color_score=-81.20 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:30.923] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1318 max_class=8 max_min_kpt=0.9464 refined_color=1 color_score=-84.32 color_source=1
+[DEBUG] armors=1, targets=0
+[2026-09-05 23:05:30.941] [info] [YOLO26][DET] above_0p2=2 after_nms=1 accepted=1 max_conf=0.1270 max_class=11 max_min_kpt=0.9948 refined_color=1 color_score=-82.23 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:30.960] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.3638 max_class=11 max_min_kpt=0.9843 refined_color=1 color_score=-78.80 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:30.979] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.5071 max_class=11 max_min_kpt=0.9873 refined_color=1 color_score=-85.48 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:30.998] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.5491 max_class=11 max_min_kpt=0.9894 refined_color=1 color_score=-88.46 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:31.000] [info] [DRYRUN] measured_gimbal=(3.857,-0.141,0.044) measured_world=(3.844,0.349,0.041) tracked_world=(3.637,0.697,0.046) target_gimbal_deg=(-2.10,0.65) target_world_deg=(5.19,0.61) gimbal_deg=(7.30,0.05) armor_y_px=545.3 pixel_error_deg=(3.03,0.13) ballistic=(range=nanm holdover=0.000m comp=0.00deg residual=0.13deg) q_wxyz=(0.997974,0.000026,0.000412,-0.063619) cmd_deg=(7.64,0.21) packed_pitch_deg=0.21 control=true shoot=false
+[2026-09-05 23:05:31.016] [info] [YOLO26][DET] above_0p2=3 after_nms=2 accepted=2 max_conf=0.2747 max_class=11 max_min_kpt=0.9896 refined_color=1 color_score=-81.49 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:31.036] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.3459 max_class=11 max_min_kpt=0.9717 refined_color=1 color_score=-78.77 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:31.055] [info] [YOLO26][DET] above_0p2=2 after_nms=2 accepted=2 max_conf=0.3775 max_class=11 max_min_kpt=0.9893 refined_color=1 color_score=-78.42 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:31.075] [info] [YOLO26][DET] above_0p2=3 after_nms=2 accepted=2 max_conf=0.2402 max_class=11 max_min_kpt=0.9925 refined_color=1 color_score=-78.84 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:31.095] [info] [YOLO26][DET] above_0p2=2 after_nms=2 accepted=2 max_conf=0.3395 max_class=11 max_min_kpt=0.9872 refined_color=1 color_score=-80.31 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:31.114] [info] [YOLO26][DET] above_0p2=2 after_nms=2 accepted=2 max_conf=0.3145 max_class=11 max_min_kpt=0.9868 refined_color=1 color_score=-73.18 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:31.137] [info] [YOLO26][DET] above_0p2=2 after_nms=2 accepted=2 max_conf=0.5148 max_class=11 max_min_kpt=0.9859 refined_color=1 color_score=-74.50 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:31.157] [info] [YOLO26][DET] above_0p2=3 after_nms=2 accepted=2 max_conf=0.5343 max_class=11 max_min_kpt=0.9890 refined_color=1 color_score=-76.78 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:31.159] [info] [XUC][FIRE] stable-window candidate started
+[2026-09-05 23:05:31.176] [info] [YOLO26][DET] above_0p2=3 after_nms=3 accepted=3 max_conf=0.2215 max_class=11 max_min_kpt=0.9838 refined_color=1 color_score=-84.78 color_source=1
+[DEBUG] armors=3, targets=1
+[2026-09-05 23:05:31.197] [info] [YOLO26][DET] above_0p2=3 after_nms=3 accepted=3 max_conf=0.3196 max_class=11 max_min_kpt=0.9836 refined_color=1 color_score=-78.99 color_source=1
+[DEBUG] armors=3, targets=1
+[2026-09-05 23:05:31.199] [info] [XUC][FIRE] qualified after 40 ms, pixel error deg=(1.84,0.12) gyro=true face_error=8.96deg omega=-1.760rad_s armed=true
+[2026-09-05 23:05:31.216] [info] [YOLO26][DET] above_0p2=2 after_nms=2 accepted=2 max_conf=0.3431 max_class=10 max_min_kpt=0.9855 refined_color=1 color_score=-71.48 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:31.218] [info] [XUC][FIRE] stable window reset
+[2026-09-05 23:05:31.236] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.2932 max_class=11 max_min_kpt=0.9913 refined_color=1 color_score=-87.32 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:31.257] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0823 max_class=10 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:31.277] [info] [YOLO26][DET] above_0p2=2 after_nms=1 accepted=1 max_conf=0.1142 max_class=11 max_min_kpt=0.9877 refined_color=1 color_score=-81.41 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:31.297] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0699 max_class=10 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:31.316] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0434 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:31.336] [info] [YOLO26][DET] above_0p2=2 after_nms=1 accepted=1 max_conf=0.1638 max_class=11 max_min_kpt=0.9939 refined_color=1 color_score=-95.47 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:31.356] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1526 max_class=11 max_min_kpt=0.9851 refined_color=1 color_score=-91.95 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:31.375] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1032 max_class=8 max_min_kpt=0.9565 refined_color=1 color_score=-66.22 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:31.394] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1482 max_class=8 max_min_kpt=0.9632 refined_color=1 color_score=-72.49 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:31.396] [info] [DRYRUN] measured_gimbal=(3.541,0.017,0.046) measured_world=(3.510,0.466,0.043) tracked_world=(3.822,0.901,0.055) target_gimbal_deg=(0.27,0.75) target_world_deg=(7.57,0.70) gimbal_deg=(7.30,0.06) armor_y_px=544.3 pixel_error_deg=(0.26,0.11) ballistic=(range=nanm holdover=0.000m comp=0.00deg residual=0.11deg) q_wxyz=(0.997969,0.000031,0.000483,-0.063699) cmd_deg=(7.83,0.23) packed_pitch_deg=0.23 control=true shoot=false
+[2026-09-05 23:05:31.414] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0493 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:31.433] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0815 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:31.450] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0693 max_class=11 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:31.469] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1278 max_class=8 max_min_kpt=0.9500 refined_color=1 color_score=-85.82 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:31.488] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1994 max_class=8 max_min_kpt=0.9411 refined_color=1 color_score=-75.16 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:31.507] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0748 max_class=11 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:31.527] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0209 max_class=11 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:31.547] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0879 max_class=11 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:31.568] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0579 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:31.573] [info] [SYNC][XUC] mode=0 yaw=-7.30 deg pitch=0.06 deg feeder_rpm=0.00 wheel0_rpm=0 wheel1_rpm=0 wheel_delta=0 projectile_speed=19.36 gate=0x1E switch=0 rc=1 sticks=1 imu=1 serial=1 control=0 yaw_armed=0 pitch_active=0
+[2026-09-05 23:05:31.588] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.2312 max_class=8 max_min_kpt=0.9417 refined_color=1 color_score=-61.38 color_source=1
+[2026-09-05 23:05:31.593] [info] [YOLO26] ==================== Performance ====================
+[2026-09-05 23:05:31.593] [info] [YOLO26] Preprocess:  2.290 ms (11.5%)
+[2026-09-05 23:05:31.593] [info] [YOLO26] Inference:   13.035 ms (65.3%)
+[2026-09-05 23:05:31.593] [info] [YOLO26] Postprocess: 4.621 ms (23.2%)
+[2026-09-05 23:05:31.593] [info] [YOLO26] Total:       19.947 ms (50.1 FPS)
+[2026-09-05 23:05:31.593] [info] [YOLO26] ======================================================
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:31.596] [info] [PERF] 总耗时=23.1ms (检测=20.0ms, 跟踪=0.0ms), FPS=43.4
+[2026-09-05 23:05:31.596] [info] 📊 [CAMERA FPS] 瞬时帧率=43.3fps, 平均帧率=50.1fps, 总帧数=650, 运行时间=13.0s
+[2026-09-05 23:05:31.610] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1396 max_class=8 max_min_kpt=0.9619 refined_color=1 color_score=-69.65 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:31.630] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0611 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:31.649] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0654 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:31.667] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0971 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=0
+[2026-09-05 23:05:31.686] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0562 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=0
+[2026-09-05 23:05:31.705] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0750 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=0
+[2026-09-05 23:05:31.724] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0274 max_class=11 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=0
+[2026-09-05 23:05:31.743] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.3066 max_class=11 max_min_kpt=0.9925 refined_color=1 color_score=-86.45 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:31.764] [info] [YOLO26][DET] above_0p2=2 after_nms=1 accepted=1 max_conf=0.2661 max_class=11 max_min_kpt=0.9831 refined_color=1 color_score=-86.21 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:31.786] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0830 max_class=10 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=0
+[2026-09-05 23:05:31.787] [info] [DRYRUN] target=none gimbal_deg=(7.30,0.08) control=true shoot=false
+[2026-09-05 23:05:31.806] [info] [YOLO26][DET] above_0p2=2 after_nms=2 accepted=2 max_conf=0.1476 max_class=10 max_min_kpt=0.9634 refined_color=1 color_score=-70.55 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:31.827] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0953 max_class=10 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=0
+[2026-09-05 23:05:31.845] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1645 max_class=10 max_min_kpt=0.9641 refined_color=1 color_score=-52.58 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:31.866] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.4206 max_class=11 max_min_kpt=0.9872 refined_color=1 color_score=-85.67 color_source=1
+[DEBUG] armors=1, targets=0
+[2026-09-05 23:05:31.883] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.3321 max_class=11 max_min_kpt=0.9842 refined_color=1 color_score=-93.33 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:31.904] [info] [YOLO26][DET] above_0p2=3 after_nms=2 accepted=2 max_conf=0.2083 max_class=10 max_min_kpt=0.9853 refined_color=1 color_score=-82.62 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:31.923] [info] [YOLO26][DET] above_0p2=4 after_nms=2 accepted=2 max_conf=0.2040 max_class=11 max_min_kpt=0.9952 refined_color=1 color_score=-88.99 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:31.944] [info] [YOLO26][DET] above_0p2=3 after_nms=2 accepted=2 max_conf=0.6692 max_class=11 max_min_kpt=0.9847 refined_color=1 color_score=-80.18 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:31.947] [info] [XUC][FIRE] stable-window candidate started
+[2026-09-05 23:05:31.965] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.5569 max_class=11 max_min_kpt=0.9718 refined_color=1 color_score=-77.36 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:31.968] [info] [XUC][FIRE] stable window reset
+[2026-09-05 23:05:31.985] [info] [YOLO26][DET] above_0p2=2 after_nms=2 accepted=2 max_conf=0.5519 max_class=11 max_min_kpt=0.9883 refined_color=1 color_score=-75.34 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:32.006] [info] [YOLO26][DET] above_0p2=2 after_nms=2 accepted=2 max_conf=0.6005 max_class=11 max_min_kpt=0.9909 refined_color=1 color_score=-77.46 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:32.027] [info] [YOLO26][DET] above_0p2=2 after_nms=2 accepted=2 max_conf=0.5972 max_class=11 max_min_kpt=0.9877 refined_color=1 color_score=-81.95 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:32.048] [info] [YOLO26][DET] above_0p2=4 after_nms=2 accepted=2 max_conf=0.4651 max_class=11 max_min_kpt=0.9918 refined_color=1 color_score=-74.87 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:32.066] [info] [YOLO26][DET] above_0p2=3 after_nms=3 accepted=3 max_conf=0.6257 max_class=11 max_min_kpt=0.9850 refined_color=1 color_score=-85.13 color_source=1
+[DEBUG] armors=3, targets=1
+[2026-09-05 23:05:32.086] [info] [YOLO26][DET] above_0p2=4 after_nms=3 accepted=3 max_conf=0.2912 max_class=10 max_min_kpt=0.9928 refined_color=1 color_score=-69.01 color_source=1
+[DEBUG] armors=3, targets=1
+[2026-09-05 23:05:32.106] [info] [YOLO26][DET] above_0p2=3 after_nms=2 accepted=2 max_conf=0.2502 max_class=11 max_min_kpt=0.9904 refined_color=1 color_score=-89.64 color_source=1
+[DEBUG] armors=2, targets=1
+[2026-09-05 23:05:32.127] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0753 max_class=11 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:32.146] [info] [YOLO26][DET] above_0p2=2 after_nms=1 accepted=1 max_conf=0.1963 max_class=10 max_min_kpt=0.9521 refined_color=1 color_score=-89.47 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:32.167] [info] [YOLO26][DET] above_0p2=3 after_nms=1 accepted=1 max_conf=0.1583 max_class=11 max_min_kpt=0.9871 refined_color=1 color_score=-83.82 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:32.188] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0782 max_class=11 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:32.206] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0665 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:32.224] [info] [YOLO26][DET] above_0p2=2 after_nms=1 accepted=1 max_conf=0.3228 max_class=11 max_min_kpt=0.9957 refined_color=1 color_score=-85.43 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:32.245] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.2572 max_class=11 max_min_kpt=0.9836 refined_color=1 color_score=-81.07 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:32.264] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0667 max_class=8 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:32.282] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1025 max_class=8 max_min_kpt=0.9621 refined_color=1 color_score=-72.43 color_source=1
+[DEBUG] armors=1, targets=1
+[2026-09-05 23:05:32.303] [info] [YOLO26][DET] above_0p2=0 after_nms=0 accepted=0 max_conf=0.0721 max_class=10 max_min_kpt=0.0000 refined_color=-1 color_score=0.00 color_source=-1
+[DEBUG] armors=0, targets=1
+[2026-09-05 23:05:32.322] [info] [YOLO26][DET] above_0p2=1 after_nms=1 accepted=1 max_conf=0.1349 max_class=10 max_min_kpt=0.9550 refined_color=1 color_score=-61.20 color_source=1
