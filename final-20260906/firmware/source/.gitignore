@@ -1,0 +1,24 @@
+# IDE 缓存与调试数据库
+.vs/
+.visualgdb/
+*.suo
+
+# VisualGDB 编译产物与调试数据库
+VisualGDB/
+STM32F405/VisualGDB/
+STM32F405/.visualgdb/
+
+# 个人调试配置（含本地路径）
+*.user
+
+# 编译产物
+*.o
+*.obj
+*.dep
+*.rsp
+*.ipch
+*.pch
+*.lck
+*.log
+*.db
+build-arm/

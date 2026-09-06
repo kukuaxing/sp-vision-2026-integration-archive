@@ -1,0 +1,11 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=启动自瞄
+Comment=检查相机与下位机通信并启动当前小陀螺实弹自瞄配置
+Exec=/home/rm/sp_vision_25-xuc-board-20260901/tools/field_start_autoaim.sh
+Path=/home/rm/sp_vision_25-xuc-board-20260901
+Icon=camera-video
+Terminal=true
+Categories=Utility;
+StartupNotify=true

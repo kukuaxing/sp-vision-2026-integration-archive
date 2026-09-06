@@ -1,0 +1,11 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=停止自瞄
+Comment=安全停止由一键入口启动的自瞄程序
+Exec=/home/rm/sp_vision_25-xuc-board-20260901/tools/field_stop_autoaim.sh
+Path=/home/rm/sp_vision_25-xuc-board-20260901
+Icon=process-stop
+Terminal=true
+Categories=Utility;
+StartupNotify=true
