@@ -2,8 +2,8 @@
 Version=1.0
 Type=Application
 Name=启动自瞄
-Comment=检查相机与下位机通信并启动当前小陀螺实弹自瞄配置
-Exec=/home/rm/sp_vision_25-xuc-board-20260901/tools/field_start_autoaim.sh
+Comment=选择并保存红/蓝锁定颜色，然后检查设备并启动自瞄
+Exec=/home/rm/sp_vision_25-xuc-board-20260901/tools/field_start_autoaim.sh --select-color
 Path=/home/rm/sp_vision_25-xuc-board-20260901
 Icon=camera-video
 Terminal=true

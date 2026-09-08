@@ -91,9 +91,22 @@ YOLO26::YOLO26(const std::string & config_path, bool debug)
   device_ = yaml["device"].as<std::string>();
   binary_threshold_ = yaml["threshold"].as<double>();
   min_confidence_ = yaml["min_confidence"].as<double>();
+  candidate_confidence_ = yaml["yolo26_candidate_confidence"]
+    ? yaml["yolo26_candidate_confidence"].as<double>()
+    : std::min(0.1, min_confidence_);
   min_keypoint_confidence_ = yaml["min_keypoint_confidence"]
     ? yaml["min_keypoint_confidence"].as<double>()
     : 0.0;
+  color_confirmed_min_confidence_ = yaml["yolo26_color_confirmed_min_confidence"]
+    ? yaml["yolo26_color_confirmed_min_confidence"].as<double>()
+    : candidate_confidence_;
+  memory_confirmed_min_confidence_ = yaml["yolo26_memory_confirmed_min_confidence"]
+    ? yaml["yolo26_memory_confirmed_min_confidence"].as<double>()
+    : std::max(0.06, color_confirmed_min_confidence_);
+  color_confirmed_min_keypoint_confidence_ =
+    yaml["yolo26_color_confirmed_min_keypoint_confidence"]
+      ? yaml["yolo26_color_confirmed_min_keypoint_confidence"].as<double>()
+      : 0.75;
   letterbox_value_ = yaml["letterbox_value"] ? yaml["letterbox_value"].as<int>() : 114;
   letterbox_value_ = std::clamp(letterbox_value_, 0, 255);
   swap_rb_ = yaml["yolo26_swap_rb"] ? yaml["yolo26_swap_rb"].as<bool>() : false;
@@ -105,14 +118,32 @@ YOLO26::YOLO26(const std::string & config_path, bool debug)
     : false;
   color_min_delta_ = yaml["yolo26_color_min_delta"]
     ? yaml["yolo26_color_min_delta"].as<double>()
-    : 12.0;
+    : 8.0;
+  color_single_bar_min_delta_ = yaml["yolo26_color_single_bar_min_delta"]
+    ? yaml["yolo26_color_single_bar_min_delta"].as<double>()
+    : std::max(12.0, 1.5 * color_min_delta_);
   color_min_brightness_ = yaml["yolo26_color_min_brightness"]
     ? yaml["yolo26_color_min_brightness"].as<int>()
     : 60;
+  color_min_pixels_per_bar_ = yaml["yolo26_color_min_pixels_per_bar"]
+    ? yaml["yolo26_color_min_pixels_per_bar"].as<int>()
+    : 6;
   color_hold_frames_ = yaml["yolo26_color_hold_frames"]
     ? yaml["yolo26_color_hold_frames"].as<int>()
     : 12;
   color_hold_frames_ = std::max(0, color_hold_frames_);
+  candidate_confidence_ = std::clamp(candidate_confidence_, 0.0, min_confidence_);
+  color_confirmed_min_confidence_ = std::clamp(
+    color_confirmed_min_confidence_, candidate_confidence_, min_confidence_);
+  memory_confirmed_min_confidence_ = std::clamp(
+    memory_confirmed_min_confidence_, color_confirmed_min_confidence_, min_confidence_);
+  color_confirmed_min_keypoint_confidence_ = std::clamp(
+    color_confirmed_min_keypoint_confidence_, 0.0, 1.0);
+  color_min_delta_ = std::clamp(color_min_delta_, 0.0, 100.0);
+  color_single_bar_min_delta_ = std::clamp(
+    color_single_bar_min_delta_, color_min_delta_, 100.0);
+  color_min_brightness_ = std::clamp(color_min_brightness_, 0, 255);
+  color_min_pixels_per_bar_ = std::max(1, color_min_pixels_per_bar_);
   if (yaml["detector_debug"]) debug_ = yaml["detector_debug"].as<bool>();
 
   // 🚀 优化1: 大核绑定，提升推理性能
@@ -215,10 +246,15 @@ YOLO26::YOLO26(const std::string & config_path, bool debug)
   tools::logger()->info("[YOLO26] Initialization complete - SYNC mode optimized");
   tools::logger()->info(
     "[YOLO26] Config: threads={}, streams=1, requests=1, letterbox={}, "
-    "min_confidence={:.2f}, min_keypoint_confidence={:.2f}, swap_rb={}, "
-    "refine_color={}, color_delta={:.1f}, color_hold_frames={}, save_samples={}, debug={}",
-    infer_threads, letterbox_value_, min_confidence_, min_keypoint_confidence_, swap_rb_,
-    refine_color_, color_min_delta_, color_hold_frames_, save_samples_, debug_);
+    "min_confidence={:.2f}, candidate_confidence={:.2f}, direct/memory_confirmed={:.2f}/{:.2f}, "
+    "min_keypoint_confidence={:.2f}, "
+    "swap_rb={}, refine_color={}, color_delta={:.1f}, single_bar_delta={:.1f}, "
+    "color_min_pixels={}, color_hold_frames={}, save_samples={}, debug={}",
+    infer_threads, letterbox_value_, min_confidence_, candidate_confidence_,
+    color_confirmed_min_confidence_, memory_confirmed_min_confidence_,
+    min_keypoint_confidence_, swap_rb_, refine_color_, color_min_delta_,
+    color_single_bar_min_delta_, color_min_pixels_per_bar_, color_hold_frames_, save_samples_,
+    debug_);
 }
 
 std::list<Armor> YOLO26::detect(const cv::Mat & raw_img, int frame_count)
@@ -400,7 +436,7 @@ std::list<Armor> YOLO26::parse(
     }
 
     // 🚀 优化5: 提前过滤低置信度检测
-    if (conf < score_threshold_) {
+    if (conf < candidate_confidence_) {
       continue;
     }
 
@@ -448,7 +484,7 @@ std::list<Armor> YOLO26::parse(
 
   // NMS (非极大值抑制)
   std::vector<int> indices;
-  cv::dnn::NMSBoxes(boxes, confidences, score_threshold_, nms_threshold_, indices);
+  cv::dnn::NMSBoxes(boxes, confidences, candidate_confidence_, nms_threshold_, indices);
 
   // 生成Armor对象
   std::list<Armor> armors;
@@ -479,6 +515,7 @@ std::list<Armor> YOLO26::parse(
 
   // 过滤
   int filtered_count = 0;
+  int rescued_count = 0;
   for (auto it = armors.begin(); it != armors.end();) {
     bool name_ok = check_name(*it);
     bool type_ok = check_type(*it);
@@ -489,6 +526,7 @@ std::list<Armor> YOLO26::parse(
       continue;
     }
 
+    if (it->confidence < min_confidence_) ++rescued_count;
     it->center_norm = get_center_norm(tmp_img, it->center);
     ++it;
   }
@@ -502,9 +540,9 @@ std::list<Armor> YOLO26::parse(
     const int refined_color = armors.empty() ? -1 : static_cast<int>(armors.front().color);
     const double color_score = armors.empty() ? 0.0 : armors.front().color_score;
     tools::logger()->info(
-      "[YOLO26][DET] above_0p2={} after_nms={} accepted={} max_conf={:.4f} "
+      "[YOLO26][DET] candidates={} after_nms={} accepted={} rescued={} max_conf={:.4f} "
       "max_class={} max_min_kpt={:.4f} refined_color={} color_score={:.2f} color_source={}",
-      ids.size(), indices.size(), armors.size(), max_output_conf, max_output_class,
+      ids.size(), indices.size(), armors.size(), rescued_count, max_output_conf, max_output_class,
       max_kpt_conf, refined_color, color_score, armors.empty() ? -1 : armors.front().color_source);
   }
 
@@ -519,13 +557,52 @@ std::list<Armor> YOLO26::parse(
 bool YOLO26::check_name(const Armor & armor) const
 {
   auto name_ok = armor.name != ArmorName::not_armor;
-  auto confidence_ok = armor.confidence > min_confidence_;
+  const bool normal_confidence = armor.confidence >= min_confidence_;
+  // A low-confidence network candidate is only rescued when independent image
+  // evidence confirms its color, all keypoints are strong, and the quadrilateral
+  // is physically plausible.  This recovers PWM-dark/low-light frames without
+  // turning a globally lower YOLO threshold into background false positives.
+  const bool independent_evidence_ok =
+    armor.keypoint_confidence >= color_confirmed_min_keypoint_confidence_ &&
+    has_plausible_geometry(armor);
+  const bool direct_color_confirmed =
+    refine_color_ && armor.color_source == 1 &&
+    armor.confidence >= color_confirmed_min_confidence_ && independent_evidence_ok;
+  // Temporal color may rescue only a narrower confidence band.  It must come
+  // from a recent, spatially and scale-matched direct observation.
+  const bool memory_color_confirmed =
+    refine_color_ && armor.color_source == 2 &&
+    armor.confidence >= memory_confirmed_min_confidence_ && independent_evidence_ok;
+  const bool confidence_ok =
+    normal_confidence || direct_color_confirmed || memory_color_confirmed;
 
   // Optional offline dataset collection. Disabled by default so a normal
   // real-time run cannot silently fill the robot's system disk.
   if (save_samples_ && armor.confidence > 0.5 && armor.confidence < 0.7) save(armor);
 
   return name_ok && confidence_ok;
+}
+
+bool YOLO26::has_plausible_geometry(const Armor & armor) const
+{
+  if (armor.points.size() != 4) return false;
+
+  const double left = cv::norm(armor.points[3] - armor.points[0]);
+  const double right = cv::norm(armor.points[2] - armor.points[1]);
+  const double top = cv::norm(armor.points[1] - armor.points[0]);
+  const double bottom = cv::norm(armor.points[2] - armor.points[3]);
+  const double height = 0.5 * (left + right);
+  const double width = 0.5 * (top + bottom);
+  if (!std::isfinite(width) || !std::isfinite(height) || width < 3.0 || height < 3.0) {
+    return false;
+  }
+
+  const double aspect = width / height;
+  const double side_balance = std::max(left, right) / std::max(1.0, std::min(left, right));
+  const double width_balance = std::max(top, bottom) / std::max(1.0, std::min(top, bottom));
+  const double area = std::abs(cv::contourArea(armor.points));
+  return aspect >= 0.6 && aspect <= 8.0 && side_balance <= 2.2 && width_balance <= 2.5 &&
+         area >= 0.18 * width * height;
 }
 
 bool YOLO26::check_type(const Armor & armor) const
@@ -588,7 +665,7 @@ void YOLO26::draw_detections(
 
   for (const auto & armor : armors) {
     auto info = fmt::format(
-      "conf={:.2f} kpt={:.2f} color={:.1f}/{} {} {} {}", armor.confidence,
+      "conf={:.2f} kpt={:.2f} color_norm={:.1f}/{} {} {} {}", armor.confidence,
       armor.keypoint_confidence, armor.color_score, armor.color_source, COLORS[armor.color],
       ARMOR_NAMES[armor.name], ARMOR_TYPES[armor.type]);
     tools::draw_points(detection, armor.points, {0, 255, 0});
@@ -639,33 +716,100 @@ bool YOLO26::refine_color(Armor & armor, const cv::Mat & rgb_img, int frame_coun
     5, static_cast<int>(std::lround(std::min(
       0.12 * armor_width, 0.45 * std::max(left_length, right_length)))));
 
-  cv::Mat mask(rgb_img.rows, rgb_img.cols, CV_8UC1, cv::Scalar(0));
-  const auto pixel = [](const cv::Point2f & p) {
-    return cv::Point(static_cast<int>(std::lround(p.x)), static_cast<int>(std::lround(p.y)));
+  struct BarColorStats
+  {
+    double score = 0.0;  // normalized red-vs-blue chroma, range [-100, 100]
+    double agreement = 0.0;
+    int count = 0;
   };
-  cv::line(mask, pixel(armor.points[0]), pixel(armor.points[3]), cv::Scalar(255), thickness, cv::LINE_AA);
-  cv::line(mask, pixel(armor.points[1]), pixel(armor.points[2]), cv::Scalar(255), thickness, cv::LINE_AA);
 
-  int64_t signed_chroma_sum = 0;
-  int chroma_count = 0;
-  const cv::Rect roi = cv::boundingRect(armor.points) & cv::Rect(0, 0, rgb_img.cols, rgb_img.rows);
-  for (int y = roi.y; y < roi.y + roi.height; ++y) {
-    const auto * rgb = rgb_img.ptr<cv::Vec3b>(y);
-    const auto * m = mask.ptr<uint8_t>(y);
-    for (int x = roi.x; x < roi.x + roi.width; ++x) {
-      if (m[x] == 0) continue;
-      const int red = rgb[x][0];
-      const int blue = rgb[x][2];
-      if (std::max(red, blue) < color_min_brightness_) continue;
-      const int chroma = red - blue;
-      if (std::abs(chroma) < 4) continue;
-      signed_chroma_sum += chroma;
-      ++chroma_count;
+  const cv::Rect image_bounds(0, 0, rgb_img.cols, rgb_img.rows);
+  const auto sample_bar = [&](const cv::Point2f & p0, const cv::Point2f & p1) {
+    BarColorStats stats;
+    std::vector<cv::Point2f> endpoints{p0, p1};
+    cv::Rect roi = cv::boundingRect(endpoints);
+    roi.x -= thickness;
+    roi.y -= thickness;
+    roi.width += 2 * thickness;
+    roi.height += 2 * thickness;
+    roi &= image_bounds;
+    if (roi.empty()) return stats;
+
+    cv::Mat mask(roi.height, roi.width, CV_8UC1, cv::Scalar(0));
+    const cv::Point offset(roi.x, roi.y);
+    const auto pixel = [&offset](const cv::Point2f & p) {
+      return cv::Point(static_cast<int>(std::lround(p.x)), static_cast<int>(std::lround(p.y))) -
+             offset;
+    };
+    cv::line(mask, pixel(p0), pixel(p1), cv::Scalar(255), thickness, cv::LINE_8);
+
+    std::vector<double> samples;
+    samples.reserve(static_cast<size_t>(roi.area() / 2));
+    for (int y = 0; y < roi.height; ++y) {
+      const auto * rgb = rgb_img.ptr<cv::Vec3b>(y + roi.y);
+      const auto * m = mask.ptr<uint8_t>(y);
+      for (int x = 0; x < roi.width; ++x) {
+        if (m[x] == 0) continue;
+        const int red = rgb[x + roi.x][0];
+        const int green = rgb[x + roi.x][1];
+        const int blue = rgb[x + roi.x][2];
+        const int peak = std::max(red, blue);
+        const int chroma = red - blue;
+        if (peak < color_min_brightness_ || std::abs(chroma) < 4) continue;
+        // Green-dominant pixels cannot be red/blue LEDs.  Removing them also
+        // prevents grass, status LEDs and green debug overlays from voting.
+        if (green > peak + 12) continue;
+        samples.push_back(100.0 * chroma / std::max(1, red + blue));
+      }
     }
+    if (samples.empty()) return stats;
+
+    // Use a median-centered inlier mean.  It is stable when one lightbar is
+    // clipped, has a saturated white core, or overlaps a colored reflection.
+    auto middle = samples.begin() + samples.size() / 2;
+    std::nth_element(samples.begin(), middle, samples.end());
+    const double median = *middle;
+    double inlier_sum = 0.0;
+    int inlier_count = 0;
+    int agreeing_count = 0;
+    for (const double sample : samples) {
+      if (std::abs(sample - median) > 22.0) continue;
+      inlier_sum += sample;
+      ++inlier_count;
+      if ((sample >= 0.0) == (median >= 0.0)) ++agreeing_count;
+    }
+    if (inlier_count == 0) return stats;
+    stats.score = inlier_sum / inlier_count;
+    stats.count = inlier_count;
+    stats.agreement = static_cast<double>(agreeing_count) / inlier_count;
+    return stats;
+  };
+
+  const BarColorStats left = sample_bar(armor.points[0], armor.points[3]);
+  const BarColorStats right = sample_bar(armor.points[1], armor.points[2]);
+  const auto bar_reliable = [this](const BarColorStats & stats, double min_delta) {
+    return stats.count >= color_min_pixels_per_bar_ && stats.agreement >= 0.70 &&
+           std::abs(stats.score) >= min_delta;
+  };
+  const bool left_reliable = bar_reliable(left, color_min_delta_);
+  const bool right_reliable = bar_reliable(right, color_min_delta_);
+
+  bool current_image_reliable = false;
+  if (left_reliable && right_reliable) {
+    if ((left.score >= 0.0) == (right.score >= 0.0)) {
+      const int total = left.count + right.count;
+      armor.color_score = (left.score * left.count + right.score * right.count) / total;
+      current_image_reliable = true;
+    }
+  } else if (left_reliable && bar_reliable(left, color_single_bar_min_delta_)) {
+    armor.color_score = left.score;
+    current_image_reliable = true;
+  } else if (right_reliable && bar_reliable(right, color_single_bar_min_delta_)) {
+    armor.color_score = right.score;
+    current_image_reliable = true;
+  } else {
+    armor.color_score = 0.0;
   }
-  armor.color_score = chroma_count == 0
-    ? 0.0
-    : static_cast<double>(signed_chroma_sum) / chroma_count;
 
   color_memories_.erase(
     std::remove_if(
@@ -675,27 +819,29 @@ bool YOLO26::refine_color(Armor & armor, const cv::Mat & rgb_img, int frame_coun
       }),
     color_memories_.end());
 
-  const double match_radius = std::max(20.0, 0.35 * armor_width);
+  const double match_radius = std::max(20.0, 0.65 * armor_width);
   auto nearest = color_memories_.end();
   double nearest_distance = std::numeric_limits<double>::max();
   for (auto it = color_memories_.begin(); it != color_memories_.end(); ++it) {
     const double distance = cv::norm(armor.center - it->center);
-    if (distance < nearest_distance && distance <= match_radius) {
+    const double scale_ratio = armor_width / std::max(1.0, it->armor_width);
+    if (distance < nearest_distance && distance <= match_radius &&
+        scale_ratio >= 0.55 && scale_ratio <= 1.8) {
       nearest = it;
       nearest_distance = distance;
     }
   }
 
-  const bool current_image_reliable =
-    chroma_count >= 6 && std::abs(armor.color_score) >= color_min_delta_;
   if (current_image_reliable) {
     armor.color = armor.color_score > 0.0 ? Color::red : Color::blue;
     armor.color_source = 1;
     if (nearest == color_memories_.end()) {
-      color_memories_.push_back({armor.center, armor.color, frame_count});
+      color_memories_.push_back({armor.center, armor_width, armor.color, armor.color_score, frame_count});
     } else {
       nearest->center = armor.center;
+      nearest->armor_width = armor_width;
       nearest->color = armor.color;
+      nearest->score = armor.color_score;
       nearest->frame_count = frame_count;
     }
     return true;
@@ -705,8 +851,10 @@ bool YOLO26::refine_color(Armor & armor, const cv::Mat & rgb_img, int frame_coun
   // phase, so retain only a recent, spatially matched image classification.
   if (nearest != color_memories_.end()) {
     armor.color = nearest->color;
+    armor.color_score = nearest->score;
     armor.color_source = 2;
     nearest->center = armor.center;
+    nearest->armor_width = armor_width;
     return true;
   }
   return false;

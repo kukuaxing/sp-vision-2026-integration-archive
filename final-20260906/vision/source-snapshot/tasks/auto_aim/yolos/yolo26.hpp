@@ -33,18 +33,24 @@ private:
 
   const int class_num_ = 16;
   const float nms_threshold_ = 0.3;
-  const float score_threshold_ = 0.1;
-  double min_confidence_, binary_threshold_;
+  double min_confidence_, candidate_confidence_, binary_threshold_;
   double min_keypoint_confidence_;
+  double color_confirmed_min_confidence_;
+  double memory_confirmed_min_confidence_;
+  double color_confirmed_min_keypoint_confidence_;
   double color_min_delta_;
+  double color_single_bar_min_delta_;
   int color_min_brightness_;
+  int color_min_pixels_per_bar_;
   int color_hold_frames_;
   int letterbox_value_;
 
   struct ColorMemory
   {
     cv::Point2f center;
+    double armor_width;
     Color color;
+    double score;
     int frame_count;
   };
   std::vector<ColorMemory> color_memories_;
@@ -65,6 +71,7 @@ private:
 
   bool check_name(const Armor & armor) const;
   bool check_type(const Armor & armor) const;
+  bool has_plausible_geometry(const Armor & armor) const;
 
   cv::Point2f get_center_norm(const cv::Mat & bgr_img, const cv::Point2f & center) const;
 

@@ -225,6 +225,67 @@ int main(int argc, char * argv[])
     integration_yaml["xuc_gyro_fire_stable_ms"]
       ? std::max(0.0, integration_yaml["xuc_gyro_fire_stable_ms"].as<double>()) / 1000.0
       : 0.03;
+  // A stationary target is still qualified by the proven image-space gate.
+  // In gyro mode, however, the visible plate is moving while the gimbal follows
+  // the vehicle centre. Qualify the armor selected by Aimer at projectile impact
+  // time instead of reusing the current-frame pixel error as the precise trigger.
+  const bool xuc_gyro_predicted_fire_enabled =
+    integration_yaml["xuc_gyro_predicted_fire_enabled"] &&
+    integration_yaml["xuc_gyro_predicted_fire_enabled"].as<bool>();
+  const double xuc_gyro_predicted_yaw_tolerance_rad =
+    (integration_yaml["xuc_gyro_predicted_yaw_tolerance_deg"]
+       ? std::clamp(
+           integration_yaml["xuc_gyro_predicted_yaw_tolerance_deg"].as<double>(),
+           0.1,
+           10.0)
+       : 1.0) * M_PI / 180.0;
+  const double xuc_gyro_predicted_yaw_trim_rad =
+    (integration_yaml["xuc_gyro_predicted_yaw_trim_deg"]
+       ? std::clamp(
+           integration_yaml["xuc_gyro_predicted_yaw_trim_deg"].as<double>(), -5.0, 5.0)
+       : 0.0) * M_PI / 180.0;
+  const double xuc_gyro_visibility_yaw_tolerance_rad =
+    (integration_yaml["xuc_gyro_visibility_yaw_tolerance_deg"]
+       ? std::clamp(
+           integration_yaml["xuc_gyro_visibility_yaw_tolerance_deg"].as<double>(),
+           0.5,
+           20.0)
+       : 6.0) * M_PI / 180.0;
+  const int xuc_gyro_fire_min_consecutive_frames =
+    integration_yaml["xuc_gyro_fire_min_consecutive_frames"]
+      ? std::clamp(
+          integration_yaml["xuc_gyro_fire_min_consecutive_frames"].as<int>(), 1, 10)
+      : 2;
+  // The lower-board feeder deliberately waits 600 ms after a completed AUTO
+  // round. It also latches an accepted request, so a request sent during that
+  // recovery interval can otherwise be executed after the intended armor has
+  // already rotated away. Observe the returned feeder speed and do not create a
+  // new gyro fire request until recovery has elapsed from the end of motion.
+  const double xuc_feeder_active_rpm_threshold =
+    integration_yaml["xuc_feeder_active_rpm_threshold"]
+      ? std::clamp(
+          integration_yaml["xuc_feeder_active_rpm_threshold"].as<double>(),
+          50.0,
+          3000.0)
+      : 500.0;
+  const double xuc_gyro_post_feed_recovery_s =
+    integration_yaml["xuc_gyro_post_feed_recovery_ms"]
+      ? std::clamp(
+          integration_yaml["xuc_gyro_post_feed_recovery_ms"].as<double>(),
+          0.0,
+          2000.0) /
+          1000.0
+      : 0.6;
+  // A face switch is approximately 90 degrees on a four-armor target. The
+  // same face moves only about five degrees per frame at 60 FPS and 5 rad/s.
+  // Reject a two-frame qualification that silently crosses a face switch.
+  const double xuc_gyro_candidate_max_phase_step_rad =
+    (integration_yaml["xuc_gyro_candidate_max_phase_step_deg"]
+       ? std::clamp(
+           integration_yaml["xuc_gyro_candidate_max_phase_step_deg"].as<double>(),
+           5.0,
+           45.0)
+       : 20.0) * M_PI / 180.0;
 
 #ifdef AMENT_CMAKE_FOUND
   // 初始化ROS2可视化
@@ -293,12 +354,18 @@ int main(int argc, char * argv[])
   std::chrono::steady_clock::time_point direct_pitch_last_measurement;
   bool xuc_fire_candidate_active = false;
   bool xuc_fire_ready_logged = false;
+  int xuc_fire_candidate_frames = 0;
+  double xuc_fire_candidate_face_yaw_rad = INFINITY;
   std::chrono::steady_clock::time_point xuc_fire_candidate_since;
   bool xuc_one_face_armed = true;
   bool xuc_gyro_center_follow_logged = false;
   bool xuc_gyro_center_memory_valid = false;
   double xuc_gyro_center_memory_yaw = 0.0;
   std::chrono::steady_clock::time_point xuc_gyro_center_last_fresh;
+  bool xuc_feeder_activity_seen = false;
+  bool xuc_feeder_active = false;
+  bool xuc_gyro_cadence_hold_logged = false;
+  std::chrono::steady_clock::time_point xuc_feeder_last_active;
   std::chrono::steady_clock::time_point fps_measure_start; // 平均帧率测量开始时间
   bool fps_measure_started = false;
 
@@ -383,6 +450,22 @@ int main(int argc, char * argv[])
           solver.set_R_gimbal2world(q);
           cboard.mode = static_cast<io::Mode>(xuc.mode());
           const double lower_diagnostic_value = xuc.bullet_speed();
+          const bool feeder_active_now =
+            std::isfinite(lower_diagnostic_value) &&
+            std::abs(lower_diagnostic_value) >= xuc_feeder_active_rpm_threshold;
+          if (feeder_active_now) {
+            xuc_feeder_activity_seen = true;
+            xuc_feeder_active = true;
+            xuc_feeder_last_active = camera_current_frame_time;
+          } else if (xuc_feeder_active) {
+            // Start the recovery interval from the first observed stopped
+            // sample, which conservatively approximates completed feed motion.
+            xuc_feeder_active = false;
+            xuc_feeder_last_active = camera_current_frame_time;
+            tools::logger()->info(
+              "[XUC][FIRE] feeder stopped; gyro recovery hold started for {:.0f} ms",
+              xuc_gyro_post_feed_recovery_s * 1000.0);
+          }
           const uint8_t motion_gate_bits = xuc.robot_id();
           const uint16_t packed_wheel_rpm = xuc.bullet_count();
           const unsigned wheel0_rpm =
@@ -599,6 +682,8 @@ int main(int argc, char * argv[])
     const bool native_prediction_valid =
       command.control && !targets.empty() && std::isfinite(command.yaw);
     const double native_predicted_yaw = command.yaw;
+    double gyro_predicted_impact_yaw_error_rad = INFINITY;
+    bool gyro_predicted_impact_yaw_valid = false;
 
     // Phase 2D.5 integration guard.  The detector pose is much more stable
     // than the current high-dynamic EKF tuning at close range.  Keep the
@@ -872,6 +957,35 @@ int main(int argc, char * argv[])
       }
       const bool one_face_policy_active =
         xuc_one_face_once_fire && gyro_model_fresh;
+      const bool gyro_predicted_fire_active =
+        one_face_policy_active && xuc_gyro_predicted_fire_enabled;
+      const bool gyro_cadence_gate_open =
+        !gyro_predicted_fire_active || !xuc_feeder_activity_seen ||
+        (!xuc_feeder_active &&
+         std::chrono::duration<double>(t - xuc_feeder_last_active).count() >=
+           xuc_gyro_post_feed_recovery_s);
+      if (gyro_predicted_fire_active && !gyro_cadence_gate_open) {
+        if (!xuc_gyro_cadence_hold_logged) {
+          tools::logger()->info(
+            "[XUC][FIRE] gyro request inhibited during feeder recovery");
+          xuc_gyro_cadence_hold_logged = true;
+        }
+      } else if (xuc_gyro_cadence_hold_logged) {
+        tools::logger()->info(
+          "[XUC][FIRE] feeder recovery complete; fresh gyro qualification required");
+        xuc_gyro_cadence_hold_logged = false;
+      }
+      if (gyro_predicted_fire_active && native_prediction_valid) {
+        // native_predicted_yaw is produced from the same future AimPoint used by
+        // face_error_rad and already includes configured actuation delay plus the
+        // iterated projectile flight time. Compare it with actual gimbal attitude,
+        // not the centre-follow command, so servo lag is included in qualification.
+        gyro_predicted_impact_yaw_error_rad = std::remainder(
+          native_predicted_yaw - ypr[0] - xuc_gyro_predicted_yaw_trim_rad,
+          2.0 * M_PI);
+        gyro_predicted_impact_yaw_valid =
+          std::isfinite(gyro_predicted_impact_yaw_error_rad);
+      }
       if (one_face_policy_active &&
           (!face_valid || face_error_rad >= xuc_one_face_rearm_rad)) {
         xuc_one_face_armed = true;
@@ -881,32 +995,83 @@ int main(int argc, char * argv[])
         !xuc_fire_require_tracker_converged || tracker_converged;
       const bool one_face_gate_open = !one_face_policy_active ||
         (face_valid && face_error_rad <= xuc_one_face_limit_rad && xuc_one_face_armed);
+      const bool stationary_yaw_gate_open = direct_yaw_measurement_fresh &&
+        std::abs(direct_yaw_pixel_error_rad) <= xuc_fire_yaw_tolerance_rad;
+      const bool gyro_yaw_gate_open = gyro_predicted_impact_yaw_valid &&
+        direct_yaw_measurement_fresh &&
+        std::abs(gyro_predicted_impact_yaw_error_rad) <=
+          xuc_gyro_predicted_yaw_tolerance_rad &&
+        std::abs(direct_yaw_pixel_error_rad) <=
+          xuc_gyro_visibility_yaw_tolerance_rad;
+      const bool yaw_gate_open = gyro_predicted_fire_active
+        ? gyro_yaw_gate_open
+        : stationary_yaw_gate_open;
+      // A held gyro centre is useful for smooth reacquisition, but it is neither
+      // a fresh moving model nor a stationary-target solution. Do not fall through
+      // to the stationary fire policy until centre-memory mode has ended.
+      const bool motion_transition_gate_open =
+        !gyro_center_follow_active || gyro_model_fresh;
       const bool fire_candidate = command.control &&
-        convergence_gate_open && one_face_gate_open &&
+        convergence_gate_open && one_face_gate_open && motion_transition_gate_open &&
+        gyro_cadence_gate_open &&
         direct_yaw_measurement_fresh && direct_pitch_measurement_fresh &&
-        std::abs(direct_yaw_pixel_error_rad) <= xuc_fire_yaw_tolerance_rad &&
+        yaw_gate_open &&
         std::abs(direct_pitch_pixel_error_rad) <= xuc_fire_pitch_tolerance_rad;
       if (fire_candidate) {
+        const double candidate_face_yaw_rad = aimer.debug_aim_point.xyza[3];
+        if (gyro_predicted_fire_active && xuc_fire_candidate_active &&
+            std::isfinite(xuc_fire_candidate_face_yaw_rad) &&
+            std::isfinite(candidate_face_yaw_rad)) {
+          const double phase_step_rad = std::abs(std::remainder(
+            candidate_face_yaw_rad - xuc_fire_candidate_face_yaw_rad,
+            2.0 * M_PI));
+          if (phase_step_rad > xuc_gyro_candidate_max_phase_step_rad) {
+            tools::logger()->info(
+              "[XUC][FIRE] candidate face switched by {:.1f} deg; restarting window",
+              phase_step_rad * 180.0 / M_PI);
+            xuc_fire_candidate_active = false;
+            xuc_fire_ready_logged = false;
+            xuc_fire_candidate_frames = 0;
+          }
+        }
         if (!xuc_fire_candidate_active) {
           xuc_fire_candidate_active = true;
           xuc_fire_ready_logged = false;
+          xuc_fire_candidate_frames = 1;
           xuc_fire_candidate_since = t;
+          xuc_fire_candidate_face_yaw_rad = candidate_face_yaw_rad;
           tools::logger()->info("[XUC][FIRE] stable-window candidate started");
+        } else {
+          ++xuc_fire_candidate_frames;
+          xuc_fire_candidate_face_yaw_rad = candidate_face_yaw_rad;
         }
         const double stable_time =
           std::chrono::duration<double>(t - xuc_fire_candidate_since).count();
-        const double required_stable_s = one_face_policy_active
-          ? xuc_gyro_fire_stable_s
-          : xuc_fire_stable_s;
-        command.shoot = stable_time >= required_stable_s;
+        if (gyro_predicted_fire_active) {
+          // At ~60 FPS a 30 ms timer requires three qualifying frames. A fast
+          // competition-speed plate commonly remains in the accurate prediction
+          // window for exactly two frames. Count observations directly so the
+          // policy stays deterministic if camera FPS changes.
+          command.shoot =
+            xuc_fire_candidate_frames >= xuc_gyro_fire_min_consecutive_frames;
+        } else {
+          const double required_stable_s = one_face_policy_active
+            ? xuc_gyro_fire_stable_s
+            : xuc_fire_stable_s;
+          command.shoot = stable_time >= required_stable_s;
+        }
         if (command.shoot && !xuc_fire_ready_logged) {
           tools::logger()->info(
-            "[XUC][FIRE] qualified after {:.0f} ms, pixel error deg=({:.2f},{:.2f}) "
-            "gyro={} face_error={:.2f}deg omega={:+.3f}rad_s armed={}",
+            "[XUC][FIRE] qualified after {:.0f} ms/{} frames, "
+            "current_pixel_error_deg=({:.2f},{:.2f}) "
+            "predicted_impact_yaw_error_deg={:.2f} gyro_predict={} "
+            "face_error={:.2f}deg omega={:+.3f}rad_s armed={}",
             stable_time * 1000.0,
+            xuc_fire_candidate_frames,
             direct_yaw_pixel_error_rad * 180.0 / M_PI,
             direct_pitch_pixel_error_rad * 180.0 / M_PI,
-            one_face_policy_active, face_error_rad * 180.0 / M_PI,
+            gyro_predicted_impact_yaw_error_rad * 180.0 / M_PI,
+            gyro_predicted_fire_active, face_error_rad * 180.0 / M_PI,
             gyro_omega_rad_s, xuc_one_face_armed);
           xuc_fire_ready_logged = true;
           if (one_face_policy_active) xuc_one_face_armed = false;
@@ -917,6 +1082,8 @@ int main(int argc, char * argv[])
         }
         xuc_fire_candidate_active = false;
         xuc_fire_ready_logged = false;
+        xuc_fire_candidate_frames = 0;
+        xuc_fire_candidate_face_yaw_rad = INFINITY;
         command.shoot = false;
       }
     } else {
@@ -1002,6 +1169,12 @@ int main(int argc, char * argv[])
       xuc_pitch_sign_for_log * command.pitch * 180.0 / M_PI;
     plot_data["control"] = command.control;
     plot_data["shoot"] = command.shoot;
+    if (gyro_predicted_impact_yaw_valid) {
+      plot_data["gyro_predicted_impact_yaw_error_deg"] =
+        gyro_predicted_impact_yaw_error_rad * 180.0 / M_PI;
+    } else {
+      plot_data["gyro_predicted_impact_yaw_error_deg"] = nullptr;
+    }
     // 电控的欧拉角（从MCU获取的姿态）
     plot_data["mcu_yaw"] = ypr[0] * 180.0 / M_PI;
     plot_data["mcu_pitch"] = ypr[1] * 180.0 / M_PI;

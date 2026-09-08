@@ -50,8 +50,17 @@ min_keypoint_confidence: 0.0
 letterbox_value: 114
 yolo26_swap_rb: false
 yolo26_refine_color: true
-yolo26_color_min_delta: 6.0
+# Low-confidence candidates are accepted only when color, keypoints and
+# quadrilateral geometry independently agree. Red and blue use symmetric gates.
+yolo26_candidate_confidence: 0.04
+yolo26_color_confirmed_min_confidence: 0.04
+yolo26_memory_confirmed_min_confidence: 0.06
+yolo26_color_confirmed_min_keypoint_confidence: 0.75
+# Normalized score: 100*(R-B)/(R+B), independent of absolute exposure.
+yolo26_color_min_delta: 8.0
+yolo26_color_single_bar_min_delta: 12.0
 yolo26_color_min_brightness: 30
+yolo26_color_min_pixels_per_bar: 6
 yolo26_color_hold_frames: 20
 detector_debug: false
 
@@ -188,6 +197,22 @@ xuc_one_face_once_fire: true
 xuc_one_face_limit_deg: 12.0
 xuc_one_face_rearm_deg: 34.0
 xuc_gyro_fire_stable_ms: 30.0
+# Fixed targets keep xuc_fire_yaw_tolerance_deg unchanged.  In gyro mode the
+# Aimer-selected armor is qualified at predicted projectile-impact time; the
+# current-frame pixel error is only a broad visibility/association guard.
+xuc_gyro_predicted_fire_enabled: true
+xuc_gyro_predicted_yaw_tolerance_deg: 1.2
+xuc_gyro_predicted_yaw_trim_deg: 0.0
+xuc_gyro_visibility_yaw_tolerance_deg: 6.0
+xuc_gyro_fire_min_consecutive_frames: 2
+# The lower board holds each completed AUTO round for 600 ms of recovery. Do
+# not submit a new moving-target request during that interval: its latch would
+# otherwise execute the stale request after the selected armor has rotated away.
+xuc_feeder_active_rpm_threshold: 500.0
+xuc_gyro_post_feed_recovery_ms: 600.0
+# At ~5 rad/s and 60 FPS the same armor advances ~5 deg/frame; a four-armor
+# identity switch is ~90 deg. Restart the two-frame window on a large phase jump.
+xuc_gyro_candidate_max_phase_step_deg: 20.0
 xuc_direct_yaw_guard: true              # 当前以稳定测量为主；保留预测接口供 EKF 调稳后启用
 xuc_direct_yaw_boresight_correction_deg: -1.30  # measured camera/gimbal zero, 2026-09-05
 xuc_direct_yaw_impact_correction_deg: -0.49  # 2026-09-06: correct 3 cm left miss at 3.515 m by aiming right
