@@ -3,7 +3,9 @@
 #include <chrono>
 #include <cmath>
 #include <cstdlib>  // for setenv
+#include <iterator>
 #include <thread>
+#include <vector>
 #include <nlohmann/json.hpp>
 #include <opencv2/opencv.hpp>
 #include <yaml-cpp/yaml.h>
@@ -18,6 +20,8 @@
 #include "io/cboard.hpp"
 #include "io/xuc.hpp"
 #include "tasks/auto_aim/aimer.hpp"
+#include "tasks/auto_aim/gyro_face_selector.hpp"
+#include "tasks/auto_aim/gyro_phase_scheduler.hpp"
 #include "tasks/auto_aim/multithread/commandgener.hpp"
 #include "tasks/auto_aim/shooter.hpp"
 #include "tasks/auto_aim/solver.hpp"
@@ -276,6 +280,190 @@ int main(int argc, char * argv[])
           2000.0) /
           1000.0
       : 0.6;
+  // Event-clock fire timing.  The nominal value determines the scheduled send
+  // instant; min/max describe the measured uncertainty envelope used by the
+  // physical armor-width gate.  Until a muzzle sensor is installed these are
+  // deliberately independent from command-to-feeder telemetry.
+  const double xuc_event_fire_delay_s =
+    integration_yaml["xuc_event_fire_delay_s"]
+      ? std::clamp(
+          integration_yaml["xuc_event_fire_delay_s"].as<double>(), 0.0, 0.5)
+      : 0.10;
+  const double xuc_event_fire_delay_min_s =
+    integration_yaml["xuc_event_fire_delay_min_ms"]
+      ? std::clamp(
+          integration_yaml["xuc_event_fire_delay_min_ms"].as<double>(), 0.0, 500.0) /
+          1000.0
+      : std::max(0.0, xuc_event_fire_delay_s - 0.020);
+  const double xuc_event_fire_delay_max_s =
+    integration_yaml["xuc_event_fire_delay_max_ms"]
+      ? std::clamp(
+          integration_yaml["xuc_event_fire_delay_max_ms"].as<double>(), 0.0, 500.0) /
+          1000.0
+      : std::min(0.5, xuc_event_fire_delay_s + 0.020);
+  const double xuc_event_flight_time_uncertainty_s =
+    integration_yaml["xuc_event_flight_time_uncertainty_ms"]
+      ? std::clamp(
+          integration_yaml["xuc_event_flight_time_uncertainty_ms"].as<double>(),
+          0.0,
+          100.0) /
+          1000.0
+      : 0.005;
+  // If the precise due time lies shortly after this frame, wait until that
+  // steady-clock instant and send the one-frame pulse there.  This removes the
+  // 16 ms quantization of a ~60 FPS vision loop without delaying ordinary
+  // tracking frames.
+  const double xuc_event_trigger_window_s =
+    integration_yaml["xuc_event_trigger_window_ms"]
+      ? std::max(0.0, integration_yaml["xuc_event_trigger_window_ms"].as<double>()) /
+          1000.0
+      : 0.025;
+  const double xuc_event_send_late_tolerance_s =
+    integration_yaml["xuc_event_send_late_tolerance_ms"]
+      ? std::clamp(
+          integration_yaml["xuc_event_send_late_tolerance_ms"].as<double>(),
+          0.0,
+          10.0) /
+          1000.0
+      : 0.002;
+  const double xuc_event_crossing_capture_rad =
+    (integration_yaml["xuc_event_crossing_capture_deg"]
+       ? std::clamp(
+           integration_yaml["xuc_event_crossing_capture_deg"].as<double>(), 5.0, 45.0)
+       : 20.0) * M_PI / 180.0;
+  const double xuc_event_period_min_s =
+    integration_yaml["xuc_event_period_min_ms"]
+      ? std::clamp(
+          integration_yaml["xuc_event_period_min_ms"].as<double>(), 30.0, 2000.0) /
+          1000.0
+      : 0.12;
+  const double xuc_event_period_max_s =
+    integration_yaml["xuc_event_period_max_ms"]
+      ? std::clamp(
+          integration_yaml["xuc_event_period_max_ms"].as<double>(), 50.0, 5000.0) /
+          1000.0
+      : 1.20;
+  const double xuc_event_period_ema_alpha =
+    integration_yaml["xuc_event_period_ema_alpha"]
+      ? std::clamp(
+          integration_yaml["xuc_event_period_ema_alpha"].as<double>(), 0.01, 1.0)
+      : 0.25;
+  const double xuc_event_max_period_relative_error =
+    integration_yaml["xuc_event_max_period_relative_error"]
+      ? std::clamp(
+          integration_yaml["xuc_event_max_period_relative_error"].as<double>(),
+          0.05,
+          0.50)
+      : 0.22;
+  const double xuc_event_max_period_step_ratio =
+    integration_yaml["xuc_event_max_period_step_ratio"]
+      ? std::clamp(
+          integration_yaml["xuc_event_max_period_step_ratio"].as<double>(),
+          0.001,
+          0.20)
+      : 0.025;
+  const double xuc_event_omega_period_weight =
+    integration_yaml["xuc_event_omega_period_weight"]
+      ? std::clamp(
+          integration_yaml["xuc_event_omega_period_weight"].as<double>(),
+          0.0,
+          1.0)
+      : 0.15;
+  const double xuc_event_period_residual_alpha =
+    integration_yaml["xuc_event_period_residual_alpha"]
+      ? std::clamp(
+          integration_yaml["xuc_event_period_residual_alpha"].as<double>(),
+          0.0,
+          0.5)
+      : 0.08;
+  const double xuc_event_phase_correction_alpha =
+    integration_yaml["xuc_event_phase_correction_alpha"]
+      ? std::clamp(
+          integration_yaml["xuc_event_phase_correction_alpha"].as<double>(),
+          0.0,
+          1.0)
+      : 0.45;
+  const double xuc_event_max_phase_correction_s =
+    integration_yaml["xuc_event_max_phase_correction_ms"]
+      ? std::clamp(
+          integration_yaml["xuc_event_max_phase_correction_ms"].as<double>(),
+          0.0,
+          20.0) /
+          1000.0
+      : 0.015;
+  const double xuc_event_max_phase_residual_s =
+    integration_yaml["xuc_event_max_phase_residual_ms"]
+      ? std::clamp(
+          integration_yaml["xuc_event_max_phase_residual_ms"].as<double>(),
+          5.0,
+          150.0) /
+          1000.0
+      : 0.090;
+  const int xuc_event_period_window_size =
+    integration_yaml["xuc_event_period_window_size"]
+      ? std::clamp(
+          integration_yaml["xuc_event_period_window_size"].as<int>(), 3, 15)
+      : 7;
+  const double xuc_event_phase_uncertainty_floor_s =
+    integration_yaml["xuc_event_phase_uncertainty_floor_ms"]
+      ? std::clamp(
+          integration_yaml["xuc_event_phase_uncertainty_floor_ms"].as<double>(),
+          0.0,
+          50.0) /
+          1000.0
+      : 0.002;
+  const int xuc_event_phase_residual_window_size =
+    integration_yaml["xuc_event_phase_residual_window_size"]
+      ? std::clamp(
+          integration_yaml["xuc_event_phase_residual_window_size"].as<int>(), 3, 15)
+      : 5;
+  const int xuc_event_min_lock_updates =
+    integration_yaml["xuc_event_min_lock_updates"]
+      ? std::clamp(
+          integration_yaml["xuc_event_min_lock_updates"].as<int>(), 2, 12)
+      : 4;
+  const int xuc_event_relock_rejections =
+    integration_yaml["xuc_event_relock_rejections"]
+      ? std::clamp(
+          integration_yaml["xuc_event_relock_rejections"].as<int>(), 2, 12)
+      : 3;
+  const double xuc_event_armor_width_m =
+    integration_yaml["xuc_event_armor_width_m"]
+      ? std::clamp(
+          integration_yaml["xuc_event_armor_width_m"].as<double>(), 0.05, 0.40)
+      : 0.135;
+  const double xuc_event_armor_edge_margin_m =
+    integration_yaml["xuc_event_armor_edge_margin_m"]
+      ? std::clamp(
+          integration_yaml["xuc_event_armor_edge_margin_m"].as<double>(), 0.0, 0.10)
+      : 0.005;
+  const double xuc_event_model_phase_uncertainty_rad =
+    (integration_yaml["xuc_event_model_phase_uncertainty_deg"]
+       ? std::clamp(
+           integration_yaml["xuc_event_model_phase_uncertainty_deg"].as<double>(),
+           0.0,
+           20.0)
+       : 1.0) * M_PI / 180.0;
+  const double xuc_event_face_max_alignment_rad =
+    (integration_yaml["xuc_event_face_max_alignment_deg"]
+       ? std::clamp(
+           integration_yaml["xuc_event_face_max_alignment_deg"].as<double>(),
+           1.0,
+           45.0)
+       : 15.0) * M_PI / 180.0;
+  const double xuc_event_gimbal_tracking_tolerance_rad =
+    (integration_yaml["xuc_event_gimbal_tracking_tolerance_deg"]
+       ? std::clamp(
+           integration_yaml["xuc_event_gimbal_tracking_tolerance_deg"].as<double>(),
+           0.2,
+           10.0)
+       : 2.5) * M_PI / 180.0;
+  const double xuc_shot_feedback_timeout_s =
+    integration_yaml["xuc_shot_feedback_timeout_ms"]
+      ? std::clamp(
+          integration_yaml["xuc_shot_feedback_timeout_ms"].as<double>(), 100.0, 1000.0) /
+          1000.0
+      : 0.35;
   // A face switch is approximately 90 degrees on a four-armor target. The
   // same face moves only about five degrees per frame at 60 FPS and 5 rad/s.
   // Reject a two-frame qualification that silently crosses a face switch.
@@ -304,6 +492,28 @@ int main(int argc, char * argv[])
   auto_aim::Aimer aimer(config_path);
   auto_aim::Shooter shooter(config_path);
   auto_aim::multithread::CommandGener commandgener(shooter, aimer, cboard, plotter, true);
+  auto_aim::GyroPhaseScheduler::Config gyro_phase_config;
+  gyro_phase_config.crossing_capture_rad = xuc_event_crossing_capture_rad;
+  gyro_phase_config.min_face_period_s = std::min(
+    xuc_event_period_min_s, xuc_event_period_max_s);
+  gyro_phase_config.max_face_period_s = std::max(
+    xuc_event_period_min_s, xuc_event_period_max_s);
+  gyro_phase_config.period_ema_alpha = xuc_event_period_ema_alpha;
+  gyro_phase_config.max_period_relative_error =
+    xuc_event_max_period_relative_error;
+  gyro_phase_config.max_period_step_ratio = xuc_event_max_period_step_ratio;
+  gyro_phase_config.omega_period_weight = xuc_event_omega_period_weight;
+  gyro_phase_config.period_residual_alpha = xuc_event_period_residual_alpha;
+  gyro_phase_config.phase_correction_alpha = xuc_event_phase_correction_alpha;
+  gyro_phase_config.max_phase_correction_s = xuc_event_max_phase_correction_s;
+  gyro_phase_config.max_phase_residual_s = xuc_event_max_phase_residual_s;
+  gyro_phase_config.phase_uncertainty_floor_s = xuc_event_phase_uncertainty_floor_s;
+  gyro_phase_config.period_window_size = xuc_event_period_window_size;
+  gyro_phase_config.phase_residual_window_size = xuc_event_phase_residual_window_size;
+  gyro_phase_config.min_lock_updates = xuc_event_min_lock_updates;
+  gyro_phase_config.relock_after_rejections = xuc_event_relock_rejections;
+  auto_aim::GyroPhaseScheduler gyro_phase_scheduler(gyro_phase_config);
+  auto_aim::GyroFaceSelector gyro_face_selector(xuc_event_face_max_alignment_rad);
   // 🎯 所有模块初始化完成，启动相机触发
   tools::logger()->info("=== All modules initialized ===");
 
@@ -366,6 +576,12 @@ int main(int argc, char * argv[])
   bool xuc_feeder_active = false;
   bool xuc_gyro_cadence_hold_logged = false;
   std::chrono::steady_clock::time_point xuc_feeder_last_active;
+  uint64_t xuc_next_shot_id = 1;
+  uint64_t xuc_pending_shot_id = 0;
+  uint64_t xuc_active_shot_id = 0;
+  bool xuc_pending_shot = false;
+  std::chrono::steady_clock::time_point xuc_pending_shot_time;
+  std::chrono::steady_clock::time_point xuc_active_shot_start_time;
   std::chrono::steady_clock::time_point fps_measure_start; // 平均帧率测量开始时间
   bool fps_measure_started = false;
 
@@ -453,6 +669,29 @@ int main(int argc, char * argv[])
           const bool feeder_active_now =
             std::isfinite(lower_diagnostic_value) &&
             std::abs(lower_diagnostic_value) >= xuc_feeder_active_rpm_threshold;
+          const auto feedback_now = std::chrono::steady_clock::now();
+          if (feeder_active_now && !xuc_feeder_active) {
+            if (xuc_pending_shot) {
+              const double command_to_feeder_ms = std::chrono::duration<double, std::milli>(
+                feedback_now - xuc_pending_shot_time).count();
+              if (command_to_feeder_ms <= xuc_shot_feedback_timeout_s * 1000.0) {
+                xuc_active_shot_id = xuc_pending_shot_id;
+                xuc_active_shot_start_time = feedback_now;
+                tools::logger()->info(
+                  "[SHOT] id={} feeder_start command_to_feeder_ms={:.1f} rpm={:.0f}",
+                  xuc_active_shot_id, command_to_feeder_ms, lower_diagnostic_value);
+              } else {
+                tools::logger()->warn(
+                  "[SHOT] id={} feeder_start_unmatched age_ms={:.1f} rpm={:.0f}",
+                  xuc_pending_shot_id, command_to_feeder_ms, lower_diagnostic_value);
+              }
+              xuc_pending_shot = false;
+              xuc_pending_shot_id = 0;
+            } else {
+              tools::logger()->info(
+                "[SHOT] feeder_start_unpaired rpm={:.0f}", lower_diagnostic_value);
+            }
+          }
           if (feeder_active_now) {
             xuc_feeder_activity_seen = true;
             xuc_feeder_active = true;
@@ -462,9 +701,26 @@ int main(int argc, char * argv[])
             // sample, which conservatively approximates completed feed motion.
             xuc_feeder_active = false;
             xuc_feeder_last_active = camera_current_frame_time;
+            if (xuc_active_shot_id != 0) {
+              const double feeder_motion_ms = std::chrono::duration<double, std::milli>(
+                feedback_now - xuc_active_shot_start_time).count();
+              tools::logger()->info(
+                "[SHOT] id={} feeder_stop feeder_motion_ms={:.1f}",
+                xuc_active_shot_id, feeder_motion_ms);
+              xuc_active_shot_id = 0;
+            }
             tools::logger()->info(
               "[XUC][FIRE] feeder stopped; gyro recovery hold started for {:.0f} ms",
               xuc_gyro_post_feed_recovery_s * 1000.0);
+          }
+          if (xuc_pending_shot &&
+              std::chrono::duration<double>(feedback_now - xuc_pending_shot_time).count() >
+                xuc_shot_feedback_timeout_s) {
+            tools::logger()->warn(
+              "[SHOT] id={} no_feeder_feedback timeout_ms={:.0f}",
+              xuc_pending_shot_id, xuc_shot_feedback_timeout_s * 1000.0);
+            xuc_pending_shot = false;
+            xuc_pending_shot_id = 0;
           }
           const uint8_t motion_gate_bits = xuc.robot_id();
           const uint16_t packed_wheel_rpm = xuc.bullet_count();
@@ -587,6 +843,7 @@ int main(int argc, char * argv[])
     bool gyro_model_fresh = false;
     bool gyro_center_follow_active = false;
     double gyro_center_yaw = 0.0;
+    double gyro_body_phase_rad = NAN;
     double gyro_omega_rad_s = 0.0;
     double gyro_radius_m = 0.0;
     if (!targets.empty()) {
@@ -595,6 +852,7 @@ int main(int argc, char * argv[])
       const auto tracked_x = tracked_target.ekf_x();
       if (tracked_x.size() >= 9) {
         gyro_center_yaw = std::atan2(tracked_x[2], tracked_x[0]);
+        gyro_body_phase_rad = tracked_x[6];
         gyro_omega_rad_s = tracked_x[7];
         gyro_radius_m = tracked_x[8];
         gyro_model_fresh = xuc_gyro_center_follow_enabled &&
@@ -662,8 +920,17 @@ int main(int argc, char * argv[])
     // candidates and breaks both slew and fire qualification.
     const auto_aim::Armor * direct_measurement_armor = nullptr;
     if (!armors.empty()) {
-      direct_measurement_armor = &armors.front();
-      if (direct_yaw_initialized && armors.size() > 1) {
+      const int associated_detection_index = tracker.primary_detection_index();
+      if (gyro_model_fresh && associated_detection_index >= 0 &&
+          associated_detection_index < static_cast<int>(armors.size())) {
+        auto associated = armors.begin();
+        std::advance(associated, associated_detection_index);
+        direct_measurement_armor = &*associated;
+      } else {
+        direct_measurement_armor = &armors.front();
+      }
+      if ((!gyro_model_fresh || associated_detection_index < 0) &&
+          direct_yaw_initialized && armors.size() > 1) {
         double best_yaw_distance = INFINITY;
         for (const auto & armor : armors) {
           const double armor_yaw =
@@ -684,6 +951,20 @@ int main(int argc, char * argv[])
     const double native_predicted_yaw = command.yaw;
     double gyro_predicted_impact_yaw_error_rad = INFINITY;
     bool gyro_predicted_impact_yaw_valid = false;
+    bool gyro_event_schedule_valid = false;
+    bool gyro_event_interval_safe = false;
+    std::int64_t gyro_event_hit_cycle = -1;
+    double gyro_event_lead_error_s = INFINITY;
+    double gyro_event_face_period_s = NAN;
+    double gyro_event_half_window_rad = NAN;
+    double gyro_event_worst_phase_rad = NAN;
+    double gyro_event_combined_phase_rad = NAN;
+    double gyro_event_phase_uncertainty_rad = NAN;
+    bool gyro_event_face_valid = false;
+    int gyro_event_face_id = -1;
+    double gyro_event_face_alignment_rad = INFINITY;
+    double gyro_event_gimbal_tracking_error_rad = INFINITY;
+    std::chrono::steady_clock::time_point gyro_event_command_due_time{};
 
     // Phase 2D.5 integration guard.  The detector pose is much more stable
     // than the current high-dynamic EKF tuning at close range.  Keep the
@@ -960,10 +1241,12 @@ int main(int argc, char * argv[])
       const bool gyro_predicted_fire_active =
         one_face_policy_active && xuc_gyro_predicted_fire_enabled;
       const bool gyro_cadence_gate_open =
-        !gyro_predicted_fire_active || !xuc_feeder_activity_seen ||
-        (!xuc_feeder_active &&
-         std::chrono::duration<double>(t - xuc_feeder_last_active).count() >=
-           xuc_gyro_post_feed_recovery_s);
+        !gyro_predicted_fire_active ||
+        (!xuc_pending_shot && xuc_active_shot_id == 0 &&
+         (!xuc_feeder_activity_seen ||
+          (!xuc_feeder_active &&
+           std::chrono::duration<double>(t - xuc_feeder_last_active).count() >=
+             xuc_gyro_post_feed_recovery_s)));
       if (gyro_predicted_fire_active && !gyro_cadence_gate_open) {
         if (!xuc_gyro_cadence_hold_logged) {
           tools::logger()->info(
@@ -986,39 +1269,267 @@ int main(int argc, char * argv[])
         gyro_predicted_impact_yaw_valid =
           std::isfinite(gyro_predicted_impact_yaw_error_rad);
       }
-      if (one_face_policy_active &&
-          (!face_valid || face_error_rad >= xuc_one_face_rearm_rad)) {
-        xuc_one_face_armed = true;
-      }
-      if (!gyro_center_follow_active) xuc_one_face_armed = true;
       const bool convergence_gate_open =
         !xuc_fire_require_tracker_converged || tracker_converged;
-      const bool one_face_gate_open = !one_face_policy_active ||
-        (face_valid && face_error_rad <= xuc_one_face_limit_rad && xuc_one_face_armed);
       const bool stationary_yaw_gate_open = direct_yaw_measurement_fresh &&
         std::abs(direct_yaw_pixel_error_rad) <= xuc_fire_yaw_tolerance_rad;
-      const bool gyro_yaw_gate_open = gyro_predicted_impact_yaw_valid &&
-        direct_yaw_measurement_fresh &&
-        std::abs(gyro_predicted_impact_yaw_error_rad) <=
-          xuc_gyro_predicted_yaw_tolerance_rad &&
-        std::abs(direct_yaw_pixel_error_rad) <=
-          xuc_gyro_visibility_yaw_tolerance_rad;
-      const bool yaw_gate_open = gyro_predicted_fire_active
-        ? gyro_yaw_gate_open
-        : stationary_yaw_gate_open;
       // A held gyro centre is useful for smooth reacquisition, but it is neither
       // a fresh moving model nor a stationary-target solution. Do not fall through
       // to the stationary fire policy until centre-memory mode has ended.
       const bool motion_transition_gate_open =
         !gyro_center_follow_active || gyro_model_fresh;
+      // ---- Event-clock phase scheduler ----
+      // Fold the EKF body yaw modulo one face (pi/2).  Every armor id therefore
+      // shares the same physical front-center zero and a detector association
+      // switch cannot move the event clock by an entire face.  Raw PnP armor
+      // yaw is intentionally not used as the clock because field logs showed
+      // paired long/short zero crossings and clustered hit/miss intervals.
+      static std::int64_t event_last_fired_cycle = -1;
+      const bool ev_gyro_active = gyro_predicted_fire_active && gyro_model_fresh;
+      if (ev_gyro_active && direct_measurement_armor != nullptr &&
+          direct_yaw_measurement_fresh && std::isfinite(gyro_center_yaw) &&
+          std::isfinite(gyro_body_phase_rad)) {
+        const double observed_phase_error = std::remainder(
+          gyro_body_phase_rad - gyro_center_yaw, M_PI / 2.0);
+        const double observation_time_s = std::chrono::duration<double>(
+          t.time_since_epoch()).count();
+        const auto event_observation = gyro_phase_scheduler.observe(
+          observation_time_s, observed_phase_error, gyro_omega_rad_s);
+        if (event_observation.period_updated) {
+          tools::logger()->info(
+            "[GYROPLL] phase_zero cycle={} sample={:.1f} ms periods={} "
+            "filtered={:.1f} ms residual={:+.1f} ms correction={:+.1f} ms "
+            "uncertainty={:.1f} ms "
+            "locks={} locked={} reacquired={} rejects={} omega={:.3f} ekf_omega={:+.3f}",
+            gyro_phase_scheduler.crossing_cycle(),
+            event_observation.period_sample_s * 1000.0,
+            event_observation.periods_elapsed,
+            event_observation.face_period_s * 1000.0,
+            event_observation.phase_residual_s * 1000.0,
+            event_observation.applied_phase_correction_s * 1000.0,
+            event_observation.phase_uncertainty_s * 1000.0,
+            event_observation.lock_updates,
+            event_observation.locked ? 1 : 0,
+            event_observation.reacquired ? 1 : 0,
+            event_observation.consecutive_rejections,
+            (M_PI / 2.0) / event_observation.face_period_s,
+            gyro_omega_rad_s);
+        } else if (event_observation.crossing && event_observation.rejected) {
+          tools::logger()->warn(
+            "[GYROPLL] rejected phase crossing sample={:.1f} ms periods={} "
+            "residual={:+.1f} ms rejects={} ekf_omega={:+.3f}",
+            event_observation.period_sample_s * 1000.0,
+            event_observation.periods_elapsed,
+            event_observation.phase_residual_s * 1000.0,
+            event_observation.consecutive_rejections,
+            gyro_omega_rad_s);
+        }
+      } else if (!gyro_center_follow_active) {
+        gyro_phase_scheduler.reset();
+        gyro_face_selector.reset();
+        event_last_fired_cycle = -1;
+      }
+      if (!ev_gyro_active) gyro_face_selector.reset();
+
+      // The flight-time estimate uses the current measured armor range.  The
+      // interval gate below separately accounts for flight-time uncertainty.
+      double event_flight_time_s = NAN;
+      if (ev_gyro_active && direct_measurement_armor != nullptr) {
+        const auto & measured_xyz = direct_measurement_armor->xyz_in_world;
+        const double d_face_m = std::hypot(measured_xyz[0], measured_xyz[1]);
+        event_flight_time_s = d_face_m / xuc_projectile_speed_mps;
+        const tools::Trajectory trj(
+          xuc_projectile_speed_mps, d_face_m, measured_xyz[2]);
+        if (!trj.unsolvable && trj.fly_time > 0.0) {
+          event_flight_time_s = trj.fly_time;
+        }
+      }
+
+      auto event_solution = auto_aim::GyroPhaseScheduler::Solution{};
+      if (ev_gyro_active && std::isfinite(event_flight_time_s)) {
+        const double decision_now_s = std::chrono::duration<double>(
+          std::chrono::steady_clock::now().time_since_epoch()).count();
+        event_solution = gyro_phase_scheduler.solve(
+          decision_now_s,
+          xuc_event_fire_delay_s,
+          xuc_event_fire_delay_min_s,
+          xuc_event_fire_delay_max_s,
+          event_flight_time_s,
+          xuc_event_flight_time_uncertainty_s,
+          gyro_radius_m,
+          xuc_event_armor_width_m,
+          xuc_event_armor_edge_margin_m,
+          xuc_event_model_phase_uncertainty_rad);
+        if (event_solution.valid) {
+          gyro_event_schedule_valid = true;
+          // The temporal interval alone is insufficient: the rigid-body face
+          // prediction can already be off the event centre.  Keep the gate
+          // closed until the selected physical face is known, then combine
+          // both errors against the same usable armor half-width.
+          gyro_event_interval_safe = false;
+          gyro_event_hit_cycle = event_solution.hit_cycle;
+          gyro_event_lead_error_s = event_solution.time_until_command_s;
+          gyro_event_face_period_s = event_solution.face_period_s;
+          gyro_event_half_window_rad = event_solution.half_hit_window_rad;
+          gyro_event_worst_phase_rad = event_solution.worst_interval_phase_rad;
+          gyro_event_phase_uncertainty_rad = event_solution.phase_uncertainty_rad;
+          gyro_event_command_due_time = std::chrono::steady_clock::time_point(
+            std::chrono::duration_cast<std::chrono::steady_clock::duration>(
+              std::chrono::duration<double>(event_solution.command_due_time_s)));
+
+          // Predict the complete rigid body to this exact impact event, then
+          // commit one physical face id.  The commitment is held for repeated
+          // frames of the same event cycle and hands over only at the next
+          // cycle (or if the prior face becomes geometrically impossible).
+          if (!targets.empty()) {
+            auto future_target = targets.front();
+            const double processing_age_s = std::max(
+              0.0, std::chrono::duration<double>(
+                std::chrono::steady_clock::now() - t).count());
+            future_target.predict(
+              processing_age_s + event_solution.time_until_hit_center_s);
+            const auto future_x = future_target.ekf_x();
+            if (future_x.size() >= 3) {
+              const double future_center_yaw = std::atan2(future_x[2], future_x[0]);
+              std::vector<auto_aim::GyroFaceSelector::Candidate> face_candidates;
+              const auto future_faces = future_target.armor_xyza_list();
+              face_candidates.reserve(future_faces.size());
+              for (std::size_t face_id = 0; face_id < future_faces.size(); ++face_id) {
+                face_candidates.push_back({
+                  static_cast<int>(face_id), future_faces[face_id][3]});
+              }
+              const auto face_selection = gyro_face_selector.select(
+                face_candidates, future_center_yaw, gyro_event_hit_cycle);
+              gyro_event_face_valid = face_selection.valid;
+              gyro_event_face_id = face_selection.face_id;
+              gyro_event_face_alignment_rad = face_selection.alignment_rad;
+              if (face_selection.valid) {
+                gyro_event_combined_phase_rad =
+                  event_solution.worst_interval_phase_rad +
+                  face_selection.alignment_rad;
+                gyro_event_interval_safe = event_solution.interval_safe &&
+                  gyro_event_combined_phase_rad <=
+                    event_solution.half_hit_window_rad;
+              }
+              if (face_selection.valid && face_selection.changed) {
+                tools::logger()->info(
+                  "[FACELOCK] handoff cycle={} face={} alignment={:.2f}deg",
+                  gyro_event_hit_cycle, gyro_event_face_id,
+                  gyro_event_face_alignment_rad * 180.0 / M_PI);
+              }
+            }
+          }
+
+          gyro_event_gimbal_tracking_error_rad = std::abs(std::remainder(
+            command.yaw - ypr[0], 2.0 * M_PI));
+
+          static int event_schedule_log = 0;
+          if (++event_schedule_log % 10 == 0) {
+            tools::logger()->info(
+              "[GYROSCHED] cycle={} due_in={:+.1f} ms hit_in={:.1f} ms "
+              "period={:.1f} ms window={:.2f}deg worst={:.2f}deg "
+              "combined={:.2f}deg "
+              "phase_unc={:.2f}deg face={} face_align={:.2f}deg "
+              "gimbal_err={:.2f}deg safe={}",
+              gyro_event_hit_cycle, gyro_event_lead_error_s * 1000.0,
+              event_solution.time_until_hit_center_s * 1000.0,
+              gyro_event_face_period_s * 1000.0,
+              gyro_event_half_window_rad * 180.0 / M_PI,
+              gyro_event_worst_phase_rad * 180.0 / M_PI,
+              gyro_event_combined_phase_rad * 180.0 / M_PI,
+              gyro_event_phase_uncertainty_rad * 180.0 / M_PI,
+              gyro_event_face_id,
+              gyro_event_face_alignment_rad * 180.0 / M_PI,
+              gyro_event_gimbal_tracking_error_rad * 180.0 / M_PI,
+              gyro_event_interval_safe);
+          }
+        }
+      }
+
+      // A new physical face-center cycle re-arms a shot.  Outside AUTO the
+      // estimator may continue learning the period, but fire state and cooldown
+      // are never consumed.
+      const bool auto_mode_active = mode == io::Mode::auto_aim;
+      if (!auto_mode_active) {
+        xuc_one_face_armed = true;
+        event_last_fired_cycle = -1;
+      } else if (one_face_policy_active) {
+        if (gyro_event_schedule_valid) {
+          // A PLL correction may move a scheduled event back to an already
+          // consumed cycle.  Explicitly disarm in that case; merely rearming
+          // on a different future cycle allowed duplicate requests in field
+          // log cycles 41 and 146.
+          xuc_one_face_armed = gyro_event_hit_cycle > event_last_fired_cycle;
+        } else if (!gyro_event_schedule_valid &&
+                   (!face_valid || face_error_rad >= xuc_one_face_rearm_rad)) {
+          xuc_one_face_armed = true;
+        }
+      }
+      if (!gyro_center_follow_active) xuc_one_face_armed = true;
+      const bool one_face_gate_open = !one_face_policy_active ||
+        (gyro_event_schedule_valid
+           ? xuc_one_face_armed
+           : (face_valid && face_error_rad <= xuc_one_face_limit_rad &&
+              xuc_one_face_armed));
+
+      // In event mode, issue only before the due instant and wait up to one
+      // frame for a precise steady-clock send.  Never accept a late sample.
+      const bool gyro_yaw_gate_native_open = gyro_predicted_impact_yaw_valid &&
+        direct_yaw_measurement_fresh &&
+        std::abs(gyro_predicted_impact_yaw_error_rad) <=
+          xuc_gyro_predicted_yaw_tolerance_rad &&
+        std::abs(direct_yaw_pixel_error_rad) <=
+          xuc_gyro_visibility_yaw_tolerance_rad;
+      const bool gyro_event_gate_open = gyro_event_schedule_valid &&
+        gyro_event_interval_safe && gyro_event_face_valid &&
+        gyro_event_gimbal_tracking_error_rad <=
+          xuc_event_gimbal_tracking_tolerance_rad &&
+        gyro_event_lead_error_s >= 0.0 &&
+        gyro_event_lead_error_s <= xuc_event_trigger_window_s;
+      const bool yaw_gate_open = gyro_predicted_fire_active
+        ? (gyro_event_schedule_valid ? gyro_event_gate_open : gyro_yaw_gate_native_open)
+        : stationary_yaw_gate_open;
       const bool fire_candidate = command.control &&
+        auto_mode_active &&
         convergence_gate_open && one_face_gate_open && motion_transition_gate_open &&
         gyro_cadence_gate_open &&
         direct_yaw_measurement_fresh && direct_pitch_measurement_fresh &&
         yaw_gate_open &&
         std::abs(direct_pitch_pixel_error_rad) <= xuc_fire_pitch_tolerance_rad;
+      // B2 diagnostic: print gyro fire-gate sub-states to find which gate blocks.
+      static int b2_diag_log = 0;
+      if (gyro_predicted_fire_active && ++b2_diag_log % 50 == 0) {
+        tools::logger()->info(
+          "[B2DIAG] auto={} control={} conv={} oneface_gate={} armed={} motion={} "
+          "cadence={} dyaw_fresh={} dpitch_fresh={} yawgate={} event={} safe={} "
+          "face={} face_ok={} face_align_deg={:.2f} phase_unc_deg={:.2f} "
+          "gimbal_err_deg={:.2f} due_ms={:+.1f} window_deg={:.2f} "
+          "worst_deg={:.2f} combined_deg={:.2f} "
+          "yawerr_deg={:.2f} pitcherr_deg={:.2f}",
+          auto_mode_active ? 1 : 0, command.control ? 1 : 0,
+          convergence_gate_open ? 1 : 0,
+          one_face_gate_open ? 1 : 0, xuc_one_face_armed ? 1 : 0,
+          motion_transition_gate_open ? 1 : 0,
+          gyro_cadence_gate_open ? 1 : 0,
+          direct_yaw_measurement_fresh ? 1 : 0,
+          direct_pitch_measurement_fresh ? 1 : 0,
+          yaw_gate_open ? 1 : 0, gyro_event_schedule_valid ? 1 : 0,
+          gyro_event_interval_safe ? 1 : 0,
+          gyro_event_face_id, gyro_event_face_valid ? 1 : 0,
+          gyro_event_face_alignment_rad * 180.0 / M_PI,
+          gyro_event_phase_uncertainty_rad * 180.0 / M_PI,
+          gyro_event_gimbal_tracking_error_rad * 180.0 / M_PI,
+          gyro_event_lead_error_s * 1000.0,
+          gyro_event_half_window_rad * 180.0 / M_PI,
+          gyro_event_worst_phase_rad * 180.0 / M_PI,
+          gyro_event_combined_phase_rad * 180.0 / M_PI,
+          direct_yaw_pixel_error_rad * 180.0 / M_PI,
+          direct_pitch_pixel_error_rad * 180.0 / M_PI);
+      }
       if (fire_candidate) {
-        const double candidate_face_yaw_rad = aimer.debug_aim_point.xyza[3];
+        const double candidate_face_yaw_rad = gyro_event_face_valid
+          ? static_cast<double>(gyro_event_face_id) * M_PI / 2.0
+          : aimer.debug_aim_point.xyza[3];
         if (gyro_predicted_fire_active && xuc_fire_candidate_active &&
             std::isfinite(xuc_fire_candidate_face_yaw_rad) &&
             std::isfinite(candidate_face_yaw_rad)) {
@@ -1048,12 +1559,21 @@ int main(int argc, char * argv[])
         const double stable_time =
           std::chrono::duration<double>(t - xuc_fire_candidate_since).count();
         if (gyro_predicted_fire_active) {
-          // At ~60 FPS a 30 ms timer requires three qualifying frames. A fast
-          // competition-speed plate commonly remains in the accurate prediction
-          // window for exactly two frames. Count observations directly so the
-          // policy stays deterministic if camera FPS changes.
+          // Phase-2 event-style single shot: assert shoot as a ONE-FRAME pulse
+          // on the qualifying frame only (two consecutive observations). After
+          // that, command.shoot stays off for the rest of this window, so the
+          // lower board's 600 ms cadence can no longer turn a long satisfied
+          // window into a burst (verified 2026-09-09: 2-4 requests produced
+          // 15-20 real rounds). The next round needs a fresh window AND the
+          // one-face rearm => edge-triggered firing, not level-triggered.
+          // Event mode: the dynamic-lead gate is a short time window (~1 frame
+          // at high omega), so a single qualifying frame is sufficient to fire.
+          // Native fallback (no event omega/tracker) keeps the 2-frame rule.
+          const int ev_need_frames = gyro_event_schedule_valid
+            ? 1
+            : xuc_gyro_fire_min_consecutive_frames;
           command.shoot =
-            xuc_fire_candidate_frames >= xuc_gyro_fire_min_consecutive_frames;
+            (xuc_fire_candidate_frames >= ev_need_frames) && !xuc_fire_ready_logged;
         } else {
           const double required_stable_s = one_face_policy_active
             ? xuc_gyro_fire_stable_s
@@ -1065,16 +1585,25 @@ int main(int argc, char * argv[])
             "[XUC][FIRE] qualified after {:.0f} ms/{} frames, "
             "current_pixel_error_deg=({:.2f},{:.2f}) "
             "predicted_impact_yaw_error_deg={:.2f} gyro_predict={} "
-            "face_error={:.2f}deg omega={:+.3f}rad_s armed={}",
+            "face_error={:.2f}deg committed_face={} face_align={:.2f}deg "
+            "phase_unc={:.2f}deg gimbal_err={:.2f}deg omega={:+.3f}rad_s armed={}",
             stable_time * 1000.0,
             xuc_fire_candidate_frames,
             direct_yaw_pixel_error_rad * 180.0 / M_PI,
             direct_pitch_pixel_error_rad * 180.0 / M_PI,
             gyro_predicted_impact_yaw_error_rad * 180.0 / M_PI,
             gyro_predicted_fire_active, face_error_rad * 180.0 / M_PI,
+            gyro_event_face_id, gyro_event_face_alignment_rad * 180.0 / M_PI,
+            gyro_event_phase_uncertainty_rad * 180.0 / M_PI,
+            gyro_event_gimbal_tracking_error_rad * 180.0 / M_PI,
             gyro_omega_rad_s, xuc_one_face_armed);
           xuc_fire_ready_logged = true;
-          if (one_face_policy_active) xuc_one_face_armed = false;
+          if (one_face_policy_active) {
+            xuc_one_face_armed = false;
+            if (gyro_event_schedule_valid) {
+              event_last_fired_cycle = gyro_event_hit_cycle;
+            }
+          }
         }
       } else {
         if (xuc_fire_candidate_active) {
@@ -1161,6 +1690,76 @@ int main(int argc, char * argv[])
       }
     }
 
+    // For an event-qualified gyro shot, wait for the exact steady-clock due
+    // instant instead of quantizing the request to the next camera frame.  A
+    // sample that was already late before this deliberate wait is discarded;
+    // the small tolerance only covers OS wake-up jitter after sleep_until().
+    double gyro_event_send_lateness_ms = NAN;
+    if (xuc.enabled() && command.shoot) {
+      if (xuc.mode() != static_cast<uint8_t>(io::Mode::auto_aim)) {
+        tools::logger()->warn(
+          "[SHOT] request suppressed because lower-board mode={} is not AUTO",
+          static_cast<int>(xuc.mode()));
+        command.shoot = false;
+      } else if (gyro_event_schedule_valid) {
+        const auto wait_started = std::chrono::steady_clock::now();
+        if (wait_started > gyro_event_command_due_time) {
+          gyro_event_send_lateness_ms = std::chrono::duration<double, std::milli>(
+            wait_started - gyro_event_command_due_time).count();
+          tools::logger()->warn(
+            "[GYROSCHED] cycle={} missed before send by {:.2f} ms; shot discarded",
+            gyro_event_hit_cycle, gyro_event_send_lateness_ms);
+          command.shoot = false;
+        } else {
+          std::this_thread::sleep_until(gyro_event_command_due_time);
+          const auto woke_at = std::chrono::steady_clock::now();
+          gyro_event_send_lateness_ms = std::chrono::duration<double, std::milli>(
+            woke_at - gyro_event_command_due_time).count();
+          if (gyro_event_send_lateness_ms >
+              xuc_event_send_late_tolerance_s * 1000.0) {
+            tools::logger()->warn(
+              "[GYROSCHED] cycle={} wake late by {:.2f} ms; shot discarded",
+              gyro_event_hit_cycle, gyro_event_send_lateness_ms);
+            command.shoot = false;
+          }
+        }
+      }
+    }
+
+    // Attach a software shot id to every pulse actually sent.  The next feeder
+    // rising edge closes the command-to-feeder timing measurement; it is not
+    // treated as projectile muzzle time.
+    if (xuc.enabled() && command.shoot) {
+      const auto issue_time = std::chrono::steady_clock::now();
+      const uint64_t shot_id = xuc_next_shot_id++;
+      if (xuc_pending_shot) {
+        tools::logger()->warn(
+          "[SHOT] id={} superseded_without_feedback by={}",
+          xuc_pending_shot_id, shot_id);
+      }
+      xuc_pending_shot = true;
+      xuc_pending_shot_id = shot_id;
+      xuc_pending_shot_time = issue_time;
+      const double processing_age_ms =
+        std::chrono::duration<double, std::milli>(issue_time - t).count();
+      tools::logger()->info(
+        "[SHOT] id={} issue mode={} gyro={} event={} cycle={} "
+        "processing_age_ms={:.1f} due_error_ms={:+.2f} "
+        "period_ms={:.1f} window_deg={:.2f} worst_deg={:.2f} combined_deg={:.2f} "
+        "face={} face_align_deg={:.2f} phase_unc_deg={:.2f} gimbal_err_deg={:.2f}",
+        shot_id, static_cast<int>(xuc.mode()), gyro_model_fresh ? 1 : 0,
+        gyro_event_schedule_valid ? 1 : 0, gyro_event_hit_cycle,
+        processing_age_ms, gyro_event_send_lateness_ms,
+        gyro_event_face_period_s * 1000.0,
+        gyro_event_half_window_rad * 180.0 / M_PI,
+        gyro_event_worst_phase_rad * 180.0 / M_PI,
+        gyro_event_combined_phase_rad * 180.0 / M_PI,
+        gyro_event_face_id,
+        gyro_event_face_alignment_rad * 180.0 / M_PI,
+        gyro_event_phase_uncertainty_rad * 180.0 / M_PI,
+        gyro_event_gimbal_tracking_error_rad * 180.0 / M_PI);
+    }
+
     // 发送命令到 PlotJuggler（显示实际发送的值）
     nlohmann::json plot_data;
     plot_data["t"] = std::chrono::duration<double>(t - std::chrono::steady_clock::time_point()).count();
@@ -1174,6 +1773,35 @@ int main(int argc, char * argv[])
         gyro_predicted_impact_yaw_error_rad * 180.0 / M_PI;
     } else {
       plot_data["gyro_predicted_impact_yaw_error_deg"] = nullptr;
+    }
+    if (gyro_event_schedule_valid) {
+      plot_data["gyro_event_due_ms"] = gyro_event_lead_error_s * 1000.0;
+      plot_data["gyro_event_period_ms"] = gyro_event_face_period_s * 1000.0;
+      plot_data["gyro_event_interval_safe"] = gyro_event_interval_safe;
+      plot_data["gyro_event_half_window_deg"] =
+        gyro_event_half_window_rad * 180.0 / M_PI;
+      plot_data["gyro_event_worst_phase_deg"] =
+        gyro_event_worst_phase_rad * 180.0 / M_PI;
+      plot_data["gyro_event_combined_phase_deg"] =
+        gyro_event_combined_phase_rad * 180.0 / M_PI;
+      plot_data["gyro_event_phase_uncertainty_deg"] =
+        gyro_event_phase_uncertainty_rad * 180.0 / M_PI;
+      plot_data["gyro_event_face_id"] = gyro_event_face_id;
+      plot_data["gyro_event_face_alignment_deg"] =
+        gyro_event_face_alignment_rad * 180.0 / M_PI;
+      plot_data["gyro_event_gimbal_tracking_error_deg"] =
+        gyro_event_gimbal_tracking_error_rad * 180.0 / M_PI;
+    } else {
+      plot_data["gyro_event_due_ms"] = nullptr;
+      plot_data["gyro_event_period_ms"] = nullptr;
+      plot_data["gyro_event_interval_safe"] = false;
+      plot_data["gyro_event_half_window_deg"] = nullptr;
+      plot_data["gyro_event_worst_phase_deg"] = nullptr;
+      plot_data["gyro_event_combined_phase_deg"] = nullptr;
+      plot_data["gyro_event_phase_uncertainty_deg"] = nullptr;
+      plot_data["gyro_event_face_id"] = nullptr;
+      plot_data["gyro_event_face_alignment_deg"] = nullptr;
+      plot_data["gyro_event_gimbal_tracking_error_deg"] = nullptr;
     }
     // 电控的欧拉角（从MCU获取的姿态）
     plot_data["mcu_yaw"] = ypr[0] * 180.0 / M_PI;

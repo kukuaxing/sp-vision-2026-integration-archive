@@ -92,6 +92,11 @@ max_rectangular_error: 25
 
 #####-----Tracker（跟踪器）参数-----#####
 min_detect_count: 5
+tracker_association_max_cost: 2.0
+tracker_batch_max_observations: 4
+# Keep fixed/slow targets on the established single-observation EKF path. Only
+# fuse multiple rigid-body faces after gyro motion is unambiguous.
+tracker_batch_min_omega_rad_s: 3.0
 max_temp_lost_count: 15
 outpost_max_temp_lost_count: 75
 
@@ -197,9 +202,9 @@ xuc_one_face_once_fire: true
 xuc_one_face_limit_deg: 12.0
 xuc_one_face_rearm_deg: 34.0
 xuc_gyro_fire_stable_ms: 30.0
-# Fixed targets keep xuc_fire_yaw_tolerance_deg unchanged.  In gyro mode the
-# Aimer-selected armor is qualified at predicted projectile-impact time; the
-# current-frame pixel error is only a broad visibility/association guard.
+# Fixed targets keep xuc_fire_yaw_tolerance_deg and the 350 ms stable gate.
+# Gyro mode keeps the current-frame pixel error only as a broad visibility
+# guard; the exact shot instant is selected by the physical phase event clock.
 xuc_gyro_predicted_fire_enabled: true
 xuc_gyro_predicted_yaw_tolerance_deg: 1.2
 xuc_gyro_predicted_yaw_trim_deg: 0.0
@@ -234,3 +239,40 @@ xuc_ballistic_reference_camera_range_m: 0.91
 xuc_ballistic_reference_total_drop_m: 0.08639  # physical 10m/s reference; zero fixed boresight bias
 xuc_ballistic_max_compensation_deg: 20.0    # 低弹速远距离补偿上限；下位机另保留25°/28°双层保护
 xuc_ballistic_pitch_trim_deg: -0.92    # 2026-09-06: correct 3 cm low miss at 3.515 m by aiming up 0.49 deg
+# Initial command-to-muzzle estimate.  Feeder feedback is logged separately and
+# must not be mistaken for muzzle exit; tighten this interval after a light-gate
+# or high-speed-camera measurement.
+xuc_event_fire_delay_s: 0.154
+xuc_event_fire_delay_min_ms: 134
+xuc_event_fire_delay_max_ms: 174
+xuc_event_flight_time_uncertainty_ms: 5
+# A qualifying frame may wait this long for the exact steady-clock send time.
+xuc_event_trigger_window_ms: 25
+xuc_event_send_late_tolerance_ms: 2
+xuc_event_crossing_capture_deg: 20
+xuc_event_period_min_ms: 120
+xuc_event_period_max_ms: 1200
+# Continuous folded-body-phase PLL. Keep the phase response used when the
+# 154 ms live delay was calibrated; robust residual spread (not its calibrated
+# mean offset) is carried into the hit-width gate.
+xuc_event_period_ema_alpha: 0.20
+xuc_event_max_period_relative_error: 0.22
+xuc_event_max_period_step_ratio: 0.025
+xuc_event_omega_period_weight: 0.15
+xuc_event_period_residual_alpha: 0.08
+xuc_event_phase_correction_alpha: 0.15
+xuc_event_max_phase_correction_ms: 3
+xuc_event_max_phase_residual_ms: 90
+xuc_event_period_window_size: 7
+xuc_event_phase_residual_window_size: 5
+xuc_event_phase_uncertainty_floor_ms: 2
+xuc_event_min_lock_updates: 4
+xuc_event_relock_rejections: 3
+xuc_event_armor_width_m: 0.135
+xuc_event_armor_edge_margin_m: 0.005
+xuc_event_model_phase_uncertainty_deg: 1.0
+# Commit the future physical armor face for each event cycle, then hand over to
+# the next face. A shot also requires the gimbal to be following its command.
+xuc_event_face_max_alignment_deg: 15.0
+xuc_event_gimbal_tracking_tolerance_deg: 2.5
+xuc_shot_feedback_timeout_ms: 800
