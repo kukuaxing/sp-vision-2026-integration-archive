@@ -1,0 +1,374 @@
+# 6500 rpm 四装甲“小陀螺”实弹复测配置；允许 shoot=1，仅在现场安全确认后使用。
+# 2026-09-06 单因素修正：高速预测延迟增加 50 ms，使当前反转目标提前约 4°相位触发。
+# 2026-09-12 抬高靶复算：靶高已由视觉闭环吸收，撤销额外 0.60° 固定上抬。
+# 19.36 m/s 由 3200 rpm 实弹等效 9.53 m/s 按转速线性外推，须用实弹/测速仪复核。
+# 2.7 m 预计垂直补偿约向上 7.75°；水平暂按上一轮弹着群向右修正 2.121°。
+# 步兵自瞄运行配置（海康 HikRobot 相机）
+# 用法：./build/standard configs/standard_hikrobot.yaml
+# 基于 complete_template.yaml，相机换为海康 hikrobot，内外参已回填，附 XUC 串口键。
+
+#####-----基础配置-----#####
+# 敌方颜色：red | blue
+enemy_color: "blue"
+
+#####-----神经网络参数-----#####
+# 推理后端：tensorrt | openvino
+inference_backend: openvino
+
+# 装甲板识别后端：yolov8 | yolo11 | yolov5 | yolo26
+yolo_name: yolo26
+
+# 数字/字迹分类器模型路径
+classify_model: assets/tiny_resnet.onnx
+
+#####-----OpenVINO模型路径-----#####
+# YOLO模型路径（根据yolo_name选择对应模型）
+yolo11_model_path: assets/yolo11.xml      # 输入640×640
+yolov8_model_path: assets/yolov8.xml        # 输入416×416
+yolov5_model_path: assets/yolov5.xml        # 输入640×640
+yolo26_model_path: assets/yolo26.xml
+
+# OpenVINO推理设备：CPU | GPU | AUTO
+device: CPU
+
+#####-----TensorRT模型路径-----#####
+yolo11_engine_path: assets/engines/yolo11.engine
+yolov8_engine_path: assets/engines/yolov8.engine
+
+yolo11_onnx_path: assets/yolo11.onnx
+yolov8_onnx_path: assets/yolov8.onnx
+
+tensorrt_fp16_mode: true
+tensorrt_int8_mode: false
+
+#####-----推理参数-----#####
+use_async_inference: false
+
+min_confidence: 0.10
+
+min_keypoint_confidence: 0.0
+letterbox_value: 114
+yolo26_swap_rb: false
+yolo26_refine_color: true
+# Low-confidence candidates are accepted only when color, keypoints and
+# quadrilateral geometry independently agree. Red and blue use symmetric gates.
+yolo26_candidate_confidence: 0.04
+yolo26_color_confirmed_min_confidence: 0.04
+yolo26_memory_confirmed_min_confidence: 0.06
+yolo26_color_confirmed_min_keypoint_confidence: 0.75
+# Normalized score: 100*(R-B)/(R+B), independent of absolute exposure.
+yolo26_color_min_delta: 8.0
+yolo26_color_single_bar_min_delta: 12.0
+yolo26_color_min_brightness: 30
+yolo26_color_min_pixels_per_bar: 6
+yolo26_color_hold_frames: 20
+detector_debug: false
+
+use_traditional: true
+# YOLO26 previously ignored use_traditional.  The adaptive two-light-bar
+# refiner now uses it as the default enable and safely keeps network corners
+# whenever no geometrically consistent image candidate is found.
+yolo26_refine_corners: true
+corner_refine_roi_length_scale: 1.8
+corner_refine_roi_width_scale: 0.9
+corner_refine_max_center_error_ratio: 0.65
+corner_refine_max_angle_error_deg: 25.0
+corner_refine_max_pair_angle_error_deg: 8.0
+corner_refine_min_pair_length_ratio: 0.65
+
+#####-----功能开关-----#####
+enable_buff: false
+force_auto_aim: true
+
+#####-----ROI（感兴趣区域）参数-----#####
+roi:
+  x: 420
+  y: 50
+  width: 600
+  height: 600
+
+use_roi: false
+
+#####-----传统检测方法参数-----#####
+threshold: 100
+max_angle_error: 45
+min_lightbar_ratio: 1.5
+max_lightbar_ratio: 20
+min_lightbar_length: 8
+min_armor_ratio: 1
+max_armor_ratio: 5
+max_side_ratio: 1.5
+max_rectangular_error: 25
+
+#####-----Tracker（跟踪器）参数-----#####
+min_detect_count: 5
+tracker_association_max_cost: 2.0
+tracker_batch_max_observations: 4
+# Fuse multiple rigid-body faces in both vehicle and high-speed modes.
+tracker_batch_min_omega_rad_s: 1.5
+tracker_target_switch_min_frames: 3
+# Robust iterated whole-vehicle update.  Yaw remains federated with YawESKF.
+whole_state_iekf_enabled: true
+whole_state_iekf_max_iterations: 4
+whole_state_iekf_stop_threshold: 0.0001
+whole_state_iekf_huber_threshold: 2.5
+# Independent SO(2) yaw ESKF used for model selection and future face phase.
+# The 11-state EKF remains responsible for vehicle centre/radius/height.
+yaw_eskf_angular_jerk_variance: 20.0
+yaw_eskf_measurement_floor_deg: 1.0
+yaw_eskf_nis_reject_threshold: 16.0
+yaw_eskf_min_trusted_updates: 6
+yaw_eskf_trusted_rate_std_rad_s: 2.0
+yaw_eskf_max_trusted_abs_rate_rad_s: 8.0       # reject association-induced spikes seen at 15--40 rad/s
+yaw_eskf_max_trusted_abs_acceleration_rad_s2: 30.0
+max_temp_lost_count: 15
+outpost_max_temp_lost_count: 75
+
+#####-----Aimer（瞄准器）参数-----#####
+yaw_offset: 0.0  # 动态视觉跟随以测量中心为零；避免静态偏置被计入预测超前量
+pitch_offset: 6
+
+comming_angle: 60
+leaving_angle: 20
+
+decision_speed: 0.8
+# Field feedback explicitly selected an 85 ms command-to-impact prediction.
+# Keep high- and low-speed prediction on the same physical calibration.
+high_speed_delay_time: 0.085
+low_speed_delay_time: 0.085
+
+actuation_delay_ms: 0
+
+yaw_ramp_t0: 0.10
+yaw_ramp_t0_pos: 0.10
+yaw_ramp_t0_neg: 0.10
+
+#####-----Shooter（开火控制）参数-----#####
+first_tolerance: 3
+second_tolerance: 2
+judge_distance: 2
+# Phase 2D.5 fire dry-run: calculate/log eligibility, but XUC transmission stays blocked.
+auto_fire: true
+
+#####-----相机配置（海康 HikRobot）-----#####
+camera_name: "hikrobot"
+
+exposure_ms: 6.0
+gain: 16.0
+camera_width: 1440
+camera_height: 1080
+camera_fps: 150.0
+white_balance_auto: "off"
+hikrobot_pixel_format: "BayerRG8"
+
+# 海康相机 VID:PID（lsusb 确认）
+vid_pid: "2bdf:0001"
+
+debug: false
+# 现场调参时保留投影画面；正式压力测试可改回 true 以减少显示开销。
+competition_headless: false
+
+# 相机硬触发（与电控 CAN 命令同步触发曝光）
+trigger_enable: false
+trigger_source: 2
+trigger_activation: 0
+
+#####-----相机标定参数（海康内参/外参，1440×1080）-----#####
+# 重投影误差: 0.2769px
+camera_matrix: [2321.1448516431083, 0, 773.51514374772069, 0, 2335.8405999820166, 558.35666238582371, 0, 0, 1]
+distort_coeffs: [-0.052990616769919285, 0.13874211747473905, 0.00113447179189630067, 0.0036897020313975178, 0]
+
+R_gimbal2imubody: [-1, 0, 0, 0, 1, 0, 0, 0, -1]
+
+# 相机同理想情况的偏角: yaw-13.87 pitch4.87 roll1.39（与 calibration_hikrobot.yaml 一致，2026-08-04 外参验证用）
+# 安全候选：保留官方 yaw/pitch，移除实测水平扫动中被证伪的 4.8655° roll 串扰
+R_camera2gimbal: [0.0038423858201756295, -0.010128236856560271, 0.99994132572335792, -0.99999261800835737, -0.000038916880965041942, 0.0038421887339723146, -0.000000000000000014343086056924051, -0.99994870733635821, -0.01012831162367236]
+t_camera2gimbal: [0.01356599679910985, -0.040874146298378239, 0.061329060010173779]
+
+#####-----CAN协议配置-----#####
+new_can_quat_id: 0x150
+new_can_cmd_id: 0x170
+can_interface: "can0"
+cboard_enable: false             # 新版IMU接到下位机，禁止等待旧CAN姿态
+debug_rx: false
+debug_tx: false
+
+#####-----轨迹规划器（Planner）参数-----#####
+fire_thresh: 0.0035
+max_yaw_acc: 100
+Q_yaw: [9e6, 0]
+R_yaw: [0.5]
+max_pitch_acc: 100
+Q_pitch: [9e6, 0]
+R_pitch: [1]
+
+#####-----XUC 新版双向串口（实际波特率接板确认）-----#####
+xuc_enable: true                 # 接收IMU，发送云台目标角
+xuc_serial_port: "/dev/serial/by-id/usb-1a86_USB_Serial-if00-port0"
+xuc_serial_baud: 460800          # 与下位机 USART6 一致
+xuc_yaw_sign: 0.94074425         # 世界系目标角 -> 下位机原始yaw：同号并除以1.06298816
+xuc_pitch_sign: 1                # 实车验收：正号使目标朝图像垂直误差减小方向运动
+xuc_imu_yaw_sign: -1.06298816    # 零roll三点实测：下位机原始yaw -> 世界系yaw
+xuc_imu_pitch_sign: 1            # 下位机IMU pitch方向，实机小角度确认
+xuc_imu_yaw_offset_rad: 0.0
+xuc_imu_pitch_offset_rad: 0.0
+xuc_require_feedback_for_control: true
+xuc_require_auto_mode_for_control: false  # 下位机按当前遥控器档位直接回报 mode；避免串口互锁
+xuc_max_yaw_excursion_rad: 0.0          # 双轴联调：上位机不额外截断，下位机保留 Yaw ±25°/实际±28°保护
+xuc_lock_pitch_for_control: false       # 允许下发 Pitch；下位机限制 ±15°/80°每秒
+xuc_allow_control: true             # low-light yaw/pitch follow test
+xuc_allow_shoot: true               # explicit single-shot live test
+xuc_fire_guard_enabled: true       # require fresh measured armor in both axes
+xuc_fire_stable_ms: 120.0          # short debounce; feedback-driven pulses handle repetition
+xuc_fire_yaw_tolerance_deg: 3.0    # 0.91m约±4.8cm，仍在小装甲板水平范围内
+xuc_fire_pitch_tolerance_deg: 1.1  # 介于无射击的0.8°与明显低弹的2.0°之间；配合更强Pitch闭环
+xuc_gyro_center_follow_enabled: true
+xuc_gyro_omega_threshold_rad_s: 0.8
+# Trust-aware armor -> vehicle -> phase-clock model selection.
+xuc_vehicle_model_enter_rad_s: 0.8
+xuc_vehicle_model_exit_rad_s: 0.45
+xuc_high_speed_enter_rad_s: 3.2
+xuc_high_speed_exit_rad_s: 2.5
+xuc_rotation_mode_dwell_ms: 600
+xuc_rotation_tracker_dropout_hold_ms: 250  # short face hand-over: retain model but keep fire inhibited
+xuc_rotation_rate_filter_tau_ms: 100
+# Armor hand-over makes the raw EKF omega dip by about 1.3--1.8 rad/s once
+# per face while the crossing PLL remains stable at about 4.5 rad/s.  Do not
+# throw away a good phase lock for that periodic estimator ripple; a real
+# fast/slow transition still crosses the 3.2/2.5 rad/s mode hysteresis below.
+xuc_rotation_rate_disagreement_rad_s: 2.2
+xuc_rotation_speed_step_reset_rad_s: 2.5
+xuc_rotation_rate_agreement_updates: 3
+xuc_rotation_rate_disagreement_updates: 18
+xuc_gyro_center_hold_ms: 3000.0
+xuc_fire_require_tracker_converged: true
+xuc_one_face_once_fire: true
+xuc_one_face_limit_deg: 15.0
+xuc_one_face_rearm_deg: 34.0
+xuc_gyro_fire_stable_ms: 30.0
+# Fixed targets keep xuc_fire_yaw_tolerance_deg and the 350 ms stable gate.
+# Gyro mode keeps the current-frame pixel error only as a broad visibility
+# guard; the exact shot instant is selected by the physical phase event clock.
+xuc_gyro_predicted_fire_enabled: true
+# High-speed rotation must not fall back to an instantaneous yaw-error shot
+# while the physical phase event clock is unlocked.  This prevents event=0,
+# cycle=-1 rounds such as shots 1-20 in the 2026-09-11 23:34 field log.
+xuc_gyro_require_event_lock_for_fire: true
+xuc_gyro_predicted_yaw_tolerance_deg: 3.0
+xuc_gyro_predicted_yaw_trim_deg: 0.0
+xuc_gyro_visibility_yaw_tolerance_deg: 8.0
+xuc_gyro_fire_min_consecutive_frames: 2
+# The lower board starts each new feed about 0.59 s after the previous feed stops
+# (2026-09-12 log, 124 matched shots). Waiting 0.55 s here avoids stale queued
+# commands while preserving the lower board's actual maximum repeat cadence.
+xuc_feeder_active_rpm_threshold: 300.0
+xuc_gyro_post_feed_recovery_ms: 550.0
+# At ~5 rad/s and 60 FPS the same armor advances ~5 deg/frame; a four-armor
+# identity switch is ~90 deg. Restart the two-frame window on a large phase jump.
+xuc_gyro_candidate_max_phase_step_deg: 20.0
+xuc_direct_yaw_guard: true              # 当前以稳定测量为主；保留预测接口供 EKF 调稳后启用
+xuc_direct_yaw_boresight_correction_deg: -1.30  # measured camera/gimbal zero, 2026-09-05
+xuc_direct_yaw_impact_correction_deg: -2.12  # persistent same-side left miss: another 0.62 deg / about 5.0 cm right at 4.6 m
+xuc_yaw_tracking_pi_enabled: false      # disabled: field jitter was model/lead switching; keep one dynamic controller
+xuc_yaw_tracking_kp: 0.0                # disable fast outer proportional loop; lower board already owns position P
+xuc_yaw_tracking_ki_per_s: 0.18         # slow static-bias learner; about 0.2 deg/s at the observed residual
+xuc_yaw_tracking_integral_limit_deg: 0.8
+xuc_yaw_tracking_output_limit_deg: 0.8  # cannot excite the inner loop or replace ESKF/phase lead
+xuc_yaw_tracking_integrate_error_limit_deg: 1.5  # reject face hand-over and prediction jumps
+xuc_yaw_tracking_arm_dwell_ms: 600.0    # start from zero only after mode=1 and yaw_armed=1 are stable
+xuc_max_prediction_lead_rad: 0.10472     # 移动靶最多超前6°；保留测量守卫，禁止EKF发散越界
+xuc_direct_yaw_filter_tau_ms: 60.0       # suppress face/model hand-over command oscillation
+xuc_direct_yaw_hold_ms: 300.0            # 移动靶短丢帧继续使用6°内有界预测；更长丢失停控
+xuc_direct_yaw_max_rate_dps: 90.0        # bounded command slew prevents sudden gimbal reversal
+xuc_final_yaw_command_max_rate_dps: 30.0 # damp full ESKF lead and armor/vehicle model hand-over
+xuc_direct_pitch_guard: true             # 使用装甲板像素纵向误差 + 当前IMU生成绝对 Pitch 目标
+xuc_direct_pitch_filter_tau_ms: 60.0     # retain post-shot noise damping without the observed long vertical lag
+xuc_direct_pitch_hold_ms: 180.0          # 已保存双轴验收值：短丢帧保持
+xuc_direct_pitch_max_rate_dps: 45.0      # midpoint between the stable-but-slow 25 and previously validated 80 deg/s
+xuc_direct_pitch_error_gain: 1.35        # recover steady-state authority; below the previously validated 1.65 gain
+xuc_projectile_speed_mps: 19.36          # 6500rpm初值：9.53m/s * 6500/3200；必须以测速/落点复核
+xuc_ballistic_reference_projectile_speed_mps: 10.0  # 0.91m/17cm实弹基准采集于2500rpm，禁止随当前转速重算
+xuc_ballistic_pitch_enabled: true
+xuc_camera_forward_of_muzzle_m: 0.06     # 实测：相机中心在炮口前方 6 cm
+xuc_camera_above_muzzle_m: 0.04          # 实测：相机中心在炮口上方 4 cm
+xuc_ballistic_reference_camera_range_m: 0.91
+xuc_ballistic_reference_total_drop_m: 0.08639  # physical 10m/s reference; zero fixed boresight bias
+xuc_ballistic_max_compensation_deg: 20.0    # 低弹速远距离补偿上限；下位机另保留25°/28°双层保护
+xuc_ballistic_pitch_trim_deg: -1.42    # same-side high miss: lower impact about 2.5 cm at 4.6 m
+# Robust shared range for ballistic elevation and gyro time-of-flight.  The
+# rigid-body near-face range is authoritative; raw PnP depth contributes only a
+# bounded 5% correction so oblique plates cannot move the aim by metres.
+xuc_range_filter_tau_ms: 80
+xuc_range_filter_max_rate_mps: 6.0
+xuc_range_filter_raw_blend: 0.05
+xuc_range_filter_max_raw_residual_m: 0.40
+# Commands are now issued only near the lower board's physical ready time.  Use
+# the resulting short, repeatable launch path instead of predicting against the
+# 20--746 ms queue delay observed when recovery was disabled.
+xuc_event_fire_delay_s: 0.085
+xuc_event_fire_delay_min_ms: 65
+xuc_event_fire_delay_max_ms: 105
+# Observe the feeder threshold in the serial RX thread, learn a fresh session
+# baseline from five matched shots, then compensate only subsequent mechanical
+# drift. The 85 ms calibration is unchanged during warm-up. A median/MAD window,
+# 1.5 ms per-shot slew limit and hard 65--105 ms bounds prevent oscillation.
+xuc_shot_delay_adaptation_enabled: true
+xuc_shot_delay_reference_ms: 0
+xuc_shot_delay_sample_min_ms: 3
+xuc_shot_delay_sample_max_ms: 80
+xuc_shot_delay_window: 9
+xuc_shot_delay_min_samples: 5
+xuc_shot_delay_ewma_alpha: 0.35
+xuc_shot_delay_adaptation_gain: 1.0
+xuc_shot_delay_max_step_ms: 1.5
+xuc_shot_delay_outlier_sigma: 3.5
+xuc_shot_delay_outlier_floor_ms: 4
+xuc_shot_delay_95pi_min_half_ms: 8
+xuc_event_flight_time_uncertainty_ms: 5
+# A qualifying frame may wait this long for the exact steady-clock send time.
+# At ~70 FPS a 30 ms lead admits only about two decision frames.  A 50 ms
+# early window gives the qualified event more chances, then sleep_until still
+# sends at the exact same phase deadline.
+xuc_event_trigger_window_ms: 50
+xuc_event_send_late_tolerance_ms: 2
+xuc_event_crossing_capture_deg: 20
+xuc_event_crossing_rearm_deg: 12
+xuc_event_min_crossing_separation_ratio: 0.55
+xuc_event_period_min_ms: 120
+xuc_event_period_max_ms: 1200
+# Continuous folded-body-phase PLL. Keep the phase response used when the
+# 154 ms live delay was calibrated; robust residual spread (not its calibrated
+# mean offset) is carried into the hit-width gate.
+xuc_event_period_ema_alpha: 0.20
+xuc_event_max_period_relative_error: 0.22
+xuc_event_max_period_step_ratio: 0.025
+xuc_event_omega_period_weight: 0.15
+xuc_event_period_residual_alpha: 0.08
+xuc_event_phase_correction_alpha: 0.15
+xuc_event_max_phase_correction_ms: 3
+xuc_event_max_phase_residual_ms: 90
+xuc_event_period_window_size: 7
+xuc_event_phase_residual_window_size: 5
+xuc_event_phase_uncertainty_floor_ms: 2
+xuc_event_min_lock_updates: 3
+xuc_event_relock_rejections: 3
+xuc_event_armor_width_m: 0.135
+xuc_event_armor_edge_margin_m: 0.0
+xuc_event_model_phase_uncertainty_deg: 0.7
+# Relax only the conservative phase budget. Lock, face identity and gimbal
+# tracking remain mandatory, so this cannot re-enable event=0/cycle=-1 shots.
+# Field logs show tracking/PLL are healthy but the conservative summed phase
+# budget rejects most otherwise usable faces.  Keep lock and face identity
+# mandatory while allowing a wider physical opportunity window.
+xuc_event_phase_grace_deg: 4.0
+# Fire from the directly observed phase clock once its temporal interval is safe.
+# Future-face consistency remains diagnostic, but no longer vetoes an otherwise
+# valid event: field logs show that hand-over ambiguity was the dominant source
+# of missed opportunities.  Event lock, fresh vision, pitch, gimbal tracking,
+# one-shot-per-cycle and feeder recovery gates remain mandatory.
+xuc_event_require_face_consistency: false
+# Commit the future physical armor face for each event cycle, then hand over to
+# the next face. A shot also requires the gimbal to be following its command.
+xuc_event_face_max_alignment_deg: 15.0
+xuc_event_gimbal_tracking_tolerance_deg: 4.0
+xuc_shot_feedback_timeout_ms: 800

@@ -1,0 +1,228 @@
+# ==========================================
+# SP Vision 测试配置文件 (vtune_test.yaml)
+# 支持快速切换 TensorRT / OpenVINO 后端
+# ==========================================
+
+#####-----基础配置-----#####
+enemy_color: "red"
+
+# ==========================================
+# 推理后端配置 (快速切换这里)
+# ==========================================
+# 推理后端选择：tensorrt | openvino
+#
+# TensorRT 后端 (GPU推理，速度快):
+#   - 支持模型: yolo11, yolov8
+#   - 需要: NVIDIA GPU, TensorRT
+#
+# OpenVINO 后端 (CPU/GPU推理):
+#   - 支持模型: yolov5, yolov8, yolo11, yolo26
+#   - 需要: Intel OpenVINO
+# ==========================================
+
+inference_backend: openvino    # 切换这里: tensorrt | openvino
+
+#####-----神经网络参数-----#####
+
+# YOLO模型选择
+# - TensorRT支持: yolo11, yolov8
+# - OpenVINO支持: yolov5, yolov8, yolo11, yolo26
+yolo_name: yolov5
+# 分类器模型路径
+classify_model: ../assets/tiny_resnet.onnx
+
+# ==========================================
+# OpenVINO 模型路径配置
+# ==========================================
+# 输入尺寸说明:
+#   - yolov5: 640x640
+#   - yolov8: 640x640 (新模型) / 416x416 (旧模型)
+#   - yolo11: 640x640
+#   - yolo26: 640x640
+# ==========================================
+
+yolov5_model_path: ../assets/yolov5.xml
+# yolov8_model_path: ../assets/kinds_of_weights/yolov8_int8_openvino_model/yolov8.xml
+yolov8_model_path: ../assets/yolov8.xml
+yolo11_model_path: ../assets/best_openvino_model/best.xml
+
+yolo26_model_path: ../assets/repair_int8_openvino_model/repair.xml
+
+# yolo26_model_path: ../assets/repair_int8_openvino_model/repair.xml
+# OpenVINO 推理设备: CPU | GPU | AUTO
+device: CPU
+
+# OpenVINO 并行度调节
+infer_threads: 4      # 推理线程数
+ov_streams: 1         # OpenVINO streams 数量
+
+# ==========================================
+# TensorRT 模型路径配置
+# ==========================================
+# TensorRT 引擎文件 (优先使用，加载快)
+# 如果engine不存在，会从ONNX自动构建
+# ==========================================
+
+yolo11_engine_path: ../assets/engines/yolo11.engine
+yolov8_engine_path: ../assets/engines/yolov8.engine
+
+# TensorRT ONNX 源文件 (用于构建engine)
+yolo11_onnx_path: ../assets/engines/yolo11.onnx
+yolov8_onnx_path: ../assets/engines/yolov8.onnx
+
+# ==========================================
+# 推理参数 (通用)
+# ==========================================
+
+# 是否启用异步推理 (可提升帧率，但有1帧延迟)
+use_async_inference: false
+
+# 检测置信度阈值 (0.0-1.0)
+min_confidence: 0.6
+
+# 是否启用传统角点微调
+use_traditional: false
+
+#####-----功能开关-----#####
+enable_buff: false
+force_auto_aim: false
+
+#####-----ROI（感兴趣区域）参数-----#####
+roi:
+  x: 420
+  y: 50
+  width: 600
+  height: 600
+
+use_roi: false
+
+#####-----传统检测方法参数-----#####
+threshold: 150
+max_angle_error: 45
+min_lightbar_ratio: 1.5
+max_lightbar_ratio: 30
+min_lightbar_length: 8
+min_armor_ratio: 1
+max_armor_ratio: 5
+max_side_ratio: 1.5
+max_rectangular_error: 25
+
+#####-----Tracker（跟踪器）参数-----#####
+min_detect_count: 5
+max_temp_lost_count: 15
+outpost_max_temp_lost_count: 75
+
+#####-----Aimer（瞄准器）参数-----#####
+yaw_offset: -1
+pitch_offset: -1.4
+comming_angle: 60
+leaving_angle: 20
+decision_speed: 8
+high_speed_delay_time: 0.030
+low_speed_delay_time: 0.015
+actuation_delay_ms: 0
+yaw_ramp_t0: 0.10
+yaw_ramp_t0_pos: 0.10
+yaw_ramp_t0_neg: 0.10
+
+#####-----Shooter（开火控制）参数-----#####
+first_tolerance: 3
+second_tolerance: 2
+judge_distance: 2
+auto_fire: false
+
+#####-----相机配置-----#####
+camera_name: "daheng"
+exposure_ms: 2.1
+gain: 24
+vid_pid: "2ba2:4d55"
+debug: true
+
+camera_settings:
+  width: 1920
+  height: 1200
+  exposure: 2000
+  auto_exposure: false
+  gain: 24
+  fps: 168
+  auto_white_balance: true
+  rgain: 0.0
+  bgain: 0.0
+  ggain: 0.0
+  time_offset: 45500000
+  auto_exp_change: false
+  max_exp: 3000
+  min_exp: 200
+  pixel_format: BayerRG8
+  bayer_pattern: BayerBG8
+
+trigger_enable: false
+trigger_source: 2
+trigger_activation: 0
+
+#####-----相机标定参数-----#####
+# R_gimbal2imubody: [1, 0, 0, 0, 1, 0, 0, 0, 1]
+
+# camera_matrix: [1576.573009, 0.000000, 926.043671, 0.000000, 1576.654543, 589.242106, 0.000000, 0.000000, 1.000000]
+# distort_coeffs: [-0.271500, 0.213079, -0.000170, -0.000156, 0.000000]
+
+# R_camera2gimbal: [-0.027182119030230909, -0.12616154330853446, 0.99163723074269183, -0.99949106557517331, 0.019998323121329122, -0.024853106601381177, -0.016695575474690555, -0.99180811252093692, -0.12664093215554434]
+# t_camera2gimbal: [0.13160669975045827, 0.10377721766577375, 0.024908271912914642]
+R_gimbal2imubody: [-1, 0, 0, 0, -1, 0, 0, 0, 1]
+
+# 重投影误差: 0.1820px
+# camera_matrix: [1785.4881526822305, 0, 672.4806478241826, 0, 1785.026019470562, 559.89603224794314, 0, 0, 1]
+# distort_coeffs: [-0.076005079619881746, 0.11182817466388446, 0.0005362204787722057, -0.0027546300984895122, 0]
+
+# 相机同理想情况的偏角: yaw1.44 pitch-7.28 roll0.96 degree
+# 标定板到世界坐标系原点的水平距离: 1.13 m
+# 标定板同竖直摆放时的偏角: yaw7.61 pitch13.92 roll-0.46 degree
+R_camera2gimbal: [-0.027182119030230909, -0.12616154330853446, 0.99163723074269183, -0.99949106557517331, 0.019998323121329122, -0.024853106601381177, -0.016695575474690555, -0.99180811252093692, -0.12664093215554434]
+t_camera2gimbal: [0.13160669975045827, 0.10377721766577375, 0.024908271912914642]
+
+# # 相机内参矩阵（3×3，行优先）
+# # [fx, 0, cx, 0, fy, cy, 0, 0, 1]
+camera_matrix: [2807.679657, 0.000000, 954.251797, 0.000000, 2804.280283, 601.906719, 0.000000, 0.000000, 1.000000]
+
+# 相机畸变系数（5个参数）
+# [k1, k2, p1, p2, k3]
+distort_coeffs: [-0.250596, -0.395102, -0.001980, 0.001022, 0.000000]
+
+#####-----CBoard通信配置-----#####
+cboard_transport: "can"
+quaternion_canid: 0x100
+bullet_speed_canid: 0x101
+send_canid: 0xff
+use_new_can_protocol: true
+new_can_quat_id: 0x150
+new_can_status_id: 0x160
+new_can_cmd_id: 0x170
+debug_rx: false
+debug_tx: false
+debug_frame_match: true
+can_interface: "can2"
+
+#####-----轨迹规划器（Planner）参数-----#####
+fire_thresh: 0.003
+
+max_yaw_acc: 120       # 大幅提升响应速度（原 50）
+Q_yaw: [2e7, 1e5]      # 增大位置权重 + 增加速度权重（原 [9e6, 0]）
+R_yaw: [0.3]           # 降低平滑性约束（原 1）
+max_pitch_acc: 200     # 大幅提升响应速度（原 100）
+Q_pitch: [2e7, 1e5]    # 增大位置权重 + 增加速度权重（原 [9e6, 0]）
+R_pitch: [0.3]         # 降低平滑性约束（原 1）
+
+# ==========================================
+# 快速切换指南:
+# ==========================================
+# 1. 切换到 TensorRT:
+#    inference_backend: tensorrt
+#    yolo_name: yolo11 或 yolov8
+#
+# 2. 切换到 OpenVINO:
+#    inference_backend: openvino
+#    yolo_name: yolov5/yolov8/yolo11/yolo26
+#
+# 3. 调整置信度阈值:
+#    min_confidence: 0.7 (推荐 0.5-0.8)
+# ==========================================

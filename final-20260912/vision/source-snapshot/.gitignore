@@ -1,0 +1,27 @@
+.vscode/
+.github/
+build/
+Camera/
+logs/
+assets/img_with_q/
+records/
+records_auto_buff_big/
+records_new/
+imgs/
+MvSdkLog/
+testvideos/
+watchdog.sh
+records_24/
+records_25/
+neo/
+openvino_perf_report/
+.cache/
+# 标定采集图片数据（本地数据，不入库）
+assets/img_with_q*.zip
+assets/img_with_q_back/
+assets/img_with_q_v2/
+scripts/RUN_REPORT.md
+
+# Python generated files
+__pycache__/
+*.py[cod]
