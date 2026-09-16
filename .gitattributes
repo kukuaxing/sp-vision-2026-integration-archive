@@ -1,0 +1,11 @@
+* text=auto
+*.sh text eol=lf
+*.md text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
+*.py text eol=lf
+*.json text eol=lf
+# Preserve vendor header formatting without reformatting upstream SDK sources.
+io/driver/** -whitespace
+io/hikrobot/include/** -whitespace
+io/mindvision/include/** -whitespace

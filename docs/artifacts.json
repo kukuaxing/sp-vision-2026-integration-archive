@@ -1,0 +1,47 @@
+{
+  "description": "Current external runtime dependencies only. Obtain SDK libraries from vendors and model files from the resource owner; Git history is not a resource source.",
+  "files": [
+    {
+      "path": "assets/tiny_resnet.onnx",
+      "kind": "model",
+      "size": 1105322,
+      "sha256": "9f45670da9e61f31b60c12efb08c8a7522ff56cc220c7fa9907283ce7e730179"
+    },
+    {
+      "path": "assets/yolo26.bin",
+      "kind": "model",
+      "size": 2701140,
+      "sha256": "c9a1e72c61d095db2ad17fa2801871db21f029f701d131bb9feab1fb6ce1f118"
+    },
+    {
+      "path": "assets/yolo26.xml",
+      "kind": "model",
+      "size": 870534,
+      "sha256": "356b1a3275fdf01f722a18a3dc81db218742546848e0698635f064106482e6dc"
+    },
+    {
+      "path": "io/hikrobot/lib/amd64/libMvCameraControl.so",
+      "kind": "sdk",
+      "size": 6947344,
+      "sha256": "e10e0cc58fad398ef7459689468e103912b6bc29bcc945dfe76fcd9f6ff5f23a"
+    },
+    {
+      "path": "io/hikrobot/lib/arm64/libMvCameraControl.so",
+      "kind": "sdk",
+      "size": 6605874,
+      "sha256": "2bea133648d0821671bda7cf7e9591efe5985f84dca17ac133cc5838069ade35"
+    },
+    {
+      "path": "io/mindvision/lib/amd64/libMVSDK.so",
+      "kind": "sdk",
+      "size": 14999504,
+      "sha256": "fdd86c7613ce2b79b8a0cbef83ec73b96b38be56ad8e310804238419e0ee5868"
+    },
+    {
+      "path": "io/mindvision/lib/arm64/libMVSDK.so",
+      "kind": "sdk",
+      "size": 13442968,
+      "sha256": "23a4a84fb9bcedd515c32b89c4c9dac7fb98230a09b3c6c14da99927a4d462be"
+    }
+  ]
+}
