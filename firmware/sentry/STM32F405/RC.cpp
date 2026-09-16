@@ -1,5 +1,6 @@
 #include "label.h"
 #include "RC.h"
+#include "pitch_zero.h"
 #include "control.h"
 #include "DMmotor.h"
 #include "nuc.h"
@@ -10,12 +11,12 @@ namespace {
   static constexpr float PI_F = 3.14159265358979323846f;
 	static constexpr int32_t GYRO_SPIN_MIN = 300;
 	static constexpr int32_t GYRO_SPIN_MAX = 660;
-	static constexpr float GYRO_SPIN_K = 1.2f; // å˜åŒ–é€Ÿåº¦å‚æ•°ï¼Œå•ä½ rad/s
+	static constexpr float GYRO_SPIN_K = 1.2f; // ±ä»¯ËÙ¶È²ÎÊı£¬µ¥Î» rad/s
 
 	struct GyroSpinState
 	{
 		TickType_t last_tick = 0;
-		float phase = -PI_F * 0.5f; // ä»ä¸‹é™å¼€å§‹
+		float phase = -PI_F * 0.5f; // ´ÓÏÂÏŞ¿ªÊ¼
 	};
 
 	static GyroSpinState g_gyro_spin_state;
@@ -83,13 +84,14 @@ namespace {
 void RC::Decode()
 {
 	if (queueHandler == NULL || *queueHandler == NULL) {
-		return;  // æˆ–è€…æŠ¥é”™
+		return;  // »òÕß±¨´í
 	}
 	else {
 		pd_Rx = xQueueReceive(*queueHandler, m_frame, NULL);
 	}
 
-	if (pd_Rx != pdTRUE) return;  // æ£€æŸ¥æ˜¯å¦æˆåŠŸæ¥æ”¶æ•°æ®
+	if (pd_Rx != pdTRUE) return;
+	GimbalRemoteFrame(m_frame);  // ¼ì²éÊÇ·ñ³É¹¦½ÓÊÕÊı¾İ
 	if ((m_frame[0] | m_frame[1] | m_frame[2] | m_frame[3] | m_frame[4] | m_frame[5]) == 0)return;
 
 	rc.ch[0] = ((m_frame[0] | m_frame[1] << 8) & 0x07FF) - 1024;
@@ -113,8 +115,8 @@ void RC::Decode()
 	pc.press_l = m_frame[12];
 	pc.press_r = m_frame[13];
 
-	pc.key_h = m_frame[15];//æŒ‰é”®çš„é«˜ä½éƒ¨åˆ†R F G Z X C
-	pc.key_l = m_frame[14];//æŒ‰é”®çš„ä½8ä½ W S A D SHIFT CTRL Q E
+	pc.key_h = m_frame[15];//°´¼üµÄ¸ßÎ»²¿·ÖR F G Z X C 
+	pc.key_l = m_frame[14];//°´¼üµÄµÍ8Î» W S A D SHIFT CTRL Q E
 	has_received_valid_frame = true;
 
 
@@ -125,15 +127,15 @@ void RC::OnRC()
 
 
 	// ================================================================
-	// é€šç”¨è¿‡æ¸¡ï¼šä»ä»»æ„æ—‹è½¬æ¡£ï¼ˆs[0]==DOWNï¼‰åˆ‡å‡ºæ—¶ï¼Œåº•ç›˜ä»æœ‰æƒ¯æ€§
-	// ç»§ç»­è°ƒç”¨ Keep_Pantileï¼Œç›´åˆ°åº•ç›˜çœŸæ­£åœç¨³åå†é‡ç½®ç§¯åˆ†
+	// Í¨ÓÃ¹ı¶É£º´ÓÈÎÒâĞı×ªµµ£¨s[0]==DOWN£©ÇĞ³öÊ±£¬µ×ÅÌÈÔÓĞ¹ßĞÔ
+	// ¼ÌĞøµ÷ÓÃ Keep_Pantile£¬Ö±µ½µ×ÅÌÕæÕıÍ£ÎÈºóÔÙÖØÖÃ»ı·Ö
 	// ================================================================
 	if (Shift_mode() && pre_rc.s[0] == DOWN && rc.s[0] != DOWN)
 	{
 		ctrl.chassis.transition_from_rotation = true;
 		ctrl.chassis.transition_timer = 0;
 		ctrl.pantile.angle2Keep = imu_pantile.GetAngleYaw();
-		// ä¸åœ¨æ­¤å¤„ ResetIntegralï¼Œä¿ç•™ç§¯åˆ†è¡¥å¿åº•ç›˜æƒ¯æ€§
+		// ²»ÔÚ´Ë´¦ ResetIntegral£¬±£Áô»ı·Ö²¹³¥µ×ÅÌ¹ßĞÔ
 	}
 
 	if (ctrl.chassis.transition_from_rotation)
@@ -152,13 +154,13 @@ void RC::OnRC()
 		if (chassis_stopped || ctrl.chassis.transition_timer > 500)
 		{
 			ctrl.chassis.transition_from_rotation = false;
-			ctrl.pantile.keep_PID.ResetIntegral();   // åº•ç›˜åœç¨³åå†æ¸…é›¶
+			ctrl.pantile.keep_PID.ResetIntegral();   // µ×ÅÌÍ£ÎÈºóÔÙÇåÁã
 			DM_motorYaw.set_yaw_pos = imu_pantile.GetAngleYaw();
 		}
 	}
 
 	// ================================================================
-	// â‘  RESET (UP-UP) - å®‰å…¨çŠ¶æ€
+	// ¢Ù RESET (UP-UP) - °²È«×´Ì¬
 	// ================================================================
 	if (rc.s[0] == UP && rc.s[1] == UP)
 	{
@@ -171,7 +173,7 @@ void RC::OnRC()
 			DM_motorYaw.DM_pid.ResetIntegral();
 			ctrl.pantile.keep_PID.ResetIntegral();
 			ctrl.chassis.chassis_reset.ResetIntegral();
-			ctrl.pantile.angle2Keep = imu_pantile.GetAngleYaw();  // åˆ‡å…¥æ—¶é”å®šä¸–ç•Œæœå‘
+			ctrl.pantile.angle2Keep = imu_pantile.GetAngleYaw();  // ÇĞÈëÊ±Ëø¶¨ÊÀ½ç³¯Ïò
 			DM_motorPitch.set_pitch_pos = DM_motorPitch.initial_pos_pitch;
 		}
 
@@ -180,7 +182,7 @@ void RC::OnRC()
 			ctrl.pantile.angle2Keep = imu_pantile.GetAngleYaw();
 		}
 
-		// æ¯å¸§ä¸»åŠ¨ç¨³å®šå¤§Yawï¼ŒæŠµæ¶ˆåº•ç›˜æ—‹è½¬ï¼ˆä¸ROTATIONæ¨¡å¼ç›¸åŒè·¯å¾„ï¼‰
+		// Ã¿Ö¡Ö÷¶¯ÎÈ¶¨´óYaw£¬µÖÏûµ×ÅÌĞı×ª£¨ÓëROTATIONÄ£Ê½ÏàÍ¬Â·¾¶£©
 		ctrl.pantile.Keep_Pantile(ctrl.pantile.angle2Keep, ctrl.pantile.L_YAW, imu_pantile);
 		ctrl.chassis.setChassisspeed(0, 0, 0);
 		ctrl.shooter.openRub = false;
@@ -188,8 +190,8 @@ void RC::OnRC()
 	}
 
  // ================================================================
-	// â‘¡ ä»…åŠ¨åº•ç›˜ (UP-MID)
-	// å·¦æ†: åº•ç›˜XYï¼Œäº‘å°é”å®š
+	// ¢Ú ½ö¶¯µ×ÅÌ (UP-MID)
+	// ×ó¸Ë: µ×ÅÌXY£¬ÔÆÌ¨Ëø¶¨
 	// ================================================================
 	else if (rc.s[0] == UP && rc.s[1] == MID)
 	{
@@ -205,14 +207,14 @@ void RC::OnRC()
         ctrl.pantile.angle2Keep = ctrl.GetDelta(ctrl.pantile.angle2Keep);
 		ctrl.pantile.Keep_Pantile(ctrl.pantile.angle2Keep, ctrl.pantile.L_YAW, imu_pantile);
 		ctrl.chassis.setChassisspeed(rc.ch[3], rc.ch[2], 0);
-
+		
 		ctrl.shooter.openRub = false;
 		ctrl.shooter.supply_bullet = false;
 	}
 
  // ================================================================
-	// â‘¢ ä»…åŠ¨äº‘å° (UP-DOWN)
-	// åº•ç›˜é”å®šï¼Œä»…å…è®¸äº‘å°æ§åˆ¶
+	// ¢Û ½ö¶¯ÔÆÌ¨ (UP-DOWN)
+	// µ×ÅÌËø¶¨£¬½öÔÊĞíÔÆÌ¨¿ØÖÆ
 	// ================================================================
 	else if (rc.s[0] == UP && rc.s[1] == DOWN)
 	{
@@ -225,8 +227,8 @@ void RC::OnRC()
 
 		ctrl.chassis.setChassisspeed(0, 0, 0);
 
-		// ã€ä¿®æ”¹ã€‘å¤§Yawç”¨åº¦ä¸ºå•ä½ï¼Œçµæ•åº¦è°ƒæ•´
-		DM_motorYaw.set_yaw_pos -= rc.ch[0] * 0.001f;  // åº¦/å¸§
+		// ¡¾ĞŞ¸Ä¡¿´óYawÓÃ¶ÈÎªµ¥Î»£¬ÁéÃô¶Èµ÷Õû
+		DM_motorYaw.set_yaw_pos -= rc.ch[0] * 0.001f;  // ¶È/Ö¡
 		DM_motorPitch.set_pitch_pos += rc.ch[3] * (-0.0001f);
 		ctrl.pantile.mark_yaw += ctrl.pantile.sensitivity[0] * rc.ch[2] / 660.f * (-1.f);
 
@@ -235,7 +237,7 @@ void RC::OnRC()
 	}
 
  // ================================================================
-	// â‘£ autoMove å¯¼èˆªæµ‹è¯• (MID-UP)
+	// ¢Ü autoMove µ¼º½²âÊÔ (MID-UP)
 	// ================================================================
 	else if (rc.s[0] == MID && rc.s[1] == UP)
 	{
@@ -249,13 +251,13 @@ void RC::OnRC()
 	}
 
  // ================================================================
-	// â‘¤ å¹³ç§»è‡ªç„ (MID-MID)
-	// åº•ç›˜å¯å¹³ç§» + è‡ªç„
+	// ¢İ Æ½ÒÆ×ÔÃé (MID-MID)
+	// µ×ÅÌ¿ÉÆ½ÒÆ + ×ÔÃé
 	// ================================================================
 	else if (rc.s[0] == MID && rc.s[1] == MID)
 	{
-
-			ctrl.mode = CONTROL::SHOOT;  // å¯ç”¨è‡ªç„æ¨¡å¼
+		
+			ctrl.mode = CONTROL::SHOOT;  // ÆôÓÃ×ÔÃéÄ£Ê½
 
 			if (Shift_mode())
 			{
@@ -265,23 +267,23 @@ void RC::OnRC()
 
 			ctrl.chassis.setChassisspeed(rc.ch[3], rc.ch[2], 0);
 
-			// è°ƒç”¨è‡ªç„çŠ¶æ€æœº
+			// µ÷ÓÃ×ÔÃé×´Ì¬»ú
 			ctrl.automation.autoAim();
 
-			// åªåœ¨æ— ç›®æ ‡æ—¶ï¼Œå…è®¸æ‰‹åŠ¨æ§åˆ¶å°äº‘å°
+			// Ö»ÔÚÎŞÄ¿±êÊ±£¬ÔÊĞíÊÖ¶¯¿ØÖÆĞ¡ÔÆÌ¨
 			if (!ctrl.automation.target_detected) {
 				ctrl.pantile.mark_yaw += ctrl.pantile.sensitivity[0] * rc.ch[0] / 660.f * (-1.f);
 				DM_motorPitch.set_pitch_pos += ctrl.pantile.sensitivity[2] * rc.ch[1] / 660.f * (-1.f);
 			}
 
 			ctrl.shooter.openRub = true;
-			ctrl.shooter.supply_bullet = ctrl.automation.target_detected && xuc.FireRequested(HAL_GetTick());
-
+			ctrl.shooter.supply_bullet = ctrl.automation.target_detected;
+		
 	}
 
  // ================================================================
-	// â‘¥ AUTO æ¨¡å¼åˆ‡æ¢æŒ¡ (MID-DOWN)
-	// Update() ä¸­ä¼šåœ¨è¯¥æŒ¡ä½åˆ‡åˆ° OnAuto()
+	// ¢Ş AUTO Ä£Ê½ÇĞ»»µ² (MID-DOWN)
+	// Update() ÖĞ»áÔÚ¸Ãµ²Î»ÇĞµ½ OnAuto()
 	// ================================================================
 	else if (rc.s[0] == MID && rc.s[1] == DOWN)
 	{
@@ -293,8 +295,8 @@ void RC::OnRC()
 	}
 
 	// ================================================================
-	// â‘¦ é™€èºå¾…æœº (DOWN-UP)
-	// å°é™€èº + æ‰‹åŠ¨æ§åˆ¶äº‘å°
+	// ¢ß ÍÓÂİ´ı»ú (DOWN-UP)
+	// Ğ¡ÍÓÂİ + ÊÖ¶¯¿ØÖÆÔÆÌ¨
 	// ================================================================
 	else if (rc.s[0] == DOWN && rc.s[1] == UP)
 	{
@@ -307,16 +309,16 @@ void RC::OnRC()
 			ctrl.pantile.keep_PID.ResetIntegral();
 		}
 
-       // å˜é€Ÿå°é™€èºï¼šåœ¨ä¸Šä¸‹é™ä¹‹é—´è¿ç»­å˜åŒ–ï¼Œå˜åŒ–é€Ÿåº¦ç”± k å†³å®š
+       // ±äËÙĞ¡ÍÓÂİ£ºÔÚÉÏÏÂÏŞÖ®¼äÁ¬Ğø±ä»¯£¬±ä»¯ËÙ¶ÈÓÉ k ¾ö¶¨
 		ctrl.pantile.Keep_Pantile(ctrl.pantile.angle2Keep, ctrl.pantile.L_YAW, imu_pantile);
 		ctrl.chassis.setChassisspeed(rc.ch[2], -rc.ch[3], spin_input);
 
-		// æ‰‹åŠ¨æ§åˆ¶ï¼šå¤§Yawé€šè¿‡è°ƒæ•´angle2Keep
+		// ÊÖ¶¯¿ØÖÆ£º´óYawÍ¨¹ıµ÷Õûangle2Keep
 		ctrl.pantile.angle2Keep -= rc.ch[0] * 0.005f;
      ctrl.pantile.angle2Keep = ctrl.GetDelta(ctrl.pantile.angle2Keep);
-		// å°Yaw
+		// Ğ¡Yaw
 		//ctrl.pantile.mark_yaw += ctrl.pantile.sensitivity[0] * rc.ch[2] / 660.f * (-1.f);
-		// å°Pitch
+		// Ğ¡Pitch
 		//DM_motorPitch.set_pitch_pos += ctrl.pantile.sensitivity[2] * rc.ch[3] / 660.f * (-1.f);
 
 		ctrl.shooter.openRub = false;
@@ -324,7 +326,7 @@ void RC::OnRC()
 	}
 
  // ================================================================
-	// â‘§ å°é™€èºè‡ªç„ (DOWN-MID)
+	// ¢à Ğ¡ÍÓÂİ×ÔÃé (DOWN-MID)
 	// ================================================================
 	else if (rc.s[0] == DOWN && rc.s[1] == MID)
 	{
@@ -337,28 +339,28 @@ void RC::OnRC()
 
 		if(judgement.data.game_status_t.game_progress == 4)
 		{
-			ctrl.mode = CONTROL::SHOOT;  // å¯ç”¨è‡ªç„æ¨¡å¼
+			ctrl.mode = CONTROL::SHOOT;  // ÆôÓÃ×ÔÃéÄ£Ê½
 			judgement.SendSentryPosture(1);
-
+			
 			if (xuc.RxNav.isReached)
 			{
 				ctrl.chassis.setChassisspeed(0, 0, 660);
 				ctrl.automation.autoAim();
 				ctrl.shooter.openRub = true;
-				ctrl.shooter.supply_bullet = ctrl.automation.target_detected && xuc.FireRequested(HAL_GetTick());
-
+				ctrl.shooter.supply_bullet = ctrl.automation.target_detected;
+				
 			}
 			else
 			{
-
+				
 				ctrl.shooter.openRub = false;
 				ctrl.shooter.supply_bullet = false;
 				ctrl.automation.autoMove();
 			}
 
+			
 
-
-			// ã€å…³é”®ã€‘Keep_Pantile ç¨³å®šå¤§äº‘å°ï¼ŒæŠµæ¶ˆåº•ç›˜æ—‹è½¬
+			// ¡¾¹Ø¼ü¡¿Keep_Pantile ÎÈ¶¨´óÔÆÌ¨£¬µÖÏûµ×ÅÌĞı×ª
 			ctrl.pantile.Keep_Pantile(ctrl.pantile.angle2Keep, ctrl.pantile.L_YAW, imu_pantile);
 
 		}
@@ -373,7 +375,7 @@ void RC::OnRC()
 				DM_motorYaw.DM_pid.ResetIntegral();
 				ctrl.pantile.keep_PID.ResetIntegral();
 				ctrl.chassis.chassis_reset.ResetIntegral();
-				ctrl.pantile.angle2Keep = imu_pantile.GetAngleYaw();  // åˆ‡å…¥æ—¶é”å®šä¸–ç•Œæœå‘
+				ctrl.pantile.angle2Keep = imu_pantile.GetAngleYaw();  // ÇĞÈëÊ±Ëø¶¨ÊÀ½ç³¯Ïò
 				DM_motorPitch.set_pitch_pos = DM_motorPitch.initial_pos_pitch;
 			}
 
@@ -382,7 +384,7 @@ void RC::OnRC()
 				ctrl.pantile.angle2Keep = imu_pantile.GetAngleYaw();
 			}
 
-			// æ¯å¸§ä¸»åŠ¨ç¨³å®šå¤§Yawï¼ŒæŠµæ¶ˆåº•ç›˜æ—‹è½¬ï¼ˆä¸ROTATIONæ¨¡å¼ç›¸åŒè·¯å¾„ï¼‰
+			// Ã¿Ö¡Ö÷¶¯ÎÈ¶¨´óYaw£¬µÖÏûµ×ÅÌĞı×ª£¨ÓëROTATIONÄ£Ê½ÏàÍ¬Â·¾¶£©
 			ctrl.pantile.Keep_Pantile(ctrl.pantile.angle2Keep, ctrl.pantile.L_YAW, imu_pantile);
 			ctrl.chassis.setChassisspeed(0, 0, 0);
 			ctrl.shooter.openRub = false;
@@ -391,8 +393,8 @@ void RC::OnRC()
 	}
 
  // ================================================================
-	// â‘¨ é€€å¼¹æ¨¡å¼ (DOWN-DOWN)
-	// å¼€æ‘©æ“¦è½® + å¼ºåˆ¶ä¾›å¼¹ï¼Œåº•ç›˜é”å®š
+	// ¢á ÍËµ¯Ä£Ê½ (DOWN-DOWN)
+	// ¿ªÄ¦²ÁÂÖ + Ç¿ÖÆ¹©µ¯£¬µ×ÅÌËø¶¨
 	// ================================================================
 	else if (rc.s[0] == DOWN && rc.s[1] == DOWN)
 	{
@@ -414,13 +416,13 @@ void RC::OnRC()
 
 
 	// ================================================================
-	// æ¨¡å¼åˆ‡æ¢æ—¶é‡ç½®
+	// Ä£Ê½ÇĞ»»Ê±ÖØÖÃ
 	// ================================================================
 	if (Shift_mode()) {
 		ctrl.automation.scan_finish = false;
 		ctrl.automation.aim_state = CONTROL::AUTOMATION::IDLE;
 	}
-
+	
 }
 
 
@@ -430,7 +432,7 @@ void RC::OnRC()
 
 void RC::Update()
 {
-
+   
     const uint8_t game_progress = judgement.data.game_status_t.game_progress;
 	const bool match_running = (game_progress == 4);
 
@@ -444,9 +446,9 @@ void RC::Update()
 		OnRC();
 	}
 #else
-
+	
 		OnRC();
-
+	
 #endif
 	//OnPC();
 }

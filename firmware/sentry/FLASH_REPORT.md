@@ -1,46 +1,39 @@
-# Flash report — 2026-09-14
+# 小 Y 控制烧录与当前验证状态
 
-- Debug probe: ATK ATK-HSWL-CMSIS-DAP (`ATK 20190528`), exposed separately as COM7 for its virtual serial port.
-- SWD clock: 1 MHz.
-- Selected target: `stm32f405rg`.
-- Read device ID: `0x413` (STM32F405/407 family).
-- CPUID: `0x410fc241` (Cortex-M4).
-- Flash size register: `0x0400` KiB (1 MiB).
-- Option control: `0x0fffaaed`; RDP byte `0xaa` (Level 0).
-- Original Flash backup: `backups/preflash-20260914/sentry_uc_original_1MiB.bin`.
-- Original backup SHA-256: `7E84F1FBA6E8462CE8613166F68416F3C28085DDC5ED11ED3F45DFAF95064CED`.
-- Programmed image: `build/sentry_uc.hex`.
-- Programmed HEX SHA-256: `1DB85DCC8B3EDED3B1E477336DE82F790770D3F9B9C855DF05A184CBE1F69C47`.
-- pyOCD result: 5 sectors erased, 68,608 bytes programmed, exit code 0.
-- Independent readback file: `backups/preflash-20260914/sentry_uc_readback_pitch_safe_fix.bin`.
-- Independent readback SHA-256: `B3246B981CB0E84C34E660C8F5BF6E168472DD7C0C9142A02F9CB5FF0C54121E`.
-- Independent readback: all 68,450 HEX-defined bytes matched (0 mismatches).
-- Post-reset core state: running.
-- Post-reset CFSR: `0x00000000`.
-- Post-reset HFSR: `0x00000000`.
+2026-09-17。用户确认松手且摇杆回中后，已烧录小 Y 控制及时间戳修复版，完整读回一致。
 
-The final image also repairs DM yaw/pitch enable recovery: each motor must produce
-its own CAN feedback before ordinary control frames are sent. Missing/stale
-feedback causes a rate-limited enable retry every 200 ms instead of relying on
-the former one-shot enable and unreachable periodic retry condition.
+## 已完成
 
-## Pitch startup safety correction
+手动小云台辨识采集约 40.3 秒、130 组数据，CAN1 0x205 编码器解环摆幅 44.69°，转速 -15～10 rpm。确认对应用户手动转动的小云台；GM6020 型号依据源码配置，未读取铭牌。
+新增左摇杆左右（ch[2]）控制小 Y，CAN1 0x1FF 仅首个槽位可非零，其他槽位始终零；采用电机编码器闭环，不依赖未验证的 IMU 相对姿态。
+接管时位置为参考，最大目标速度 0.10 rad/s、目标 ±0.18 rad、指令幅值最大 2500；失去遥控输出归零，反馈超时/温度异常/越界锁定。P 轴仍保存目标 32685，左摇杆上下控制，上电回归逻辑不变。
+首次实机运行发现反馈时间戳可能晚于控制循环先前获取的 now，无符号减法会误判超时。已改为有符号时间差并通过专门回归测试。控制器测试也覆盖小 Y 输出隔离、方向、跨零、限幅和真实反馈超时停止。
+下载器反复出现传输应答错位后，烧录工具关闭 deferred_transfers，100 kHz、单包模式完整写入并校验；监测随后降至 50 kHz。
 
-The first enable-recovery image exposed a legacy absolute pitch target of
-`-0.74 rad`. The replacement sentry mechanism has a different zero/direction,
-so reliably enabling the motor made it chase that legacy target and drive into
-the upper physical stop.
+## 当前现场状态：静止接管通过，小 Y 遥控转动已现场确认
 
-The final image removes that inherited pitch target. The first valid pitch CAN
-feedback after each boot/recovery becomes the hold position and the center of a
-temporary `+/-0.20 rad` software envelope. Position commands are slew-limited
-to `0.50 rad/s`. Motion remains locked until feedback is stable for at least
-500 ms and a fresh upper-computer aim frame explicitly reports `control=0`;
-missing or timed-out communication cannot unlock the axis.
+用户确认电机供电及指示灯正常后，CAN1 已恢复小 Y 和其他 DJI 电机持续反馈，P 轴也回复只读查询；此前全线失联的具体触发原因尚未确定。
+随后正常软件复位，未修改 Flash 或绕过故障保护。约 14 秒实机验证：P state=3/fault=0、home_ready=1，保持编码器目标 32685；small_yaw_state=3/fault=0、remote_active=1，小 Y 在接管位置附近稳定，位移约 0～0.044°。
+P 轴反馈约 162 Hz，小 Y 反馈约 1000 Hz，CAN1 错误计数为 0，主控 CFSR/HFSR 为 0；CAN2 大 Y 仍无反馈并超时锁定。
+后续遥控运动采集的已打印样本仍显示摇杆中位、小 Y state=3/fault=0；长采集因下载器读取超时中止，未完成运动验收，不能把静止接管等同于运动性能验证。底盘、发射保持屏蔽。
 
-This startup-relative envelope is a temporary protection, not a substitute for
-measuring this sentry's encoder direction, mechanical zero, and physical pitch
-limits. Keep motor power removed while manually moving the barrel away from a
-physical stop before the first powered test.
+## 最终镜像证据
 
-The COM7 read-only telemetry smoke test received zero bytes. This does not affect SWD programming. It means the debugger's optional VCP RX/TX is not presently connected to the board's UART4 pins (PA0/PA1), or that UART is connected exclusively to the NUC.
+HEX SHA-256：0df461abbd34ceb462d967b32c3163cb6d807f181a62ef23cc2709dfc1c94fc1。
+全部 50965 字节读回一致。
+读回 SHA-256：ced7021d32c1372ab472b1fe4605fffe59088244b2d11faffc761b94b7084eeb。
+选项字节 0xfffaaed 未改变。build/ 内为忽略的编译产物，不创建另一套源码副本。
+
+## 用户现场验收补充
+
+用户明确反馈“小 Y 已转动”，确认左摇杆左右能够驱动小 Y。此前自动采集只验证了静止接管，长采集因下载器读取超时中止；本次运动确认来自用户现场观察，不代表已测得动态跟踪误差、完整行程或标定精度。P 轴保存目标 32685 不变，大 Y CAN2 无反馈仍未解决。
+
+
+## 后续源码状态（未烧录）
+
+本轮已修正HI91 IMU帧长度、CRC、roll/pitch字段顺序和旧缓存重复解码，加入长度随包保存的IMU专用队列及姿态计数。编译、实际帧解析与云台控制器回归通过；尚未烧录。上面的HEX/读回证据对应车上原镜像，不对应现在build/内新生成的文件。
+只读实机约40秒采集记录到小Y 13.49°、P 10.39°运动；UART5的CRC有效姿态保持不变，USART1无数据。没有复位主控、改限速或启动自瞄。下一步需要确认随相机运动的IMU来源。
+
+
+现场接线已由用户确认：小Y IMU在UART3，大Y IMU在UART5。原固件错读USART1并让裁判系统占用USART3。接收侧波特率检查确认UART3在921600收到82字节HI91及CRC有效帧（115200/230400/460800未得到有效帧）；测试后已恢复寄存器。
+源码已将专用标定模式的小Y IMU改为USART3 921600，大Y保留UART5 115200，禁用标定模式下裁判系统对USART3的占用。校验通过的小Y原始HI91帧经UART4 460800单向转发给小电脑，保留四元数与设备时间戳；DMA忙时跳过，不改写正在发送的缓冲区。尚待烧录后的回传和双轴响应验证；旧capture的XUC解析不兼容该HI91数据。

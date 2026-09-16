@@ -16,9 +16,9 @@
 /****************************开始标志*********************/
 #define UI_SOF 0xA5
 /****************************CMD_ID数据********************/
-#define UI_CMD_Robo_Exchange 0x0301
+#define UI_CMD_Robo_Exchange 0x0301    
 /****************************内容ID数据********************/
-#define UI_Data_ID_Del     0x100
+#define UI_Data_ID_Del     0x100 
 #define UI_Data_ID_Draw1   0x101
 #define UI_Data_ID_Draw2   0x102
 #define UI_Data_ID_Draw5   0x103
@@ -28,7 +28,7 @@
 #define UI_Data_ID_RadarCmd  0x0121
 #define UI_Data_ServerID     0x8080
 /****************************红方机器人ID********************/
-#define UI_Data_RobotID_RHero       1
+#define UI_Data_RobotID_RHero       1         
 #define UI_Data_RobotID_REngineer   2
 #define UI_Data_RobotID_RStandard1  3
 #define UI_Data_RobotID_RStandard2  4

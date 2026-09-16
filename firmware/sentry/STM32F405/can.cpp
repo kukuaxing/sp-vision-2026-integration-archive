@@ -1,65 +1,108 @@
 #include "can.h"
 #include "label.h"
 #include "string.h"
+#include "calibration_mode.h"
+// Passive inventory: never issues discovery, enable or parameter-write commands.
+struct CanObservedFrame {
+    uint32_t bus, id, count, tick, dlc;
+    uint8_t data[8];
+};
+volatile CanObservedFrame can_observed[64] = {};
+volatile uint32_t can_observed_used = 0;
+volatile uint32_t can_error_count[2] = {};
+volatile uint32_t can_last_esr[2] = {};
+volatile uint32_t can_tx_timeout[2] = {};
+void HAL_CAN_ErrorCallback(CAN_HandleTypeDef* handle) {
+    const uint32_t bus = handle->Instance == CAN1 ? 0 : 1;
+    ++can_error_count[bus]; can_last_esr[bus] = handle->Instance->ESR;
+    // Legacy HAL error handling disables RX along with error IRQs.
+    __HAL_CAN_ENABLE_IT(handle, CAN_IT_FMP0);
+}
+volatile uint32_t can_probe_request = 0; // debugger mailbox: bus << 8 | motor ID, read register 2 only
+volatile uint32_t can_probe_reply_count = 0, can_probe_reply_bus = 0;
+volatile uint8_t can_probe_reply[8] = {};
+void GimbalDiagnosticUpdate() {
+    const uint32_t request = can_probe_request;
+    if (!request) return;
+    can_probe_request = 0;
+    const uint32_t bus = request >> 8, id = request & 255;
+    if ((bus != 1 && bus != 2) || id < 1 || id > 16) return;
+    const uint8_t query[8] = {uint8_t(id), 0, 0x33, 2, 0, 0, 0, 0};
+    (bus == 1 ? can1 : can2).Transmit(0x7FF, query, 8);
+}
+volatile uint32_t small_yaw_rx_count = 0, small_yaw_rx_tick = 0;
+volatile uint32_t calibration_yaw_rx_count = 0;
+volatile uint32_t calibration_yaw_rx_tick = 0;
+volatile uint32_t calibration_pitch_rx_count = 0;
+volatile uint32_t calibration_pitch_rx_tick = 0;
+volatile uint32_t calibration_blocked_tx_count = 0;
+volatile uint32_t calibration_query_tx_count = 0;
+volatile uint32_t pitch_temperature_limit_reply_count = 0;
+volatile uint8_t pitch_temperature_limit_reply[8] = {};
 
 /*
-* @brief		CANé€šä¿¡åˆå§‹åŒ–å‡½æ•°
-* @param		CANé€šé“åŸºåœ°å€
+* @brief		CANÍ¨ÐÅ³õÊ¼»¯º¯Êý
+* @param		CANÍ¨µÀ»ùµØÖ·
 */
 void CAN::Init(CAN_TypeDef* instance)
 {
-	hcan.Instance = instance;				//canåŸºåœ°å€èµ‹å€¼
-	hcan.Init.Prescaler = 6;				//åˆ†é¢‘ç³»æ•°ï¼ˆä¸å‡ä¸€ï¼‰
-	hcan.Init.Mode = CAN_MODE_NORMAL;		//æ™®é€šæ¨¡å¼
-	hcan.Init.SyncJumpWidth = CAN_SJW_1TQ;
-	hcan.Init.TimeSeg1 = CAN_BS1_2TQ;
-	hcan.Init.TimeSeg2 = CAN_BS2_4TQ;
-	hcan.Init.TimeTriggeredMode = DISABLE;
-	hcan.Init.AutoBusOff = ENABLE;
-	hcan.Init.AutoWakeUp = ENABLE;
-	hcan.Init.AutoRetransmission = ENABLE;
-	hcan.Init.ReceiveFifoLocked = DISABLE;
-	hcan.Init.TransmitFifoPriority = DISABLE;
-	HAL_CAN_Init(&hcan);
+	hcan.Instance = instance;				//can»ùµØÖ·¸³Öµ
+	hcan.Init.Prescaler = 6;				//·ÖÆµÏµÊý£¨²»¼õÒ»£©
+	hcan.Init.Mode = CAN_MODE_NORMAL;		//ÆÕÍ¨Ä£Ê½
+	hcan.Init.SJW = CAN_SJW_1TQ;			//Í¬²½¶ÎÎª1¸ö×Ö½Ú
+	hcan.Init.BS1 = CAN_BS1_2TQ;			//ÏàÎ»»º³å¶Î1Îª2¸ö×Ö½Ú
+	hcan.Init.BS2 = CAN_BS2_4TQ;			//ÏàÎ»»º³å¶Î2Îª4¸ö×Ö½Ú
+	hcan.Init.TTCM = DISABLE;				//·ÇÊ±¼ä´¥·¢Í¨ÐÅÄ£Ê½
+	hcan.Init.ABOM = ENABLE;				//ÔÊÐí×Ô¶¯ÀëÏß¹ÜÀí
+	hcan.Init.AWUM = ENABLE;				//ÔÊÐí×Ô¶¯»½ÐÑ
+	hcan.Init.NART = DISABLE;				//½ûÖ¹±¨ÎÄ×Ô¶¯ÖØ´«£¬¼´Êý¾ÝÖ»´«Ò»´Î
+	hcan.Init.RFLM = DISABLE;				//½ûÖ¹±¨ÎÄÒç³öËø¶¨
+	hcan.Init.TXFP = DISABLE;				//´«ÊäÓÅÏÈ¼¶£¬EANBLE:IDÓÅÏÈ DISABLE:±¨ÎÄÓÅÏÈ
+	HAL_CAN_Init(&hcan);					//µ÷ÓÃHAL¿â³õÊ¼»¯º¯Êý
+#if !SENTRY_CALIBRATION_READ_ONLY && !SENTRY_PITCH_ZERO_MODE
+	HAL_CAN_Transmit_IT(&hcan);
+#endif
+				//¿ªÆôCANÍ¨ÐÅ·¢ËÍÖÐ¶Ï
 	InitFilter();
-	HAL_CAN_Start(&hcan);
-	HAL_CAN_ActivateNotification(&hcan, CAN_IT_RX_FIFO0_MSG_PENDING);
+	HAL_CAN_Receive_IT(&hcan, CAN_FIFO0);	//¿ªÆôCANÍ¨ÐÅ½ÓÊÕÖÐ¶Ï
 }
 
 /*
- * @brief      CANè¿‡æ»¤å™¨åˆå§‹åŒ–
+ * @brief      CAN¹ýÂËÆ÷³õÊ¼»¯
 */
 void CAN::InitFilter()
 {
 	//can1 &can2 use same filter config
-	CAN_FilterTypeDef CAN_FilterConfigStructure{};
+	CAN_FilterConfTypeDef		CAN_FilterConfigStructure;
 
-	//can1(0-13)å’Œcan2(14-27)åˆ†åˆ«å¾—åˆ°ä¸€åŠçš„filter
+	//can1(0-13)ºÍcan2(14-27)·Ö±ðµÃµ½Ò»°ëµÄfilter
 	if (hcan.Instance == CAN1)
 	{
-		CAN_FilterConfigStructure.FilterBank = 0;
+		CAN_FilterConfigStructure.FilterNumber = 0;								//Ñ¡Ôñ¹ýÂËÆ÷0
 	}
 	else if (hcan.Instance == CAN2)
 	{
-		CAN_FilterConfigStructure.FilterBank = 14;
+		CAN_FilterConfigStructure.FilterNumber = 14;							//Ñ¡Ôñ¹ýÂËÆ÷0
 	}
-	CAN_FilterConfigStructure.FilterMode = CAN_FILTERMODE_IDMASK;				//æŽ©ç æ¨¡å¼
-	CAN_FilterConfigStructure.FilterScale = CAN_FILTERSCALE_32BIT;				//32ä½å®½
+	CAN_FilterConfigStructure.FilterMode = CAN_FILTERMODE_IDMASK;				//ÑÚÂëÄ£Ê½
+	CAN_FilterConfigStructure.FilterScale = CAN_FILTERSCALE_32BIT;				//32Î»¿í
 	CAN_FilterConfigStructure.FilterIdHigh = 0x0000;
 	CAN_FilterConfigStructure.FilterIdLow = 0x0000;
 	CAN_FilterConfigStructure.FilterMaskIdHigh = 0x0000;
-	CAN_FilterConfigStructure.FilterMaskIdLow = 0x0000;							//æŽ¥æ”¶æ‰€æœ‰æ•°æ®
-	CAN_FilterConfigStructure.FilterFIFOAssignment = CAN_RX_FIFO0;
-	CAN_FilterConfigStructure.FilterActivation = ENABLE;						//æ¿€æ´»è¿‡æ»¤å™¨
-	CAN_FilterConfigStructure.SlaveStartFilterBank = 14;
+	CAN_FilterConfigStructure.FilterMaskIdLow = 0x0000;							//½ÓÊÕËùÓÐÊý¾Ý
+	CAN_FilterConfigStructure.FilterFIFOAssignment = CAN_FilterFIFO0;			//¹ýÂËÆ÷¹ØÁªµ½FIFO0
+	CAN_FilterConfigStructure.FilterActivation = ENABLE;						//¼¤»î¹ýÂËÆ÷
+	CAN_FilterConfigStructure.BankNumber = 14; // CAN1 banks 0-13, CAN2 banks 14-27.
 
 	HAL_CAN_ConfigFilter(&hcan, &CAN_FilterConfigStructure);
 
+	hcan.pTxMsg = &TxMessage;
+	hcan.pRxMsg = &RxMessage;
 }
 
 /*
- * @brief       CANå¤–è®¾é…ç½®
- * @param       *hcan    : CANå¥æŸ„æŒ‡é’ˆ
+ * @brief       CANÍâÉèÅäÖÃ
+ * @param       *hcan    : CAN¾ä±úÖ¸Õë
 */
 void HAL_CAN_MspInit(CAN_HandleTypeDef* hcan)
 {
@@ -108,58 +151,109 @@ void HAL_CAN_MspInit(CAN_HandleTypeDef* hcan)
 
 
 /*
- * @brief       CANé€šä¿¡ä¼ è¾“å‡½æ•°
- * @param       ID		:	CANå¤–è®¾ID
- * @param		*pData	: 	ä¼ è¾“æ•°æ®æ•°ç»„
- * @param		len		:	ä¼ è¾“æ•°æ®é•¿åº¦
+ * @brief       CANÍ¨ÐÅ´«Êäº¯Êý
+ * @param       ID		:	CANÍâÉèID
+ * @param		*pData	: 	´«ÊäÊý¾ÝÊý×é
+ * @param		len		:	´«ÊäÊý¾Ý³¤¶È
 */
 HAL_StatusTypeDef CAN::Transmit(const uint32_t ID, const uint8_t* const pData, const uint8_t len)
 {
-	if (pData == nullptr || len > 8U) return HAL_ERROR;
-	TxMessage.StdId = ID;
-	TxMessage.ExtId = 0U;
-	TxMessage.IDE = CAN_ID_STD;
-	TxMessage.RTR = CAN_RTR_DATA;
-	TxMessage.DLC = len;
-	TxMessage.TransmitGlobalTime = DISABLE;
-	uint8_t data[8]{};
-	memcpy(data, pData, len);
-	uint32_t mailbox = 0U;
-	HAL_StatusTypeDef status = HAL_CAN_AddTxMessage(&hcan, &TxMessage, data, &mailbox);
+#if SENTRY_PITCH_ZERO_MODE
+	const uint8_t read_temperature_limit[8] = {9, 0, 0x33, 2, 0, 0, 0, 0};
+	const bool read_only_query = ID == 0x7FF && len == 8 && pData[0] >= 1 && pData[0] <= 16 && pData[1] == 0 && memcmp(pData + 2, read_temperature_limit + 2, 6) == 0;
+	bool small_yaw_only = hcan.Instance == CAN1 && ID == 0x1FF && len == 8;
+	for (int i = 2; i < 8 && small_yaw_only; ++i) small_yaw_only = pData[i] == 0;
+	const bool gimbal_command = small_yaw_only || (hcan.Instance == CAN1 && (ID == 0x109 || read_only_query)) || (hcan.Instance == CAN2 && (ID == 0x206 || read_only_query));
+	if (!gimbal_command || len != 8 || xTaskGetCurrentTaskHandle() != CanTxTask_Handler) {
+		++calibration_blocked_tx_count; return HAL_OK;
+	}
+	// Hardware zero and all special commands except enable/disable are prohibited.
+	bool special = true;
+	for (int i = 0; i < 7; ++i) special = special && pData[i] == 0xFF;
+	if (special && pData[7] != 0xFC && pData[7] != 0xFD) return HAL_ERROR;
+#endif
+#if SENTRY_CALIBRATION_READ_ONLY
+	const uint8_t query[8] = {0x09, 0x00, 0xCC, 0, 0, 0, 0, 0};
+	const uint8_t disable[8] = {255,255,255,255,255,255,255,0xFD};
+	const bool permitted = len == 8 && ((ID == 0x7FF && memcmp(pData, query, 8) == 0) || (ID == 0x109 && memcmp(pData, disable, 8) == 0));
+	if (hcan.Instance != CAN1 || !permitted || xTaskGetCurrentTaskHandle() != CanTxTask_Handler) {
+		++calibration_blocked_tx_count;
+		return HAL_OK;
+	}
+#endif
+	hcan.pTxMsg->StdId = ID;					//ÉèÖÃ±êÊ¶·û
+	hcan.pTxMsg->IDE = CAN_ID_STD;				//±ê×¼Ö¡(ÎÞÍØÕ¹)
+	hcan.pTxMsg->RTR = CAN_RTR_DATA;			//Êý¾ÝÖ¡
+	hcan.pTxMsg->DLC = len;						//ÉèÖÃ³¤¶È
+	memcpy(hcan.pTxMsg->Data, pData, len);
+	HAL_StatusTypeDef status = HAL_CAN_Transmit(&hcan, 10);
+	if (status != HAL_OK) ++can_tx_timeout[hcan.Instance == CAN1 ? 0 : 1];
+#if SENTRY_CALIBRATION_READ_ONLY
+	if (status == HAL_OK) ++calibration_query_tx_count;
+#endif
 
 	//ready = status != HAL_ERROR;// == HAL_OK;
 	return status;
 }
 
 /*
- * @brief       CANé€šä¿¡æŽ¥æ”¶å›žè°ƒå‡½æ•°
- * @param       *hcan		:	CANå¥æŸ„æŒ‡é’ˆ
+ * @brief       CANÍ¨ÐÅ½ÓÊÕ»Øµ÷º¯Êý
+ * @param       *hcan		:	CAN¾ä±úÖ¸Õë
 */
 
-void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef* hcan)
+void HAL_CAN_RxCpltCallback(CAN_HandleTypeDef* hcan)
 {
-	CAN* bus = (hcan == &can1.hcan) ? &can1 : (hcan == &can2.hcan) ? &can2 : nullptr;
-	if (bus == nullptr ||
-		HAL_CAN_GetRxMessage(hcan, CAN_RX_FIFO0, &bus->RxMessage, bus->RxData) != HAL_OK)
+    const uint32_t bus = hcan->Instance == CAN1 ? 1 : 2;
+    if (hcan->pRxMsg->DLC == 8 && hcan->pRxMsg->Data[2] == 0x33 && hcan->pRxMsg->Data[3] == 2) {
+        for (uint32_t i=0;i<8;++i) can_probe_reply[i] = hcan->pRxMsg->Data[i];
+        can_probe_reply_bus = bus; ++can_probe_reply_count;
+    }
+
+    const uint32_t id = hcan->pRxMsg->IDE == CAN_ID_STD ? hcan->pRxMsg->StdId : (hcan->pRxMsg->ExtId | 0x80000000U);
+    uint32_t slot = 0;
+    while (slot < can_observed_used && (can_observed[slot].bus != bus || can_observed[slot].id != id)) ++slot;
+    if (slot < 64) {
+        if (slot == can_observed_used) { can_observed[slot].bus = bus; can_observed[slot].id = id; ++can_observed_used; }
+        can_observed[slot].tick = HAL_GetTick();
+        can_observed[slot].dlc = hcan->pRxMsg->DLC;
+        for (uint32_t i=0; i<8; ++i) can_observed[slot].data[i] = hcan->pRxMsg->Data[i];
+        ++can_observed[slot].count;
+    }
+	if (hcan == &can1.hcan)
 	{
-		return;
+		if (hcan->pRxMsg->DLC == 8 && hcan->pRxMsg->Data[0] == 9 && hcan->pRxMsg->Data[1] == 0 && hcan->pRxMsg->Data[2] == 0x33 && hcan->pRxMsg->Data[3] == 2) {
+			for (int i=0; i<8; ++i) pitch_temperature_limit_reply[i] = hcan->pRxMsg->Data[i];
+			++pitch_temperature_limit_reply_count;
+		}
+		else if (hcan->pRxMsg->StdId == 0x09 && hcan->pRxMsg->DLC == 8)
+		{
+			memcpy(can1.DMmotor_data[1], hcan->pRxMsg->Data, sizeof(uint8_t) * 8);
+			calibration_pitch_rx_tick = HAL_GetTick();
+			++calibration_pitch_rx_count;
+		}
+		else if (hcan->pRxMsg->StdId >= 0x201 && hcan->pRxMsg->StdId <= 0x208)
+		{
+			memcpy(can1.data[hcan->pRxMsg->StdId - 0x201], hcan->pRxMsg->Data, sizeof(uint8_t) * 8);
+			if (hcan->pRxMsg->StdId == 0x205 && hcan->pRxMsg->DLC == 8) { small_yaw_rx_tick = HAL_GetTick(); ++small_yaw_rx_count; }
+		}
 	}
 
-	const uint32_t id = bus->RxMessage.StdId;
-	if (bus == &can1 && id == 0x09U)
+	else
 	{
-		memcpy(can1.DMmotor_data[1], bus->RxData, sizeof(bus->RxData));
-		can1.DMmotor_rx_count[1]++;
+		if (hcan->pRxMsg->StdId == 0x06 && hcan->pRxMsg->DLC == 8)
+		{
+			memcpy(can2.DMmotor_data[0], hcan->pRxMsg->Data, sizeof(uint8_t) * 8);
+			calibration_yaw_rx_tick = HAL_GetTick();
+			++calibration_yaw_rx_count;
+		}
+		else if (hcan->pRxMsg->StdId >= 0x201 && hcan->pRxMsg->StdId <= 0x208)
+		{
+			memcpy(can2.data[hcan->pRxMsg->StdId - 0x201], hcan->pRxMsg->Data, sizeof(uint8_t) * 8);
+		}
 	}
-	else if (bus == &can2 && id == 0x06U)
-	{
-		memcpy(can2.DMmotor_data[0], bus->RxData, sizeof(bus->RxData));
-		can2.DMmotor_rx_count[0]++;
-	}
-	else if (id >= 0x201U && id < 0x201U + 12U)
-	{
-		memcpy(bus->data[id - 0x201U], bus->RxData, sizeof(bus->RxData));
-	}
+
+	/*#### add enable can it again to solve can receive only one ID problem!!!####**/
+	__HAL_CAN_ENABLE_IT(hcan, CAN_IT_FMP0);
 }
 
 extern "C" void CAN1_TX_IRQHandler()

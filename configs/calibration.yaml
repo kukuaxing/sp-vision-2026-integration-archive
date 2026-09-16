@@ -1,27 +1,29 @@
 # 相机标定配置文件（海康 HikRobot 相机专用）
 # 用法（在 Ubuntu 小电脑上）：
-#   1) 采集:   ./build/capture configs/calibration.yaml -o assets/img_with_q
-#   2) 内参:   ./build/calibrate_camera -c configs/calibration.yaml assets/img_with_q
-#   3) 手眼:   ./build/calibrate_handeye -c configs/calibration.yaml assets/img_with_q
+#   1) 采集:   ./build/capture configs/calibration.yaml --intrinsics-only -o data/calibration/sentry_intrinsics
+#   2) 内参:   ./build/calibrate_camera data/calibration/sentry_intrinsics -c=configs/calibration.yaml --no-display
+#   3) 手眼:   ./build/calibrate_handeye data/calibration/sentry_handeye -c=configs/calibration.yaml --no-display
 # 内参标定结果需要先回填到下面的 camera_matrix / distort_coeffs，手眼标定才能进行。
 
 #####-----标定板参数-----#####
-pattern_cols: 9                  # 棋盘格内角点列数（宽方向10格）
-pattern_rows: 7                  # 棋盘格内角点行数（高方向8格）
-square_size_mm: 20               # 棋盘格方格边长（毫米），若你的板子不同请修改
+pattern_cols: 11                 # 当前板照片：宽方向12格，11个内角点
+pattern_rows: 8                  # 当前板照片：高方向9格，8个内角点
+square_size_mm: 15               # Q12-200-15；用户确认每格15 mm
 
 #####-----云台/IMU安装矩阵（手眼标定用）-----#####
+# 旧安装值；哨兵姿态源、传输协议和坐标变换尚未验证。
 # R_gimbal2imubody: [1, 0, 0, 0, 1, 0, 0, 0, 1]
 R_gimbal2imubody: [-1, 0, 0, 0, 1, 0, 0, 0, -1]
 
 #####-----相机内参（内参标定后回填）-----#####
 # [fx, 0, cx, 0, fy, cy, 0, 0, 1]（3×3 行优先）
-# 2026-09-03，16张筛选图；平均重投影误差: 0.2892px（1440x1080）
-camera_matrix: [2321.1448516431083, 0, 773.51514374772069, 0, 2335.8405999820166, 558.35666238582371, 0, 0, 1]
+# 2026-09-17，哨兵29张图；平均重投影误差0.0894px，RMS 0.10465px（1440x1080）
+camera_matrix: [2366.002652308576, 0.0, 727.7305928914118, 0.0, 2365.2176578132576, 550.0763850781273, 0.0, 0.0, 1.0]
 # [k1, k2, p1, p2, k3]
-distort_coeffs: [-0.052990616769919285, 0.13874211747473905, 0.00113447179189630067, 0.0036897020313975178, 0]
+distort_coeffs: [-0.07665095205566434, 0.3863706446309184, 0.0008766041985688932, 0.0022334661292814154, 0.0]
 
 #####-----相机/云台外参（手眼标定后回填）-----#####
+# 旧安装结果，不能作为本次哨兵已标定的外参。
 # 相机同理想情况的偏角: yaw-13.87 pitch4.87 roll1.39 degree（roll 已去掉绕光轴 180° 伪影，原始输出为 -178.62）
 R_camera2gimbal: [0.24157550427275232, 0.076512493741470511, 0.96736090164779087, -0.97008128270415694, 0.043859036134035634, 0.23878586619909239, -0.024157414646913952, -0.99610352034859051, 0.084818606842615996]
 t_camera2gimbal: [-0.17518305300474016, -0.0013669946458138922, -0.017572867856055635]

@@ -1,27 +1,61 @@
 ﻿#include "imu.h"
 #include "label.h"
 #include "nuc.h"
+#include "calibration_mode.h"
 #include <cmath>
 
 void IMU::Init(UART* huart, USART_TypeDef* Instance, const uint32_t BaudRate, IMU_TYPE type)
 {
-	huart->Init(Instance, BaudRate).DMARxInit();
+	if (huart->FrameQueueHandler == NULL)
+        huart->FrameQueueHandler = xQueueCreate(1, sizeof(UartRxFrame));
+    configASSERT(huart->FrameQueueHandler != NULL);
+    huart->Init(Instance, BaudRate).DMARxInit();
 	m_uart = huart;
 	this->type = type;
-	queueHandler = &huart->UartQueueHandler;
+	queueHandler = &huart->FrameQueueHandler;
 }
 
 void IMU::Decode()
 {
-	if (queueHandler == NULL || *queueHandler == NULL) {
-		return;  // »òÕß±¨´í
-	}
-	else {
-		pd_Rx = xQueueReceive(*queueHandler, rxData, NULL);
-	}
+    if (queueHandler == NULL || *queueHandler == NULL) return;
+    UartRxFrame packet{};
+    pd_Rx = xQueueReceive(*queueHandler, &packet, 0);
+    if (pd_Rx != pdTRUE) return; // Never reprocess the previous packet.
+    if (packet.size > UART_MAX_LEN) { ++invalid_count; return; }
+    memcpy(rxData, packet.data, packet.size);
+    if (type == CH010 || type == HI226) {
+        ImuPacket decoded{};
+        if (!ParseImuPacket(packet.data, packet.size, decoded)) {
+            ++invalid_count; return;
+        }
+        if (valid_count && decoded.sensor_time_ms == sensor_packet.sensor_time_ms) {
+            ++repeated_count; return;
+        }
+        sensor_packet=decoded;
+        acceleration.x=decoded.acceleration[0];
+        acceleration.y=decoded.acceleration[1];
+        acceleration.z=decoded.acceleration[2];
+        angularvelocity.roll=decoded.gyro[0];
+        angularvelocity.pitch=decoded.gyro[1];
+        angularvelocity.yaw=decoded.gyro[2];
+        angle.roll=decoded.rpy[0];
+        angle.pitch=decoded.rpy[1];
+        angle.yaw=decoded.rpy[2];
+        last_valid_tick=HAL_GetTick();
+        ++valid_count;
+#if SENTRY_PITCH_ZERO_MODE
+        if (this == &imu_pantile) xuc.ForwardCalibrationPose(packet.data, packet.size);
+#endif
+        return;
+    }
+    if (packet.size < 5 || size_t(rxData[3])+5 != packet.size) {
+        ++invalid_count; return;
+    }
 
 	if (type == IMU601)
 	{
+        if ((rxData[2] == 0x01 && rxData[3] < 6) ||
+            (rxData[2] == 0x03 && rxData[3] < 12)) { ++invalid_count; return; }
 		if (rxData[0] == 0x55 && rxData[1] == 0x55)
 		{
 			uint8_t* data = rxData + 4;
@@ -50,54 +84,6 @@ void IMU::Decode()
 			}
 		}
 	}
-	else if (type == CH010)
-	{
-		if (rxData[0] == 0x5A && rxData[1] == 0xA5)
-		{
-			//Check(rxData, 4, 0);
-			if (Check(rxData + 6, rxData[3] << 8 + rxData[2], rxData[5] << 8 + rxData[4]))
-			{
-				if (rxData[6] == 0x91)
-				{
-					int offset = 6;
-					acceleration.x = R4(rxData + offset + 12);
-					acceleration.y = R4(rxData + offset + 16);
-					acceleration.z = R4(rxData + offset + 20);
-					angularvelocity.pitch = R4(rxData + offset + 24);
-					angularvelocity.roll = R4(rxData + offset + 28);
-					angularvelocity.yaw = R4(rxData + offset + 32);
-					angle.pitch = R4(rxData + offset + 48);
-					angle.roll = R4(rxData + offset + 52);
-					angle.yaw = R4(rxData + offset + 56);
-
-				}
-			}
-			crc = 0;
-		}
-	}
-	else if (type == HI226)
-	{
-		if (rxData[0] == 0x5A && rxData[1] == 0xA5)
-		{
-			//Check(rxData, 4, 0);
-			if (Check(rxData + 6, rxData[3] << 8 + rxData[2], rxData[5] << 8 + rxData[4]))
-			{
-				if (rxData[6] == 0x91)
-				{
-					int offset = 6;
-					acceleration.x = R4(rxData + offset + 12);
-					acceleration.y = R4(rxData + offset + 16);
-					acceleration.z = R4(rxData + offset + 20);
-					angularvelocity.pitch = R4(rxData + offset + 24);
-					angularvelocity.roll = R4(rxData + offset + 28);
-					angularvelocity.yaw = R4(rxData + offset + 32);
-					angle.pitch = R4(rxData + offset + 48);
-					angle.roll = R4(rxData + offset + 52);
-					angle.yaw = R4(rxData + offset + 56);
-				}
-			}
-		}
-	}
 }
 
 float IMU::GetAngleYaw()
@@ -120,9 +106,13 @@ float IMU::GetAngleRoll()
 	return angle.roll;
 }
 
-IMU::Acceleration IMU::GetAcceleration() const
+float* IMU::GetAcceleration()
 {
-	return acceleration;
+	float temp[3]{};
+	temp[0] = acceleration.x;
+	temp[1] = acceleration.y;
+	temp[2] = acceleration.z;
+	return temp;
 }
 /*
 void IMU::GetQ()
@@ -146,26 +136,6 @@ bool IMU::Check(uint8_t* pdata, uint8_t len, uint32_t com)
 			t += pdata[i];
 		}
 		return t == com;
-	}
-	else if (type == CH010)
-	{
-		crc = 0U;
-		for (int j = 0; j < len; ++j)
-		{
-			uint32_t i;
-			uint32_t byte = pdata[j];
-			crc ^= byte << 8;
-			for (i = 0; i < 8; ++i)
-			{
-				uint32_t temp = crc << 1;
-				if (crc & 0x8000)
-				{
-					temp ^= 0x1021;
-				}
-				crc = temp;
-			}
-		}
-		return crc == com;
 	}
 	return false;
 }

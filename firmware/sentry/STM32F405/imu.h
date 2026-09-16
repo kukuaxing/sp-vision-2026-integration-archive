@@ -1,6 +1,7 @@
 #pragma once
 #include "stm32f4xx.h"
 #include "usart.h"
+#include "imu_packet.h"
 #include <string.h>
 enum IMU_TYPE { IMU601 = 0, CH010, HI226 };
 
@@ -24,10 +25,13 @@ public:
 	float GetAnglePitch();
 	float GetAngleRoll();
 	float getangularvelocitypitch();
-	Acceleration GetAcceleration() const;
+	float* GetAcceleration();
 	void GetQ();
 	int16_t getword(uint8_t HighBit, uint8_t LowBits);
-	Angle angle;
+	Angle angle{};
+    ImuPacket sensor_packet{};
+    uint32_t valid_count=0, invalid_count=0, last_valid_tick=0;
+    uint32_t repeated_count=0;
 	AngularVelocity angularvelocity;
 	Acceleration acceleration;
 

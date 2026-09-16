@@ -18,7 +18,8 @@
 const std::string keys =
   "{help h usage ?  |                          | 输出命令行参数说明}"
   "{@config-path c  | configs/calibration.yaml | yaml配置文件路径 }"
-  "{output-folder o |      assets/img_with_q   | 输出文件夹路径   }";
+  "{output-folder o | data/calibration/sentry_intrinsics | 输出文件夹路径 }"
+  "{intrinsics-only |                          | 仅采集内参图像，不读取或保存姿态 }";
 
 void write_q(const std::string q_path, const Eigen::Quaterniond & q)
 {
@@ -56,6 +57,12 @@ void capture_loop(
 
   cv::Size pattern_size(pattern_cols, pattern_rows);
   int count = 0;
+  for (const auto & entry : std::filesystem::directory_iterator(output_folder)) {
+    if (entry.path().extension() != ".jpg") continue;
+    const auto stem = entry.path().stem().string();
+    if (!stem.empty() && stem.find_first_not_of("0123456789") == std::string::npos)
+      count = std::max(count, std::stoi(stem));
+  }
   int failed_count = 0;
 
   tools::logger()->info("=== 棋盘格标定数据采集 ===");
@@ -142,7 +149,7 @@ void capture_loop(
       cv::Mat saved_bgr;
       cv::cvtColor(img, saved_bgr, cv::COLOR_RGB2BGR);
       cv::imwrite(img_path, saved_bgr);
-      write_q(q_path, q);
+      if (cboard || xuc) write_q(q_path, q); // No synthetic identity poses for intrinsic images.
       tools::logger()->info("[{}] Saved to {} (corners: {})", count, output_folder, corners.size());
     }
   }
@@ -166,7 +173,7 @@ int main(int argc, char * argv[])
   auto output_folder = cli.get<std::string>("output-folder");
 
   // 新建输出文件夹
-  std::filesystem::create_directory(output_folder);
+  std::filesystem::create_directories(output_folder);
 
   // 读取标定板尺寸
   auto yaml = YAML::LoadFile(config_path);
@@ -180,6 +187,21 @@ int main(int argc, char * argv[])
   if (use_cboard && use_xuc) {
     tools::logger()->warn("require_cboard 和 xuc_enable 同时为 true；优先使用 XUC 姿态");
     use_cboard = false;
+  }
+
+  if (cli.has("intrinsics-only")) {
+    use_cboard = false;
+    use_xuc = false;
+  }
+  const std::string kind = (use_cboard || use_xuc) ? "image_and_pose" : "intrinsics_only";
+  const auto marker = std::filesystem::path(output_folder) / "dataset_kind.txt";
+  if (std::filesystem::exists(marker)) {
+    std::ifstream in(marker); std::string existing; in >> existing;
+    if (existing != kind) throw std::runtime_error("Dataset mode differs; do not mix intrinsic and pose samples");
+  } else {
+    if (!std::filesystem::is_empty(output_folder))
+      throw std::runtime_error("Unlabelled existing dataset: choose a new empty data directory");
+    std::ofstream(marker) << kind << "\n";
   }
 
   // 主循环，保存图片和对应四元数

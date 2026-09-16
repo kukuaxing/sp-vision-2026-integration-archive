@@ -22,6 +22,7 @@
 #include "stm32f4xx_hal_gpio.h"
 #include "label.h"
 #include "queue.h"
+#include <cstring>
 
 UART& UART::Init(USART_TypeDef* Instance, const uint32_t BaudRate)
 {
@@ -33,6 +34,11 @@ UART& UART::Init(USART_TypeDef* Instance, const uint32_t BaudRate)
 	huart.Init.Mode = UART_MODE_TX_RX;						//收发模式
 	huart.Init.HwFlowCtl = UART_HWCONTROL_NONE;				//无硬件流
 	huart.Init.OverSampling = UART_OVERSAMPLING_16;			//16倍过采样，去除干扰
+	// DR16 DBUS uses 8 data bits plus even parity (9-bit STM32 word).
+	if (Instance == USART2 && BaudRate == 100000) {
+		huart.Init.WordLength = UART_WORDLENGTH_9B;
+		huart.Init.Parity = UART_PARITY_EVEN;
+	}
 	HAL_UART_Init(&huart);									//调用HAL库初始化函数
 	return *this;
 }
@@ -59,7 +65,7 @@ UART& UART::DMARxInit(const uint8_t* buffer, const uint32_t size)//size = UART_M
 		buffer = m_uartrx;
 	huart.hdmarx->Instance->M0AR = reinterpret_cast<uint32_t>(buffer);//设置存储器0地址
 	DMAClearAllFlags(huart.hdmarx);
-	__HAL_DMA_ENABLE(huart.hdmarx);							//使能串口DMA接收
+	__HAL_DMA_ENABLE(huart.hdmarx);							//使能串口DMA接收	
 	SET_BIT(huart.Instance->CR3, USART_CR3_DMAR);
 
 	__HAL_UART_CLEAR_PEFLAG(&huart);						//开启串口空闲中断
@@ -459,7 +465,16 @@ void UART::OnUARTITHandler(void)
 		// 在重置计数器前记录实际收到的字节数
 		dataDmaNum = UART_MAX_LEN - __HAL_DMA_GET_COUNTER(huart.hdmarx);
 
-		pd_Rx = xQueueOverwriteFromISR((QueueHandle_t)UartQueueHandler, m_uartrx, NULL);
+		// Reject partial/concatenated DBUS packets instead of reusing stale bytes.
+		if (huart.Instance == USART2 && dataDmaNum != 18) memset(m_uartrx, 0, UART_MAX_LEN);
+		if (FrameQueueHandler != NULL) {
+            UartRxFrame packet{};
+            packet.size = dataDmaNum <= UART_MAX_LEN ? dataDmaNum : 0;
+            memcpy(packet.data, m_uartrx, packet.size);
+            pd_Rx = xQueueOverwriteFromISR(FrameQueueHandler, &packet, NULL);
+        } else {
+            pd_Rx = xQueueOverwriteFromISR((QueueHandle_t)UartQueueHandler, m_uartrx, NULL);
+        }
 
 		DMAClearAllFlags(huart.hdmarx);
 
@@ -523,3 +538,5 @@ void UART::UARTTransmit(uint8_t* pData, uint32_t Size)
 {
 	HAL_UART_Transmit(&huart, static_cast<uint8_t*>(pData), Size, 0xffff);
 }
+
+

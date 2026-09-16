@@ -4,6 +4,7 @@
 #include <Eigen/Dense>  // 必须在opencv2/core/eigen.hpp上面
 #include <cmath>
 #include <fstream>
+#include <stdexcept>
 #include <opencv2/core/eigen.hpp>
 #include <opencv2/opencv.hpp>
 
@@ -34,7 +35,9 @@ Eigen::Quaterniond read_q(const std::string & q_path)
 {
   std::ifstream q_file(q_path);
   double w, x, y, z;
-  q_file >> w >> x >> y >> z;
+  if (!(q_file >> w >> x >> y >> z)) {
+    throw std::runtime_error("Missing or invalid real pose file: " + q_path);
+  }
   return {w, x, y, z};
 }
 

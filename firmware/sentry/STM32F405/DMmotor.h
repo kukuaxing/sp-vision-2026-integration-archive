@@ -1,4 +1,5 @@
 #pragma once
+#include "pitch_zero.h"
 #include <cinttypes>
 #include <cstring>
 #include <cmath>
@@ -17,9 +18,9 @@
 #define KP_MAX 500.0f
 #define KD_MIN 0.0f     // N-m/rad/s
 #define KD_MAX 5.0f
-#define C_MAX 40.f		//ç”µæµ
+#define C_MAX 40.f		//µçÁ÷
 #define C_MIN -40.f
-#define T_MIN -20.0f    //åŠ›çŸ©
+#define T_MIN -20.0f    //Á¦¾Ø
 #define T_MAX 20.0f
 #define KT 1.4f
 #define LIMIT_MIN_MAX(x,min,max) (x) = (((x)<=(min))?(min):(((x)>=(max))?(max):(x)))
@@ -36,30 +37,22 @@ public:
 	uint32_t DM_ID_Pitch = 0x09;
 	//function_type function;
 	ERR error;
-	DMMOTOR(const uint32_t ID,  CAN* hcan);//å®šä¹‰æ¥å£
-	void DMmotorOntimer(uint8_t idata[][8], uint8_t* odata); //æ¥æ”¶æ•°æ®å¹¶è§£ç  æ‰“åŒ…æ•°æ®å¹¶å‘é€
-	void DMmotorTransmit(uint32_t id);//ä¼ è¾“æ•°æ®
-	void MotorStart(uint32_t id);//ç”µæœºä½¿èƒ½
-	void MotorOff(uint32_t id);//ç”µæœºå¤±èƒ½
-	void MotorZero(uint32_t id);//ä¿å­˜ç”µæœºé›¶ç‚¹
-	void setDMmotor(float delta_pos, uint32_t id);//æ§åˆ¶å‡½æ•°
+	DMMOTOR(const uint32_t ID,  CAN* hcan);//¶¨Òå½Ó¿Ú
+	void DMmotorOntimer(uint8_t idata[][8], uint8_t* odata); //½ÓÊÕÊı¾İ²¢½âÂë ´ò°üÊı¾İ²¢·¢ËÍ
+	void DMmotorTransmit(uint32_t id);//´«ÊäÊı¾İ
+	void MotorStart(uint32_t id);//µç»úÊ¹ÄÜ
+	void MotorOff(uint32_t id);//µç»úÊ§ÄÜ
+	void MotorZero(uint32_t id);//±£´æµç»úÁãµã
+	void setDMmotor(float delta_pos, uint32_t id);//¿ØÖÆº¯Êı
 	float setRange(const float original, const float range);
-
+	
 	float sensitivity = 0.04;
 	bool initial = false;
 	bool motorDisablity = false;
 	bool flag_zero = false;
 	bool flag_first = true;
-	bool pos_initialized = false;  // æ˜¯å¦å·²æ”¶åˆ°ç¬¬ä¸€å¸§æœ‰æ•ˆCANæ•°æ®
-	uint32_t last_rx_count_seen = 0U;
-	uint32_t last_feedback_ms = 0U;
-	uint32_t last_enable_attempt_ms = 0U;
-	uint32_t first_feedback_ms = 0U;
-	uint32_t last_pitch_command_ms = 0U;
-	bool pitch_reference_valid = false;
-	bool pitch_control_release_seen = false;
-	bool pitch_motion_ready = false;
-	PID DM_pid { 5.f,0.f,2.f,0.05f,1000.f};//DMç”µæœº é€Ÿåº¦æ¨¡å¼ä¸‹ ç”±ä½ç½®åˆ°é€Ÿåº¦ç¯PID
+	bool pos_initialized = false;  // ÊÇ·ñÒÑÊÕµ½µÚÒ»Ö¡ÓĞĞ§CANÊı¾İ
+	PID DM_pid { 5.f,0.f,2.f,0.05f,1000.f};//DMµç»ú ËÙ¶ÈÄ£Ê½ÏÂ ÓÉÎ»ÖÃµ½ËÙ¶È»·PID
 	PID DM_IMU_pid { 0.f,0.f,0.f,0.f,0.f };
 	PID DM_IMU_ROTA_pid { 30.0f,0.0f,0.0f, 20.f, 20.f };
 	PID DM_AUTO_pid{ 600.f,0.f,0.f,0.f,0.f };
@@ -83,28 +76,25 @@ public:
 
 	CAN* mcan;
 	float pos_obs;
-	float angle[2]{};//è®¤ä¸ºæ˜¯å®‰è£…ç”µæœºæ—¶ï¼Œåˆå§‹å§¿æ€çš„ç”µæœºä¸è¿æ†å¤¹è§’ï¼›
-	float pos;//è½¬å­ä½ç½®ï¼Œä¹Ÿæ˜¯åé¦ˆå›æ¥çš„è§’åº¦
-	float cur_speed;//ç”µæœºå½“å‰é€Ÿåº¦
-	float temp_ROTOR, temp_MOS;//ç”µæœºå†…éƒ¨çº¿åœˆæ¸©åº¦ ç”µæœºé©±åŠ¨ä¸ŠMOSæ¸©åº¦
-	float set_speed = 0.f;//ç»™å®šé€Ÿåº¦
-	float feedforward = 0.f;//å‰é¦ˆé€Ÿåº¦
-	float startup_pos_yaw = 0.f;  // Yawç”µæœºä¸Šç”µæ—¶å®é™…ä½ç½®(rad)ï¼ŒKeep_Directionå‚è€ƒåŸºå‡†
-	float startup_pos_pitch = 0.f;// Pitché¦–æ¬¡æœ‰æ•ˆåé¦ˆä½ç½®ï¼Œåªèƒ½ç”±æœ¬æœºåé¦ˆå»ºç«‹
-	float pitch_command_sent = 0.f;
-	float set_yaw_pos;//è¾“å‡ºè‡³ç”µæœºçš„ç›®æ ‡å€¼ ï¼ˆå¤„ç†åï¼‰
+	float angle[2]{};//ÈÏÎªÊÇ°²×°µç»úÊ±£¬³õÊ¼×ËÌ¬µÄµç»úÓëÁ¬¸Ë¼Ğ½Ç£»
+	float pos;//×ª×ÓÎ»ÖÃ£¬Ò²ÊÇ·´À¡»ØÀ´µÄ½Ç¶È
+	float cur_speed;//µç»úµ±Ç°ËÙ¶È
+	float temp_ROTOR, temp_MOS;//µç»úÄÚ²¿ÏßÈ¦ÎÂ¶È µç»úÇı¶¯ÉÏMOSÎÂ¶È
+	float set_speed = 0.f;//¸ø¶¨ËÙ¶È
+	float feedforward = 0.f;//Ç°À¡ËÙ¶È
+	float startup_pos_yaw = 0.f;  // Yawµç»úÉÏµçÊ±Êµ¼ÊÎ»ÖÃ(rad)£¬Keep_Direction²Î¿¼»ù×¼
+	float set_yaw_pos;//Êä³öÖÁµç»úµÄÄ¿±êÖµ £¨´¦Àíºó£©
 	float set_pitch_pos, set_pitch_speed = 6.66f;
 	float target_pos_yaw, target_pos_pitch;
 	float wheel_radius = 0.076f;      // m
 	float chassis_radius = 0.25f;     // m
 	float gear_ratio = 19.2f;
-	float initial_pos_yaw = -0.16f, initial_pos_pitch = 0.0f;
-	// Pitchç»å¯¹é›¶ä½ä¸æœºæ¢°é™ä½å¿…é¡»åœ¨æœ¬è½¦æ ‡å®šã€‚å¯åŠ¨åç”±é¦–æ¬¡æœ‰æ•ˆåé¦ˆæ”¹å†™ä¸ºä¸´æ—¶è½¯é™ä½ã€‚
-	float DM_pitch_min = -0.20f, DM_pitch_max = 0.20f;
+	float initial_pos_yaw = -0.16f, initial_pos_pitch=PITCH_ZERO_RAD;
+	float DM_pitch_min = PITCH_ZERO_RAD - PITCH_RETURN_WINDOW, DM_pitch_max = PITCH_ZERO_RAD + PITCH_RETURN_WINDOW;
 	float rota_speed = 5.f, nomal_speed = 0.f;
 	float rotationSpeed{};
-	//float current, setCurrent;//ç”µæµ
-	//float torque, setTorque;//æ‰­çŸ©
+	//float current, setCurrent;//µçÁ÷
+	//float torque, setTorque;//Å¤¾Ø
 private:
 };
 

@@ -462,3 +462,4 @@ int32_t Motor::setrange(const int32_t original, const int32_t range)
 {
 	return std::max(std::min(range, original), -range);
 }
+

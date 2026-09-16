@@ -8,8 +8,8 @@
 #include "supercap.h"
 extern DMMOTOR DM_motorYaw;
 extern DMMOTOR DM_motorPitch;
-LowPassFilter yaw_rotation_speed_filter(0.8f);    // 灏忛檧铻?RESET/SHOOT 鍓嶉婊ゆ尝鍣?
-LowPassFilter follow_rotation_speed_filter(0.8f); // FOLLOW妯″紡鐙珛鍓嶉婊ゆ尝鍣紝闃叉涓庡皬闄€铻哄叡浜姸鎬佹椂浜掔浉姹℃煋
+LowPassFilter yaw_rotation_speed_filter(0.8f);    // 小陀螺/RESET/SHOOT 前馈滤波器
+LowPassFilter follow_rotation_speed_filter(0.8f); // FOLLOW模式独立前馈滤波器，防止与小陀螺共享状态时互相污染
 
 namespace {
 	struct FeedforwardBlendState
@@ -75,13 +75,13 @@ void CONTROL::Init(std::vector<Motor*> motor)
 		default:
 			break;
 		}
-
+		
 	}
-
+	
 	pantile_motor[PANTILE::TYPE::YAW]->setangle = para.initial_yaw;
 }
 
-void CONTROL::CHASSIS::setChassisspeed(int32_t ch_speedx_, int32_t ch_speedy_, int32_t ch_speedz_)//浠庨仴鎺у櫒鑾峰彇閫熷害鍑芥暟
+void CONTROL::CHASSIS::setChassisspeed(int32_t ch_speedx_, int32_t ch_speedy_, int32_t ch_speedz_)//从遥控器获取速度函数
 {
  const bool bypass_power_scaling = (ctrl.mode == CONTROL::FOLLOW);
 	if (bypass_power_scaling)
@@ -130,7 +130,7 @@ void CONTROL::CHASSIS::setChassisspeed(int32_t ch_speedx_, int32_t ch_speedy_, i
 	ctrl.chassis.speedz = ch_speedz_ / 660.0f * scaled_spin_speedmax;
 }
 
-void CONTROL::CHASSIS::speedCalculate(int32_t speedx_, int32_t speedy_, int32_t speedz_)//閫熷害瑙ｇ畻骞惰瀹氬嚱鏁?
+void CONTROL::CHASSIS::speedCalculate(int32_t speedx_, int32_t speedy_, int32_t speedz_)//速度解算并设定函数
 {
 	constexpr float wheel_speed_cap = 9000.0f;
 	auto clamp_speed = [](float target) {
@@ -158,12 +158,12 @@ void CONTROL::Control_Pantile(int32_t ch_yaw, int32_t ch_pitch,int32_t ch_YAW)
 {
 	ch_pitch *= (-1.f);
 	ch_yaw *= (-1.f);
-	ch_YAW *= (-1.f);//鏂瑰悜鐩稿弽淇敼杩欓噷姝ｈ礋
+	ch_YAW *= (-1.f);//方向相反修改这里正负
 	ctrl.pantile.mark_yaw += ctrl.pantile.sensitivity[0] * ch_yaw / 660.f;
 	DM_motorYaw.set_yaw_pos += ctrl.pantile.sensitivity[1]* ctrl.pantile.sensitivity[1] * ch_YAW / 660.f;
 	DM_motorPitch.set_pitch_pos += ctrl.pantile.sensitivity[2] * ch_pitch / 660.0f;
 
-
+	
 }
 
 //
@@ -183,41 +183,41 @@ void CONTROL::Control_Pantile(int32_t ch_yaw, int32_t ch_pitch,int32_t ch_YAW)
 void CONTROL::PANTILE::Keep_Pantile(float angleKeep, PANTILE::TYPE type, IMU frameOfReference)
 {
 	if (type == ctrl.pantile.L_YAW) {
-
+		
 		const float wheel_radius = 0.076f;      // m
 		const float chassis_radius = 0.25f;     // m
 		const float gear_ratio = 19.2f;
+		
 
-
-		// 1. 瑙掑害璇樊
+		// 1. 角度误差
 		float delta = degreeToRadian(ctrl.GetDelta(angleKeep - frameOfReference.GetAngleYaw()));
 
-		// 2. 褰掍竴鍖栧埌 (-PI, PI)
+		// 2. 归一化到 (-PI, PI)
 		if (delta <= -PI)
 			delta += 2.0f * PI;
 		else if (delta >= PI)
 			delta -= 2.0f * PI;
 
-		// 3. PID 杈撳嚭锛坮ad/s锛?
+		// 3. PID 输出（rad/s）
 		float pid_output = ctrl.pantile.keep_PID.Position(delta, 100.0f);
 
-		// 4. 搴曠洏骞冲潎鐢垫満杞€燂紙rpm锛?
+		// 4. 底盘平均电机转速（rpm）
 		avg_rpm =
 			(ctrl.chassis_motor[0]->curspeed +
 				ctrl.chassis_motor[1]->curspeed +
 				ctrl.chassis_motor[2]->curspeed +
 				ctrl.chassis_motor[3]->curspeed) / 4.0f;
 
-		// 5. 浼扮畻搴曠洏鑷浆瑙掗€熷害锛坮ad/s锛?
+		// 5. 估算底盘自转角速度（rad/s）
 		float chassis_rotation_speed =
 			avg_rpm * 2.0f * PI / 60.0f / gear_ratio * wheel_radius / chassis_radius;
 
-		// 6. 婊ゆ尝锛堝悇妯″紡浣跨敤鐙珛婊ゆ尝鍣紝闃叉鐘舵€佷簰鐩告薄鏌擄級
+		// 6. 滤波（各模式使用独立滤波器，防止状态互相污染）
 		float ff_rotation_speed = (ctrl.mode == CONTROL::FOLLOW)
 			? follow_rotation_speed_filter.update(chassis_rotation_speed)
 			: yaw_rotation_speed_filter.update(chassis_rotation_speed);
 
-     // 7. 鍓嶉杞鍖猴細浣跨敤婊炲洖 + 骞虫粦锛岄伩鍏嶅噺閫熺┛瓒婇槇鍊兼椂鈥滄娊涓€涓嬧€?
+     // 7. 前馈软死区：使用滞回 + 平滑，避免减速穿越阈值时“抽一下”
 		FeedforwardBlendState& ff_state = (ctrl.mode == CONTROL::FOLLOW)
 			? follow_ff_state
 			: yaw_ff_state;
@@ -234,7 +234,7 @@ void CONTROL::PANTILE::Keep_Pantile(float angleKeep, PANTILE::TYPE type, IMU fra
 			ff_blend_alpha,
 			ff_state);
 
-		// 8. 鍓嶉鍙犲姞锛氳繃娓℃湡 / 鏅€氭棆杞?/ 灏忛檧铻?浣跨敤鍚勮嚜鐙珛澧炵泭
+		// 8. 前馈叠加：过渡期 / 普通旋转 / 小陀螺 使用各自独立增益
 		float active_k_ff;
 		if (ctrl.chassis.transition_from_rotation)
 			active_k_ff = k_ff_transition;
@@ -245,16 +245,16 @@ void CONTROL::PANTILE::Keep_Pantile(float angleKeep, PANTILE::TYPE type, IMU fra
 		float set_speed = pid_output + active_k_ff * ff_rotation_speed;
 
 
-		// 9. 杈撳嚭
+		// 9. 输出
 		DM_motorYaw.set_speed = set_speed;
 	}
 }
 
-void CONTROL::CHASSIS::Keep_Direction()//浠ヤ簯鍙版湞鍚戜负姝ｆ柟鍚戯紝搴曠洏鏂瑰悜瑙ｇ畻
+void CONTROL::CHASSIS::Keep_Direction()//以云台朝向为正方向，底盘方向解算
 {
 	double s_x = speedx, s_y = speedy;
-	// 鐢垫満涓庝簯鍙伴€氳繃鍚屾甯?榻胯疆杩炴帴锛屽瓨鍦ㄤ紶鍔ㄦ瘮 k锛堢數鏈鸿浣嶇Щ / 浜戝彴瑙掍綅绉伙級
-	// 瀹為檯浜戝彴杞 = 鐢垫満杞 / k锛宬 鍙€氳繃瀵规瘮 IMU 涓庣數鏈鸿搴﹀彉鍖栨爣瀹?
+	// 电机与云台通过同步带/齿轮连接，存在传动比 k（电机角位移 / 云台角位移）
+	// 实际云台转角 = 电机转角 / k，k 可通过对比 IMU 与电机角度变化标定
 	double theat = ctrl.Getdelta(DM_motorYaw.pos - DM_motorYaw.initial_pos_yaw);
 	double s_t = sin(theat);
 	double c_t = cos(theat);
@@ -295,21 +295,21 @@ void CONTROL::CHASSIS::Update()
 	{
 		speedx = 0;
 		speedy = 0;
-		// 搴曠洏鏃嬭浆鑷冲垵濮嬬浉瀵逛綅缃細浠ョ數鏈虹紪鐮佸櫒璇樊椹卞姩搴曠洏鑷浆
+		// 底盘旋转至初始相对位置：以电机编码器误差驱动底盘自转
 		float reset_error = DM_motorYaw.pos - DM_motorYaw.initial_pos_yaw;
 		if (reset_error > PI)  reset_error -= 2.0f * PI;
 		if (reset_error < -PI) reset_error += 2.0f * PI;
 		speedz = (int32_t)chassis_reset.Position(-reset_error, 3000.f);
 	}
-
+	
 		Keep_Direction();
-
+	
 	ctrl.chassis.speedCalculate(speedx, speedy, speedz);
 }
 
 void CONTROL::PANTILE::Update()
 {
-
+	
 	Motor* yaw_motor = ctrl.pantile_motor[PANTILE::YAW];
 	if (yaw_motor != nullptr && yaw_motor->yaw_limit_center_valid)
 	{
@@ -329,7 +329,7 @@ void CONTROL::PANTILE::Update()
 	{
 		DM_motorPitch.set_pitch_pos = DM_motorPitch.DM_pitch_min;
 	}
-
+	
 	/*float dis[2];
 	if (mark_yaw > 8192.0)mark_yaw -= 8192.0;
 	if (mark_yaw < 0.0)mark_yaw += 8192.0;
@@ -343,7 +343,7 @@ void CONTROL::PANTILE::Update()
 
 	}*/
 
-
+	
 }
 
 void CONTROL::SHOOTER::Update()
@@ -420,11 +420,8 @@ void CONTROL::SHOOTER::Update()
 		ctrl.shooter_motor[1]->setspeed = 0;
 		;
 	}
-
-	const bool auto_fire_mode = ctrl.mode == CONTROL::AUTO ||
-		ctrl.mode == CONTROL::SHOOT || ctrl.mode == CONTROL::AUTOCONTROL;
-	const bool fire_authorized = !auto_fire_mode || xuc.FireRequested(HAL_GetTick());
-	if (supply_bullet && openRub && fire_authorized)
+    
+	if (supply_bullet && openRub && xuc.mode_TJ)
 	{
         ctrl.supply_motor[0]->setspeed = -heat_limited_supply_speed;
 	}
@@ -432,7 +429,7 @@ void CONTROL::SHOOTER::Update()
 	{
         ctrl.supply_motor[0]->setspeed = -heat_limited_supply_speed;
 	}
-	else
+	else 
 	{
 		ctrl.supply_motor[0]->setspeed = -ctrl.shooter.rc_supply_speed;
 	}
@@ -441,49 +438,13 @@ void CONTROL::SHOOTER::Update()
 void CONTROL::AUTOMATION::autoMove()
 {
 	ctrl.mode = CONTROL::NAVI;
-	static uint32_t last_update_ms = 0U;
-	static float commanded_x_mps = 0.0f;
-	static float commanded_y_mps = 0.0f;
-	const uint32_t now_ms = HAL_GetTick();
-	if (!xuc.HasFreshNavCommand(now_ms))
-	{
-		commanded_x_mps = 0.0f;
-		commanded_y_mps = 0.0f;
-		last_update_ms = now_ms;
-		ctrl.chassis.navi_vx = 0.0f;
-		ctrl.chassis.navi_vy = 0.0f;
-		ctrl.chassis.navi_vz = 0.0f;
-		DM_motorYaw.set_speed = 0.0f;
-		ctrl.chassis.speedx = 0;
-		ctrl.chassis.speedy = 0;
-		ctrl.chassis.speedz = 0;
-		ctrl.shooter.openRub = false;
-		ctrl.shooter.supply_bullet = false;
-		return;
-	}
 
 	constexpr float M3508_RATIO = 19.2f;
 	constexpr float WHEEL_DIAM_M = 0.15184f;
 	constexpr float MS_TO_RPM = M3508_RATIO * 60.0f / (PI * WHEEL_DIAM_M);
 
-	const uint32_t elapsed_ms = last_update_ms == 0U ? 0U : now_ms - last_update_ms;
-	last_update_ms = now_ms;
-	if (xuc.RxNav.max_accel > 0.0f && elapsed_ms > 0U)
-	{
-		const float max_delta = xuc.RxNav.max_accel * static_cast<float>(elapsed_ms) * 0.001f;
-		const float delta_x = xuc.RxNav.linear_x - commanded_x_mps;
-		const float delta_y = xuc.RxNav.linear_y - commanded_y_mps;
-		commanded_x_mps += fmaxf(-max_delta, fminf(delta_x, max_delta));
-		commanded_y_mps += fmaxf(-max_delta, fminf(delta_y, max_delta));
-	}
-	else
-	{
-		commanded_x_mps = xuc.RxNav.linear_x;
-		commanded_y_mps = xuc.RxNav.linear_y;
-	}
-
-	const int32_t nav_x = static_cast<int32_t>(commanded_x_mps * MS_TO_RPM);
-	const int32_t nav_y = static_cast<int32_t>(commanded_y_mps * MS_TO_RPM);
+	const int32_t nav_x = (int32_t)(xuc.RxNav.linear_x * MS_TO_RPM);
+	const int32_t nav_y = (int32_t)(xuc.RxNav.linear_y * MS_TO_RPM);
 
 	ctrl.chassis.navi_vx = (float)nav_x;
 	ctrl.chassis.navi_vy = (float)nav_y;
@@ -499,10 +460,10 @@ void CONTROL::AUTOMATION::autoMove()
 
 void CONTROL::AUTOMATION::stateUpdate()
 {
-	// 妫€娴嬫槸鍚︽湁鐩爣
-	target_detected = xuc.ControlRequested(HAL_GetTick());
+	// 检测是否有目标
+	target_detected = (xuc.mode_TJ != 0);
 
-	// 鏈夌洰鏍囦笖浜戝彴瀹為檯瑙掍笌涓婁綅鏈虹洰鏍囪璇樊瓒冲灏忔椂缃畉rue
+	// 有目标且云台实际角与上位机目标角误差足够小时置true
 	float yaw_err = xuc.yaw_TJ - degreeToRadian(imu_gimbal.angle.yaw);
 	while (yaw_err > PI) yaw_err -= 2.0f * PI;
 	while (yaw_err < -PI) yaw_err += 2.0f * PI;
@@ -510,8 +471,8 @@ void CONTROL::AUTOMATION::stateUpdate()
 	target_angle_aligned = target_detected
 		&& (std::abs(yaw_err) < LOCK_THRESHOLD)
 		&& (std::abs(pitch_err) < LOCK_THRESHOLD);
-
-	// 鐘舵€佹満杞崲
+	
+	// 状态机转换
 	switch (aim_state)
 	{
 	case IDLE:
@@ -522,15 +483,15 @@ void CONTROL::AUTOMATION::stateUpdate()
 			lost_count = 0;
 		}
 		break;
-
+		
 	case TRACK:
 		if (target_detected) {
 			lost_count = 0;
-			// 璁板綍鏈€鍚庢娴嬩綅缃紙灏忎簯鍙颁綅缃級
-			last_yaw_pos = ctrl.pantile.mark_yaw;  // 灏廦aw
+			// 记录最后检测位置（小云台位置）
+			last_yaw_pos = ctrl.pantile.mark_yaw;  // 小Yaw
 			last_pitch_pos = DM_motorPitch.set_pitch_pos;
-
-			// 妫€鏌ユ槸鍚︾ǔ瀹氶攣瀹?
+			
+			// 检查是否稳定锁定
 			if (target_angle_aligned) {
 				stable_count++;
 				if (stable_count >= LOCK_STABLE_COUNT) {
@@ -545,24 +506,24 @@ void CONTROL::AUTOMATION::stateUpdate()
 			if (lost_count > LOST_TIMEOUT) {
 				aim_state = SEARCH;
 				search_count = 0;
-				scan_center_yaw = last_yaw_pos;  // 浠庝涪澶变綅缃紑濮嬫悳绱?
+				scan_center_yaw = last_yaw_pos;  // 从丢失位置开始搜索
 			}
-			// 鐭殏涓㈠け鏃朵繚鎸佸綋鍓嶄綅缃瓑寰呴噸鏂版崟鑾?
+			// 短暂丢失时保持当前位置等待重新捕获
 		}
 		is_locked = false;
 		break;
-
+		
 	case LOCKED:
 		if (target_detected) {
 			lost_count = 0;
-			// 缁х画妫€鏌ユ槸鍚﹁繕閿佸畾
+			// 继续检查是否还锁定
 			if (!target_angle_aligned) {
 				stable_count = 0;
-				aim_state = TRACK;  // 鍥炲埌璺熻釜鐘舵€?
+				aim_state = TRACK;  // 回到跟踪状态
 			}
 		} else {
 			lost_count++;
-			if (lost_count > LOST_TIMEOUT / 2) {  // 閿佸畾鐘舵€佹洿蹇繘鍏ユ悳绱?
+			if (lost_count > LOST_TIMEOUT / 2) {  // 锁定状态更快进入搜索
 				aim_state = SEARCH;
 				search_count = 0;
 				scan_center_yaw = last_yaw_pos;
@@ -570,7 +531,7 @@ void CONTROL::AUTOMATION::stateUpdate()
 		}
 		is_locked = (aim_state == LOCKED);
 		break;
-
+		
 	case SEARCH:
 		if (target_detected) {
 			aim_state = TRACK;
@@ -579,55 +540,55 @@ void CONTROL::AUTOMATION::stateUpdate()
 		} else {
 			search_count++;
 			if (search_count > SEARCH_TIMEOUT) {
-				aim_state = IDLE;  // 鎼滅储瓒呮椂锛屽洖鍒扮┖闂?
+				aim_state = IDLE;  // 搜索超时，回到空闲
 			}
 		}
 		is_locked = false;
 		break;
 	}
-
-	// 鍏煎鏃у彉閲?
+	
+	// 兼容旧变量
 	aim_lock = !target_detected && (lost_count > 50);
 	aim_cont = lost_count;
 }
 
 void CONTROL::AUTOMATION::autoAim()
 {
-	// 鍏堟洿鏂扮姸鎬?
+	// 先更新状态
 	stateUpdate();
-
-	// 銆愬叧閿€戞湁鐩爣鏃剁姝㈡壂鎻忥紝璁﹎otor.cpp涓殑鑷瀯閫昏緫鎺ョ
+	
+	// 【关键】有目标时禁止扫描，让motor.cpp中的自瞄逻辑接管
 	if (target_detected) {
 		ctrl.g_start_scan = false;
 	}
-
+	
 	switch (aim_state)
 	{
 	case IDLE:
-		// 绌洪棽鐘舵€侊細淇濇寔闈欐锛岀瓑寰呮墜鍔ㄦ帶鍒舵垨鐩爣鍑虹幇
-		// 鍙互鍚敤鎵弿
+		// 空闲状态：保持静止，等待手动控制或目标出现
+		// 可以启用扫描
 		ctrl.g_start_scan = true;
 		break;
-
+		
 	case TRACK:
 	case LOCKED:
-		// 鑷瀯鐘舵€侊細绂佹鎵弿锛屼簯鍙扮敱motor.cpp涓殑鑷瀯閫昏緫鎺у埗
-		// motor.cpp浼氭牴鎹畑uc.mode_TJ鍜寈uc.yaw_TJ鐩存帴璁＄畻鐩爣瑙掑害
-		// 杩欓噷涓嶉渶瑕佹墜鍔ㄨ皟鏁磎ark_yaw锛屽惁鍒欎細鍐茬獊锛?
+		// 自瞄状态：禁止扫描，云台由motor.cpp中的自瞄逻辑控制
+		// motor.cpp会根据xuc.mode_TJ和xuc.yaw_TJ直接计算目标角度
+		// 这里不需要手动调整mark_yaw，否则会冲突！
 		ctrl.g_start_scan = false;
-
+		
 		if (target_detected) {
-			// 璁板綍褰撳墠浣嶇疆锛岀敤浜庝涪澶卞悗鎼滅储锛堝皬浜戝彴浣嶇疆锛?
-			last_yaw_pos = ctrl.pantile.mark_yaw;  // 灏廦aw
+			// 记录当前位置，用于丢失后搜索（小云台位置）
+			last_yaw_pos = ctrl.pantile.mark_yaw;  // 小Yaw
 			last_pitch_pos = DM_motorPitch.set_pitch_pos;
 		}
-		// 涓㈠け鏃剁煭鏆備繚鎸侊紙涓嶅姩锛?
+		// 丢失时短暂保持（不动）
 		break;
-
+		
 	case SEARCH:
-		// 鎼滅储鐘舵€侊細鍦ㄤ涪澶变綅缃檮杩戝皬鑼冨洿鎼滅储
-
-		ctrl.g_start_scan = false;  // 涓嶇敤鍏ㄥ眬鎵弿锛岀敤灞€閮ㄦ悳绱?
+		// 搜索状态：在丢失位置附近小范围搜索
+		
+		ctrl.g_start_scan = false;  // 不用全局扫描，用局部搜索
 		searchTarget();
 		break;
 	}
@@ -635,27 +596,27 @@ void CONTROL::AUTOMATION::autoAim()
 
 void CONTROL::AUTOMATION::searchTarget()
 {
-	// 灏忚寖鍥存悳绱細浠ヤ涪澶变綅缃负涓績锛屽乏鍙虫憜鍔?
-	// *** 淇锛氫娇鐢?mark_yaw锛堝皬浜戝彴锛夎€岄潪 DM_motorYaw锛堝ぇ浜戝彴锛?**
+	// 小范围搜索：以丢失位置为中心，左右摆动
+	// *** 修正：使用 mark_yaw（小云台）而非 DM_motorYaw（大云台）***
 	float current_offset = ctrl.pantile.mark_yaw - scan_center_yaw;
-
-	// 杈圭晫妫€娴?
+	
+	// 边界检测
 	if (current_offset >= scan_range) {
-		scan_reversal_yaw = true;   // 鍚戝乏
+		scan_reversal_yaw = true;   // 向左
 	} else if (current_offset <= -scan_range) {
-		scan_reversal_yaw = false;  // 鍚戝彸
+		scan_reversal_yaw = false;  // 向右
 	}
-
-	// 绉诲姩锛堟悳绱㈤€熷害鎱竴浜涳級- 鎺у埗灏忎簯鍙?
-
-
-	// Pitch 灏忓箙搴︿笂涓嬫壂
+	
+	// 移动（搜索速度慢一些）- 控制小云台
+	
+	
+	// Pitch 小幅度上下扫
 	if (DM_motorPitch.set_pitch_pos >= last_pitch_pos + 0.1f) {
 		scan_reversal_pitch = true;
 	} else if (DM_motorPitch.set_pitch_pos <= last_pitch_pos - 0.1f) {
 		scan_reversal_pitch = false;
 	}
-
+	
 	if (scan_reversal_pitch) {
 		DM_motorPitch.set_pitch_pos -= scan_speed_pitch;
 	} else {
@@ -663,58 +624,58 @@ void CONTROL::AUTOMATION::searchTarget()
 	}
 }
 
-void CONTROL::AUTOMATION::autoControl()
+void CONTROL::AUTOMATION::autoControl() 
 {
-	// 璋冪敤鏂扮殑鑷瀯閫昏緫
+	// 调用新的自瞄逻辑
 	autoAim();
-
-	// 鏍规嵁鐘舵€佹帶鍒跺彂灏?
+	
+	// 根据状态控制发射
 	if (aim_state == LOCKED || aim_state == TRACK) {
 		ctrl.shooter.openRub = true;
-		// 渚涘脊鐢盧C妗ｄ綅鎺у埗锛岃繖閲屼笉鑷姩寮€鐏?
+		// 供弹由RC档位控制，这里不自动开火
 	} else if (aim_state == SEARCH) {
 		ctrl.shooter.openRub = true;
 		ctrl.shooter.supply_bullet = false;
 	} else {
-		// IDLE鐘舵€?
+		// IDLE状态
 		ctrl.shooter.openRub = false;
 		ctrl.shooter.supply_bullet = false;
 	}
 }
 /**
- * @brief 鑷姩鎵弿鍑芥暟 (鏃犲弬鏁扮増鏈?
- * 娉ㄦ剰锛氭鍑芥暟渚濊禆浜?m_current_relative_angle 鎴愬憳鍙橀噺
+ * @brief 自动扫描函数 (无参数版本)
+ * 注意：此函数依赖于 m_current_relative_angle 成员变量
  */
 void CONTROL::AUTOMATION::autoScan()
 {
-	// *** 鍏抽敭淇锛氫慨澶嶅弽鍚戦€昏緫 ***
-	// 浣跨敤 "鐢靛钩瑙﹀彂" 閫昏緫锛岃€屼笉鏄?"缈昏浆" 閫昏緫
-	// m_current_relative_angle 蹇呴』鏄偍鍦ㄤ富寰幆涓В绠楀悗鐨勮繛缁浉瀵硅搴?
+	// *** 关键修正：修复反向逻辑 ***
+	// 使用 "电平触发" 逻辑，而不是 "翻转" 逻辑
+	// m_current_relative_angle 必须是您在主循环中解算后的连续相对角度
 
 	Motor* yaw_motor = ctrl.pantile_motor[PANTILE::YAW];
 	const float scan_center = (yaw_motor != nullptr && yaw_motor->yaw_limit_center_valid)
 		? yaw_motor->yaw_limit_center_ref
 		: 0.0f;
 
-	// 1. Yaw 杞存壂鎻忥紙浠ESET璁板綍涓績涓哄熀鍑嗭級
+	// 1. Yaw 轴扫描（以RESET记录中心为基准）
 	if (ctrl.m_current_relative_angle >= scan_center + 45.0f)
 	{
-		scan_reversal_yaw = false; // 蹇呴』鍚戣礋鏂瑰悜绉诲姩
+		scan_reversal_yaw = false; // 必须向负方向移动
 	}
 	else if (ctrl.m_current_relative_angle <= scan_center - 45.0f)
 	{
-		scan_reversal_yaw = true; // 蹇呴』鍚戞鏂瑰悜绉诲姩
+		scan_reversal_yaw = true; // 必须向正方向移动
 	}
-	// (濡傛灉浠嬩簬杈圭晫涔嬮棿锛宻can_reversal_yaw 淇濇寔涓嶅彉锛岀户缁湞褰撳墠鏂瑰悜绉诲姩)
+	// (如果介于边界之间，scan_reversal_yaw 保持不变，继续朝当前方向移动)
 
 
-	// 2.1 鎵弿鐩爣闄愬箙锛堝悓鏍蜂互RESET璁板綍涓績涓哄熀鍑嗭級
+	// 2.1 扫描目标限幅（同样以RESET记录中心为基准）
 	const float scan_limit_min = scan_center - 65.0f;
 	const float scan_limit_max = scan_center + 65.0f;
 	if (ctrl.pantile.mark_yaw > scan_limit_max) ctrl.pantile.mark_yaw = scan_limit_max;
 	if (ctrl.pantile.mark_yaw < scan_limit_min) ctrl.pantile.mark_yaw = scan_limit_min;
 
-	// 3. Pitch 杞存壂鎻?(鎮ㄧ殑鍘熷閫昏緫锛屼繚鎸佷笉鍙?
+	// 3. Pitch 轴扫描 (您的原始逻辑，保持不变)
 	if (DM_motorPitch.set_pitch_pos >= DM_motorPitch.DM_pitch_max)
 	{
 		scan_reversal_pitch = false;
@@ -771,7 +732,7 @@ float CONTROL::GetDelta(float delta)
 	return delta;
 }
 
-float CONTROL::Getdelta(float delta)//寮у害鍒?
+float CONTROL::Getdelta(float delta)//弧度制
 {
   while (delta <= -PI)
 	{
@@ -782,7 +743,7 @@ float CONTROL::Getdelta(float delta)//寮у害鍒?
 		delta -= 2.0f * PI;
 	}
 	return delta;
-} //璇ュ嚱鏁板純鐢紝鍥犱负褰揹elta闈炲父澶ф椂锛屽崟娆″姞鍑?PI鍙兘鏃犳硶灏嗗叾褰掍竴鍖栧埌[-PI, PI]鑼冨洿鍐呫€備笅闈㈡槸鏀硅繘鍚庣殑鐗堟湰锛屼娇鐢ㄥ惊鐜‘淇濇棤璁鸿緭鍏ュ澶э紝閮借兘姝ｇ‘褰掍竴鍖?
+} //该函数弃用，因为当delta非常大时，单次加减2PI可能无法将其归一化到[-PI, PI]范围内。下面是改进后的版本，使用循环确保无论输入多大，都能正确归一化
 
 //float CONTROL::Getdelta(float delta)
 //{
@@ -805,11 +766,11 @@ int16_t CONTROL::Setrange(const int16_t original, const int16_t range)
 extern uint8_t Power_stsRx[];
 
 unsigned int CONTROL::radian_to_mechanical_angle(double radian_angle) {
-	// 鏍稿績杞崲鍏紡锛氬厛灏嗚緭鍏ヨ寖鍥?[-蟺, 蟺] 骞崇Щ鍒?[0, 2蟺]锛?
-	// 鐒跺悗璁＄畻鍏跺湪鎬昏寖鍥翠腑鐨勬瘮渚嬶紝鏈€鍚庝箻浠ョ洰鏍囪寖鍥寸殑澶у皬 8192銆?
+	// 核心转换公式：先将输入范围 [-π, π] 平移到 [0, 2π]，
+	// 然后计算其在总范围中的比例，最后乘以目标范围的大小 8192。
 	double mechanical_value = ((radian_angle + M_PI) / (2.0 * M_PI)) * 8192.0;
 
-	// 瀵硅绠楃粨鏋滆繘琛屽洓鑸嶄簲鍏ワ紝骞惰浆鎹负鏃犵鍙锋暣鏁扮被鍨嬪悗杩斿洖銆?
-	// 鍔?0.5 鏄疄鐜板洓鑸嶄簲鍏ョ殑甯哥敤鎶€宸с€?
+	// 对计算结果进行四舍五入，并转换为无符号整数类型后返回。
+	// 加 0.5 是实现四舍五入的常用技巧。
 	return (unsigned int)(mechanical_value + 0.5);
 }

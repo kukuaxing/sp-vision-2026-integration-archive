@@ -51,7 +51,7 @@ public:
 		//   navi[2]   = (19.2*60/(PI*0.15184)) * 0.23191 * 660/5000 ≈ 74
 		float navi[3] = { 319.0f, 319.0f, 74.0f };
 		float speedmax = 5000;
-
+		
 
 		void setChassisspeed(int32_t ch_speedx, int32_t ch_speedy, int32_t ch_speedz);
 		void speedCalculate(int32_t speedx_, int32_t speedy_, int32_t speedz_);
@@ -114,31 +114,31 @@ public:
 		// 上次检测位置（用于搜索起点）
 		float last_yaw_pos = 0.f;
 		float last_pitch_pos = 0.f;
-
+		
 		// 扫描参数
 		float scan_speed_yaw = 0.08f, scan_speed_pitch = 0.003f;  // 加快扫描速度
 		float scan_range = 0.3f;      // 搜索范围（弧度，约17度）
 		bool scan_reversal_yaw = false, scan_reversal_pitch = false;
 		float scan_center_yaw = 0.f;  // 扫描中心
-
+		
 		// 锁定阈值
 		const float LOCK_THRESHOLD = 0.02f;  // 弧度，约1度内视为稳定
 		const int LOCK_STABLE_COUNT = 15;    // 连续15帧稳定才算锁定
 		const int LOST_TIMEOUT = 30;         // 30帧(约0.3s)后视为丢失
 		const int SEARCH_TIMEOUT = 200;      // 搜索2秒后放弃
-
+		
 		// 状态输出
 		bool target_detected = false;
 		bool target_angle_aligned = false; // 有目标且实际云台角与上位机yaw/pitch误差足够小时为true
 		bool is_locked = false;       // 是否稳定锁定（可以开火）
-
+		
 		// 函数
 		void stateUpdate();
 		void autoControl();
 		void autoScan();
 		void autoAim();               // 自瞄主函数
 		void searchTarget();          // 搜索函数（小范围）
-
+		
 		// 兼容旧代码
 		int navi_cont = 0;
 		int aim_cont = 0;

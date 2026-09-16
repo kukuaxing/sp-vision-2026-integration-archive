@@ -6,7 +6,7 @@
 class DELAY
 {
 public:
-	uint32_t  fac_us = 0;							//us延时倍乘数
+	uint32_t  fac_us = 0;							//us延时倍乘数			   
 	uint32_t fac_ms = 1000 / configTICK_RATE_HZ;	// ms延时倍乘数
 
 	void Init(const uint32_t sysclk)
@@ -14,22 +14,22 @@ public:
 		uint32_t reload;
 		HAL_SYSTICK_CLKSourceConfig(SYSTICK_CLKSOURCE_HCLK);//选择外部时钟  HCLK
 		fac_us = SystemCoreClock / 1000000;				//不论是否使用OS,fac_us都需要使用
-		reload = SystemCoreClock / 1000000;				//每秒钟的计数次数 单位为M
+		reload = SystemCoreClock / 1000000;				//每秒钟的计数次数 单位为M  
 		reload *= 1000000 / configTICK_RATE_HZ;			//根据configTICK_RATE_HZ设定溢出时间
-													//reload为24位寄存器,最大值:16777216,在72M下,约合0.233s左右
-		fac_ms = 1000 / configTICK_RATE_HZ;				//代表OS可以延时的最少单位
+													//reload为24位寄存器,最大值:16777216,在72M下,约合0.233s左右	
+		fac_ms = 1000 / configTICK_RATE_HZ;				//代表OS可以延时的最少单位	   
 
 		SysTick->CTRL |= SysTick_CTRL_TICKINT_Msk;   	//开启SYSTICK中断
-		SysTick->LOAD = reload; 						//每1/configTICK_RATE_HZ秒中断一次
-		SysTick->CTRL |= SysTick_CTRL_ENABLE_Msk;   	//开启SYSTICK
+		SysTick->LOAD = reload; 						//每1/configTICK_RATE_HZ秒中断一次	
+		SysTick->CTRL |= SysTick_CTRL_ENABLE_Msk;   	//开启SYSTICK			
 	}
 
 	void delay_us(uint32_t nus)
 	{
 		uint32_t ticks;
 		uint32_t told, tnow, tcnt = 0;
-		uint32_t reload = SysTick->LOAD;				//LOAD的值
-		ticks = nus * fac_us; 						//需要的节拍数
+		uint32_t reload = SysTick->LOAD;				//LOAD的值	    	 
+		ticks = nus * fac_us; 						//需要的节拍数 
 		told = SysTick->VAL;        				//刚进入时的计数器值
 		while (1)
 		{
@@ -48,11 +48,11 @@ public:
 	{
 		if (xTaskGetSchedulerState() != taskSCHEDULER_NOT_STARTED)//系统已经运行
 		{
-			if (nms >= fac_ms)						//延时的时间大于OS的最少时间周期
+			if (nms >= fac_ms)						//延时的时间大于OS的最少时间周期 
 			{
 				vTaskDelay(nms / fac_ms);	 		//FreeRTOS延时
 			}
-			nms %= fac_ms;						//OS已经无法提供这么小的延时了,采用普通方式延时
+			nms %= fac_ms;						//OS已经无法提供这么小的延时了,采用普通方式延时    
 		}
 		delay_us((uint32_t)(nms * 1000));				//普通方式延时
 	}

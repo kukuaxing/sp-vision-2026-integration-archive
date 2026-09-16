@@ -28,7 +28,7 @@ class SMC{
 	float error_last;
 	float dref;//目标值一阶导
 	float ddref;//目标值二阶导
-
+	
 
 	float s;//滑模面
 

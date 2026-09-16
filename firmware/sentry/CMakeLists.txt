@@ -27,6 +27,7 @@ set(FREERTOS_DIR "${CUBE_ROOT}/Middlewares/Third_Party/FreeRTOS/Source")
 
 set(APP_SOURCES
   ${APP_DIR}/can.cpp
+  ${APP_DIR}/pitch_zero.cpp
   ${APP_DIR}/control.cpp
   ${APP_DIR}/CRC.cpp
   ${APP_DIR}/DMmotor.cpp
@@ -51,6 +52,18 @@ set(APP_SOURCES
 file(GLOB HAL_SOURCES CONFIGURE_DEPENDS "${HAL_DIR}/Src/*.c")
 list(FILTER HAL_SOURCES EXCLUDE REGEX ".*_template\\.c$")
 
+# Upstream uses the pre-2018 CAN API. Select ST's bundled legacy driver
+# without modifying the upstream application sources.
+list(FILTER HAL_SOURCES EXCLUDE REGEX "/stm32f4xx_hal_can\\.c$")
+list(APPEND HAL_SOURCES "${HAL_DIR}/Src/Legacy/stm32f4xx_hal_can.c")
+file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/hal_compat")
+file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/hal_compat/stm32f4xx_hal_can.h"
+  "#undef HAL_CAN_MODULE_ENABLED\n#include \"Legacy/stm32f4xx_hal_can_legacy.h\"\n")
+# Newer HAL RCC expects this table; upstream's older system file lacks it.
+# Values match ST's CMSIS system_stm32f4xx.c template.
+file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/hal_compat/clock_tables.c"
+  "#include <stdint.h>\nconst uint8_t APBPrescTable[8] = {0, 0, 0, 0, 1, 2, 3, 4};\n")
+
 set(FREERTOS_SOURCES
   ${FREERTOS_DIR}/croutine.c
   ${FREERTOS_DIR}/event_groups.c
@@ -66,6 +79,7 @@ set(FREERTOS_SOURCES
 
 add_executable(sentry_uc.elf
   ${APP_SOURCES}
+  ${CMAKE_CURRENT_BINARY_DIR}/hal_compat/clock_tables.c
   ${HAL_SOURCES}
   ${FREERTOS_SOURCES}
   ${CMSIS_DIR}/Device/ST/STM32F4xx/Source/Templates/gcc/startup_stm32f405xx.s
@@ -73,6 +87,7 @@ add_executable(sentry_uc.elf
 
 target_include_directories(sentry_uc.elf PRIVATE
   ${APP_DIR}
+  ${CMAKE_CURRENT_BINARY_DIR}/hal_compat
   ${HAL_DIR}/Inc
   ${HAL_DIR}/Inc/Legacy
   ${CMSIS_DIR}/Include
@@ -85,6 +100,7 @@ target_include_directories(sentry_uc.elf PRIVATE
 
 target_compile_definitions(sentry_uc.elf PRIVATE
   ARM_MATH_CM4
+  HAL_CAN_LEGACY_MODULE_ENABLED
   STM32F405RG
   STM32F405xx
   LSE_STARTUP_TIMEOUT=5000U
@@ -99,6 +115,7 @@ target_compile_options(sentry_uc.elf PRIVATE
   -fno-common
   $<$<COMPILE_LANGUAGE:CXX>:-fno-exceptions>
   $<$<COMPILE_LANGUAGE:CXX>:-fno-rtti>
+  $<$<COMPILE_LANGUAGE:CXX>:-Werror=return-type>
   $<$<CONFIG:Debug>:-Og>
   $<$<CONFIG:Release>:-O2>
   -g3

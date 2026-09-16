@@ -14,6 +14,7 @@ extern "C" {
 #include "queue.h"
 
 #define UART_MAX_LEN 100
+struct UartRxFrame { uint16_t size; uint8_t data[UART_MAX_LEN]; };
 	class UART
 	{
 	public:
@@ -24,6 +25,7 @@ extern "C" {
 		void OnUARTITHandler();
 		void OnDMAITHandler();
 		void DMATransmit(uint8_t* const pData, const uint32_t Size);
+        bool TxBusy() const { return huart.hdmatx != NULL && (huart.hdmatx->Instance->CR & DMA_SxCR_EN); }
 		void UARTTransmit(uint8_t* pData, uint32_t Size);
 		static void DMAClearAllFlags(DMA_HandleTypeDef* dmax)
 		{
@@ -47,6 +49,7 @@ extern "C" {
 				(DMA2->HIFCR = 0x0F400000);
 		}
 
+		QueueHandle_t FrameQueueHandler = NULL; // Optional length-stamped IMU mailbox.
 		QueueHandle_t UartQueueHandler = xQueueCreate(1, UART_MAX_LEN);
 		bool updateFlag = false;
 		BaseType_t pd_Rx = false;

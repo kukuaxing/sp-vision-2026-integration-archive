@@ -17,67 +17,41 @@ namespace {
 	}
 }
 
-DMMOTOR::DMMOTOR(const uint32_t ID, CAN* hcan) //å®šä¹‰æ¥å£
+DMMOTOR::DMMOTOR(const uint32_t ID, CAN* hcan) //¶¨Òå½Ó¿Ú
 	:ID(ID), mcan(hcan)
 {}
 
-void DMMOTOR::DMmotorTransmit(uint32_t id) //å‘ç”µæœºå‘é€æ•°æ®åŒ…
+void DMMOTOR::DMmotorTransmit(uint32_t id) //Ïòµç»ú·¢ËÍÊı¾İ°ü
 {
-	const uint32_t now_ms = HAL_GetTick();
-	constexpr uint32_t ENABLE_RETRY_MS = 200U;
-	constexpr uint32_t FEEDBACK_TIMEOUT_MS = 250U;
 
-	if (!initial)   //åˆå§‹å€¼ä¸ºfalse
+	if (!initial)   //³õÊ¼ÖµÎªfalse
 	{
-		MotorStart(id);//ç”µæœºä½¿èƒ½
-		last_enable_attempt_ms = now_ms;
+		MotorStart(id);//µç»úÊ¹ÄÜ
 		initial = true;
 		if (flag_first)
 		{
-			if (ID == 0x06U)
-			{
-				set_yaw_pos = initial_pos_yaw;
-			}
+			set_yaw_pos = initial_pos_yaw;
+			set_pitch_pos = initial_pos_pitch;
 			flag_first = false;
 		}
 	}
 	else if (motorDisablity)
 	{
-		MotorOff(id);////ç”µæœºå¤±èƒ½
+		MotorOff(id);////µç»úÊ§ÄÜ
 		motorDisablity = false;
 	}
 	else if (flag_zero)
 	{
-		MotorZero(id);//ä¿å­˜é›¶ç‚¹
+		MotorZero(id);//±£´æÁãµã
 		flag_zero = false;
 	}
 	else
 	{
-		const bool feedback_fresh = pos_initialized &&
-			static_cast<uint32_t>(now_ms - last_feedback_ms) <= FEEDBACK_TIMEOUT_MS;
-		if (!feedback_fresh)
-		{
-			pos_initialized = false;
-			if (ID == 0x09U)
-			{
-				pitch_reference_valid = false;
-				pitch_motion_ready = false;
-				pitch_control_release_seen = false;
-			}
-			// ä¸Šç”µé¡ºåºã€é¦–å¸§ä¸¢å¤±æˆ–ç”µæœºé‡å¯éƒ½å¯èƒ½è®©ä¸€æ¬¡æ€§ä½¿èƒ½å¤±æ•ˆã€‚
-			// æœªè§æœ‰æ•ˆåé¦ˆæ—¶åªé‡å‘ä½¿èƒ½ï¼Œä¸ä¸‹å‘æœªç»åé¦ˆé”šå®šçš„ä½ç½®æŒ‡ä»¤ã€‚
-			if (static_cast<uint32_t>(now_ms - last_enable_attempt_ms) >= ENABLE_RETRY_MS)
-			{
-				MotorStart(id);
-				last_enable_attempt_ms = now_ms;
-			}
-			return;
-		}
-		if (id == 0x206)//yawè½´ç”µæœº
+		if (id == 0x206)//yawÖáµç»ú
 		{
 			mcan->Transmit(id, mcan->DMmotor_temp_data_yaw, 8);
 		}
-		if (id == 0x109)//pitchè½´ç”µæœº
+		if (id == 0x109)//pitchÖáµç»ú
 		{
 			mcan->Transmit(id, mcan->DMmotor_temp_data_pitch, 8);
 		}
@@ -86,67 +60,42 @@ void DMMOTOR::DMmotorTransmit(uint32_t id) //å‘ç”µæœºå‘é€æ•°æ®åŒ…
 
 void DMMOTOR::DMmotorOntimer(uint8_t idata[][8], uint8_t* odata)
 {
-	//æ¥æ”¶æ•°æ®å¹¶è§£ç  æµ®ç‚¹å‹æ•°æ®
+	//½ÓÊÕÊı¾İ²¢½âÂë ¸¡µãĞÍÊı¾İ
 	uint8_t id;
-	const uint8_t feedback_index = (ID == 0x09U) ? 1U : 0U;
-	const uint32_t rx_count = mcan->DMmotor_rx_count[feedback_index];
-	const bool new_feedback = rx_count != last_rx_count_seen;
-	const bool establish_reference = new_feedback && !pos_initialized;
-	if (new_feedback)
-	{
-		last_rx_count_seen = rx_count;
-		last_feedback_ms = HAL_GetTick();
-		pos_initialized = true;
-	}
-	if (ID == 0x06)//å¤§YAW
+	if (ID == 0x06)//´óYAW
 	{
 		id = ID - 0x06;
 		int direct = 0;
 		int tmp_value = 0;
-		tmp_value = (idata[id][1] << 8) | (idata[id][2]);//ç”µæœºä½ç½®
-		pos = uint_to_float(tmp_value, P_MIN, P_MAX, 16);//è½¬æµ®ç‚¹å‹
+		tmp_value = (idata[id][1] << 8) | (idata[id][2]);//µç»úÎ»ÖÃ
+		pos = uint_to_float(tmp_value, P_MIN, P_MAX, 16);//×ª¸¡µãĞÍ
 		pos_obs = pos * 10000;
-		tmp_value = (idata[id][3] << 4) | (idata[id][4] >> 4);//è½¬é€Ÿ
-		cur_speed = uint_to_float(tmp_value, V_MIN, V_MAX, 12);//è½¬æµ®ç‚¹å‹
-		temp_MOS = idata[id][6];//ç”µæœºé©±åŠ¨æ¸©åº¦
-		temp_ROTOR = idata[id][7];//ç”µæœºçº¿åœˆæ¸©åº¦
+		tmp_value = (idata[id][3] << 4) | (idata[id][4] >> 4);//×ªËÙ
+		cur_speed = uint_to_float(tmp_value, V_MIN, V_MAX, 12);//×ª¸¡µãĞÍ
+		temp_MOS = idata[id][6];//µç»úÇı¶¯ÎÂ¶È
+		temp_ROTOR = idata[id][7];//µç»úÏßÈ¦ÎÂ¶È
 	}
 	else if (ID == 0x09)//PITCH
 	{
 		id = ID - 0x08;
 		int direct = 0;
 		int tmp_value = 0;
-		tmp_value = (idata[id][1] << 8) | (idata[id][2]);//ç”µæœºä½ç½®
-		pos = uint_to_float(tmp_value, P_MIN1, P_MAX1, 16);//è½¬æµ®ç‚¹å‹
-		tmp_value = (idata[id][3] << 4) | (idata[id][4] >> 4);//è½¬é€Ÿ
-		cur_speed = uint_to_float(tmp_value, V_MIN, V_MAX, 12);//è½¬æµ®ç‚¹å‹
-		temp_MOS = idata[id][6];//ç”µæœºé©±åŠ¨æ¸©åº¦
-		temp_ROTOR = idata[id][7];//ç”µæœºçº¿åœˆæ¸©åº¦
-		if (establish_reference)
-		{
-			// æ—§è½¦çš„ç»å¯¹é›¶ä½ä¸èƒ½ç”¨äºæ–°æœºæ„ï¼›é¦–æ¬¡åé¦ˆåªä¿æŒå®æµ‹ä½ç½®ã€‚
-			startup_pos_pitch = pos;
-			initial_pos_pitch = pos;
-			DM_pitch_min = pos - 0.20f;
-			DM_pitch_max = pos + 0.20f;
-			set_pitch_pos = pos;
-			pitch_command_sent = pos;
-			pitch_reference_valid = true;
-			pitch_control_release_seen = false;
-			pitch_motion_ready = false;
-			first_feedback_ms = HAL_GetTick();
-			last_pitch_command_ms = first_feedback_ms;
-		}
+		tmp_value = (idata[id][1] << 8) | (idata[id][2]);//µç»úÎ»ÖÃ
+		pos = uint_to_float(tmp_value, P_MIN1, P_MAX1, 16);//×ª¸¡µãĞÍ
+		tmp_value = (idata[id][3] << 4) | (idata[id][4] >> 4);//×ªËÙ
+		cur_speed = uint_to_float(tmp_value, V_MIN, V_MAX, 12);//×ª¸¡µãĞÍ
+		temp_MOS = idata[id][6];//µç»úÇı¶¯ÎÂ¶È
+		temp_ROTOR = idata[id][7];//µç»úÏßÈ¦ÎÂ¶È
 
 	}
 
 
-	//æ‰“åŒ…æ•°æ®å‡†å¤‡å‘é€
-	if (ID == 0x06) //ID 0x06 å¤§yawè½´ç”µæœº é‡‡ç”¨é€Ÿåº¦æ¨¡å¼
+	//´ò°üÊı¾İ×¼±¸·¢ËÍ
+	if (ID == 0x06) //ID 0x06 ´óyawÖáµç»ú ²ÉÓÃËÙ¶ÈÄ£Ê½
 	{
-		// ========== æ–°æ–¹æ¡ˆï¼šä½¿ç”¨é™€èºä»ªè§’åº¦æ§åˆ¶ ==========
+		// ========== ĞÂ·½°¸£ºÊ¹ÓÃÍÓÂİÒÇ½Ç¶È¿ØÖÆ ==========
 
-		// è·å–å½“å‰é™€èºä»ªè§’åº¦ï¼ˆåº¦ï¼‰
+		// »ñÈ¡µ±Ç°ÍÓÂİÒÇ½Ç¶È£¨¶È£©
 		float current_imu_yaw = imu_pantile.GetAngleYaw();
 		const bool speed_control_mode =
 			(ctrl.mode == CONTROL::ROTATION ||
@@ -166,12 +115,12 @@ void DMMOTOR::DMmotorOntimer(uint8_t idata[][8], uint8_t* odata)
 			yaw_cmd_initialized = true;
 		}
 
-		// ç›®æ ‡è§’åº¦å½’ä¸€åŒ–åˆ° [-180, 180]
+		// Ä¿±ê½Ç¶È¹éÒ»»¯µ½ [-180, 180]
 		set_yaw_pos = NormalizeDeg180(set_yaw_pos);
 
 		if (yaw_speed_mode_prev && !speed_control_mode)
 		{
-			// é€Ÿåº¦ç¯åˆ‡å›ä½ç½®ç¯é¦–å¸§ï¼šé”šå®šå½“å‰è§’ï¼Œé¿å…ä½ç½®ç›®æ ‡çªå˜
+			// ËÙ¶È»·ÇĞ»ØÎ»ÖÃ»·Ê×Ö¡£ºÃª¶¨µ±Ç°½Ç£¬±ÜÃâÎ»ÖÃÄ¿±êÍ»±ä
 			set_yaw_pos = current_imu_yaw;
 			yaw_cmd_filtered = current_imu_yaw;
 			DM_pid.ResetIntegral();
@@ -187,7 +136,7 @@ void DMMOTOR::DMmotorOntimer(uint8_t idata[][8], uint8_t* odata)
 		}
 		else
 		{
-			// ä½ç½®ç¯æ¨¡å¼ä¸‹å¯¹ç›®æ ‡åšé™é€Ÿï¼ŒæŠ‘åˆ¶æ¨¡å¼åˆ‡æ¢/æŒ‡ä»¤çªå˜é€ æˆçš„å†²å‡»
+			// Î»ÖÃ»·Ä£Ê½ÏÂ¶ÔÄ¿±ê×öÏŞËÙ£¬ÒÖÖÆÄ£Ê½ÇĞ»»/Ö¸ÁîÍ»±äÔì³ÉµÄ³å»÷
 			constexpr float YAW_SETPOINT_STEP_MAX = 0.2f; // deg/frame
 			float cmd_delta = NormalizeDeg180(set_yaw_pos - yaw_cmd_filtered);
 			if (cmd_delta > YAW_SETPOINT_STEP_MAX) cmd_delta = YAW_SETPOINT_STEP_MAX;
@@ -196,18 +145,18 @@ void DMMOTOR::DMmotorOntimer(uint8_t idata[][8], uint8_t* odata)
 			diff = NormalizeDeg180(yaw_cmd_filtered - current_imu_yaw);
 		}
 
-		// è½¬æ¢ä¸ºå¼§åº¦ä¾›PIDä½¿ç”¨
+		// ×ª»»Îª»¡¶È¹©PIDÊ¹ÓÃ
 		float diff_rad = diff * 0.017453292f;  // DEG_TO_RAD
 
 		if (speed_control_mode)
 		{
-			// æ—‹è½¬/RESET/FOLLOW/è¿‡æ¸¡æœŸï¼šç›´æ¥ä½¿ç”¨ Keep_Pantile è®¾å®šçš„é€Ÿåº¦ï¼Œä¸å…è®¸ä½ç½®PIDè¦†ç›–
+			// Ğı×ª/RESET/FOLLOW/¹ı¶ÉÆÚ£ºÖ±½ÓÊ¹ÓÃ Keep_Pantile Éè¶¨µÄËÙ¶È£¬²»ÔÊĞíÎ»ÖÃPID¸²¸Ç
 			set_speed = setRange(set_speed, 3000.f);
 
 		}
 		else
 		{
-			// æ­£å¸¸æ¨¡å¼ï¼šä½ç½®ç¯æ§åˆ¶ï¼ˆä½¿ç”¨é™€èºä»ªåé¦ˆï¼‰
+			// Õı³£Ä£Ê½£ºÎ»ÖÃ»·¿ØÖÆ£¨Ê¹ÓÃÍÓÂİÒÇ·´À¡£©
 			set_speed = DM_pid.Position(diff_rad, 100.f);
 			set_speed = setRange(set_speed, 100.f);
 		}
@@ -220,48 +169,27 @@ void DMMOTOR::DMmotorOntimer(uint8_t idata[][8], uint8_t* odata)
 		odata[2] = *(vbuf + 2);
 		odata[3] = *(vbuf + 3);
 	}
-	else if (ID == 0x09) //ID 0x09 pitchè½´ç”µæœº é‡‡ç”¨ä½ç½®é€Ÿåº¦æ¨¡å¼
+	else if (ID == 0x09) //ID 0x09 pitchÖáµç»ú ²ÉÓÃÎ»ÖÃËÙ¶ÈÄ£Ê½ 
 	{
-		constexpr float PITCH_STARTUP_SOFT_RANGE_RAD = 0.20f;
-		constexpr float PITCH_SLEW_RAD_PER_SECOND = 0.50f;
-		const uint32_t now_ms = HAL_GetTick();
-		// åªæœ‰ä¸Šä½æœºæ˜ç¡®å‘æ¥æ–°é²œçš„ control=0 æ‰ç®—å®Œæˆå®‰å…¨è§£é”ã€‚
-		// é€šä¿¡æœªå»ºç«‹/è¶…æ—¶æ—¶ mode_TJ ä¹Ÿä¸º0ï¼Œä¸èƒ½æŠŠè¿™ç§é»˜è®¤å€¼å½“ä½œè§£é”æŒ‡ä»¤ã€‚
-		if (xuc.HasFreshAimCommand(now_ms) && !xuc.mode_TJ)
-		{
-			pitch_control_release_seen = true;
-		}
-		if (pitch_reference_valid && pitch_control_release_seen &&
-			static_cast<uint32_t>(now_ms - first_feedback_ms) >= 500U)
-		{
-			pitch_motion_ready = true;
-		}
-		if (!pitch_motion_ready)
-		{
-			set_pitch_pos = startup_pos_pitch;
-			pitch_command_sent = startup_pos_pitch;
-		}
 		if (ctrl.mode == CONTROL::AUTO || ctrl.mode == CONTROL::SHOOT || ctrl.mode == CONTROL::NAVI)
 		{
-			if (xuc.mode_TJ && pitch_motion_ready)
+			if (xuc.mode_TJ)
 			{
 				/*DM_motorPitch.set_pitch_pos = DM_motorPitch.pos + ctrl.pantile.pidAUTO[1].Position(xuc.pitch_TJ - degreeToRadian(imu_gimbal.angle.pitch), 500);*/
 				DM_motorPitch.set_pitch_pos = DM_motorPitch.pos + (xuc.pitch_TJ - degreeToRadian(imu_gimbal.angle.pitch));
 
 			}
-		}
 
-		// ç‰©ç†æ ‡å®šå®Œæˆå‰ï¼Œæ‰€æœ‰æ¨¡å¼éƒ½é™åˆ¶åœ¨æœ¬æ¬¡ä¸Šç”µä½ç½®é™„è¿‘ï¼Œå¹¶ç»Ÿä¸€é™é€Ÿã€‚
-		const float pitch_min = startup_pos_pitch - PITCH_STARTUP_SOFT_RANGE_RAD;
-		const float pitch_max = startup_pos_pitch + PITCH_STARTUP_SOFT_RANGE_RAD;
-		set_pitch_pos = fmaxf(pitch_min, fminf(set_pitch_pos, pitch_max));
-		const uint32_t elapsed_ms = now_ms - last_pitch_command_ms;
-		last_pitch_command_ms = now_ms;
-		const float max_step = PITCH_SLEW_RAD_PER_SECOND *
-			static_cast<float>(elapsed_ms) * 0.001f;
-		const float command_delta = set_pitch_pos - pitch_command_sent;
-		pitch_command_sent += fmaxf(-max_step, fminf(command_delta, max_step));
-		set_pitch_pos = pitch_command_sent;
+			if (DM_motorPitch.set_pitch_pos > DM_motorPitch.DM_pitch_max)
+			{
+				DM_motorPitch.set_pitch_pos = DM_motorPitch.DM_pitch_max;
+			}
+			if (DM_motorPitch.set_pitch_pos < DM_motorPitch.DM_pitch_min)
+			{
+				DM_motorPitch.set_pitch_pos = DM_motorPitch.DM_pitch_min;
+			}
+
+		}
 
 		uint8_t* pbuf1, * vbuf1;
 		pbuf1 = (uint8_t*)&set_pitch_pos;
@@ -277,20 +205,20 @@ void DMMOTOR::DMmotorOntimer(uint8_t idata[][8], uint8_t* odata)
 	}
 }
 
-void DMMOTOR::MotorStart(uint32_t id) //ç”µæœºä½¿èƒ½
+void DMMOTOR::MotorStart(uint32_t id) //µç»úÊ¹ÄÜ
 {
 	uint8_t buf[8] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFC };
 	mcan->Transmit(id, buf, 8);
 }
 
-void DMMOTOR::MotorOff(uint32_t id) //ç”µæœºå¤±èƒ½
+void DMMOTOR::MotorOff(uint32_t id) //µç»úÊ§ÄÜ
 {
 	uint8_t buf[8] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFD };
 	mcan->Transmit(id, buf, 8);
 
 }
 
-void DMMOTOR::MotorZero(uint32_t id) //ä¿å­˜é›¶ç‚¹
+void DMMOTOR::MotorZero(uint32_t id) //±£´æÁãµã
 {
 	uint8_t buf[8] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFE };
 	mcan->Transmit(id, buf, 8);

@@ -73,7 +73,7 @@ public:
 	float max_limit = 1000.0f;
 	float min_limit = 0.f;
 	float m_error[3] = { 0 };
-
+	
 	// 积分清零函数，用于模式切换时防止跳变
 	void ResetIntegral()
 	{

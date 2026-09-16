@@ -20,6 +20,7 @@
 #include "sysclk.h"
 #include "delay.h"
 #include "imu.h"
+#include "calibration_mode.h"
 #include "motor.h"
 #include "RC.h"
 #include "control.h"
@@ -76,11 +77,18 @@ int main(void)
 
 	can2.Init(CAN2);
 	timer.Init(BASE, TIM3, 1000).BaseInit();
-	imu_pantile.Init(&uart1, USART1, 115200, CH010);
+	#if SENTRY_PITCH_ZERO_MODE
+    // Current sentry wiring: small-gimbal IMU on UART3, large IMU on UART5.
+    imu_pantile.Init(&uart3, USART3, 921600, CH010);
+#else
+    imu_pantile.Init(&uart1, USART1, 115200, CH010);
+#endif
 	imu_gimbal.Init(&uart5, UART5, 115200, CH010);
-	rc.Init(&uart3, USART3, 100000);
+	rc.Init(&uart2, USART2, 100000);
 	//power.Init(&uart6, USART6, 9600);
-	judgement.Init(&uart2, 115200, USART2);
+	#if !SENTRY_PITCH_ZERO_MODE
+    judgement.Init(&uart3, 115200, USART3);
+#endif
 	supercap.Init(&uart6, 115200, USART6);
 	xuc.Init(&uart4, UART4, 460800);
 	para.Init();
@@ -92,8 +100,13 @@ int main(void)
 	//DM_motorYaw.MotorStart(0x206);//DM 大Yaw轴电机初始使能，速度模式
 //	DM_motorPitch.MotorStart(0x109);//DM Pitch轴电机初始使能
 	task.Init();
-
+	
 	for (;;)
 
 		;
 }
+
+
+
+
+

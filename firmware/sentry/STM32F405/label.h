@@ -54,34 +54,34 @@ public:
 
 //任务优先级
 #define START_TASK_PRIO		1
-//任务堆栈大小
-#define START_STK_SIZE 		128
+//任务堆栈大小	
+#define START_STK_SIZE 		128  
 //任务句柄
 extern TaskHandle_t StartTask_Handler;
 //任务函数
 
 #define LED_TASK_PRIO		1
-#define LED_STK_SIZE 		128
+#define LED_STK_SIZE 		128  
 extern TaskHandle_t LedTask_Handler;
 
 #define DECODE_TASK_PRIO		3
-#define DECODE_STK_SIZE 		128
+#define DECODE_STK_SIZE 		128  
 extern TaskHandle_t DecodeTask_Handler;
 
-#define RC_TASK_PRIO		3
-#define RC_STK_SIZE 		256
+#define RC_TASK_PRIO		3	
+#define RC_STK_SIZE 		256  
 extern TaskHandle_t RcTask_Handler;
 
 #define CONTROL_TASK_PRIO		2
-#define CONTROL_STK_SIZE 		256
+#define CONTROL_STK_SIZE 		256  
 extern TaskHandle_t ControlTask_Handler;
 
 #define MOTOR_TASK_PRIO		2
-#define MOTOR_STK_SIZE 		256
+#define MOTOR_STK_SIZE 		256  
 extern TaskHandle_t MotorTask_Handler;
 
 #define CANTX_TASK_PRIO		2
-#define CANTX_STK_SIZE 		256
+#define CANTX_STK_SIZE 		256 
 extern TaskHandle_t CanTxTask_Handler;
 
 extern PARAMETER para;

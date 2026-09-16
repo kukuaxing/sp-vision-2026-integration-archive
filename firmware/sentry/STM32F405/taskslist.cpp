@@ -1,5 +1,8 @@
 #include "label.h"
 #include "taskslist.h"
+#include "calibration_mode.h"
+#include "pitch_zero.h"
+extern void GimbalDiagnosticUpdate();
 #include "can.h"
 #include "motor.h"
 #include "imu.h"
@@ -10,8 +13,8 @@
 #include "delay.h"
 #include "DMmotor.h"
 #include "nuc.h"
-#include "PowerLimiter.h" // 寮曞叆澶存枃浠?
-#include "judgement.h"    // 璇诲彇瑁佸垽绯荤粺鍔熺巼涓婇檺
+#include "PowerLimiter.h" // 引入头文件
+#include "judgement.h"    // 读取裁判系统功率上限
 #include "supercap.h"
 
 extern float Kp = 10;
@@ -19,23 +22,23 @@ extern float Kd = 0.6;
 extern int start_flag;
 void TASK::Init()
 {
-	//鍒涘缓寮€濮嬩换鍔?
-	xTaskCreate((TaskFunction_t)start_task,            //浠诲姟鍑芥暟
-		(const char*)"start_task",          //浠诲姟鍚嶇О
-		(uint16_t)START_STK_SIZE,        //浠诲姟鍫嗘爤澶у皬
-		(void*)NULL,                  //浼犻€掔粰浠诲姟鍑芥暟鐨勫弬鏁?
-		(UBaseType_t)START_TASK_PRIO,       //浠诲姟浼樺厛绾?
-		(TaskHandle_t*)&StartTask_Handler);   //浠诲姟鍙ユ焺
-	vTaskStartScheduler();          //寮€鍚换鍔¤皟搴?
+	//创建开始任务
+	xTaskCreate((TaskFunction_t)start_task,            //任务函数
+		(const char*)"start_task",          //任务名称
+		(uint16_t)START_STK_SIZE,        //任务堆栈大小
+		(void*)NULL,                  //传递给任务函数的参数
+		(UBaseType_t)START_TASK_PRIO,       //任务优先级
+		(TaskHandle_t*)&StartTask_Handler);   //任务句柄              
+	vTaskStartScheduler();          //开启任务调度
 }
 
 /*
-寮€濮嬩换鍔′换鍔″嚱鏁?
+开始任务任务函数
 */
 void start_task(void* pvParameters)
 {
-	taskENTER_CRITICAL();           //杩涘叆涓寸晫鍖?
-	//鍒涘缓浠诲姟
+	taskENTER_CRITICAL();           //进入临界区
+	//创建任务
 
 	xTaskCreate((TaskFunction_t)DecodeTask,
 		(const char*)"DecodeTask",
@@ -65,13 +68,13 @@ void start_task(void* pvParameters)
 		(UBaseType_t)CONTROL_TASK_PRIO,
 		(TaskHandle_t*)&ControlTask_Handler);
 
-	vTaskDelete(StartTask_Handler); //鍒犻櫎寮€濮嬩换鍔?
-	taskEXIT_CRITICAL();            //閫€鍑轰复鐣屽尯
+	vTaskDelete(StartTask_Handler); //删除开始任务
+	taskEXIT_CRITICAL();            //退出临界区
 }
 int CNT = 0;
 void MotorUpdateTask(void* pvParameters)
 {
-    // 鍒濆鍖栧姛鐜囬檺鍒跺櫒
+    // 初始化功率限制器
     static bool power_limit_init = false;
     static uint32_t last_power_feedback_seq = 0;
     static bool bypass_power_limit_last = false;
@@ -84,24 +87,24 @@ void MotorUpdateTask(void* pvParameters)
     {
         TickType_t xlastWakeTime = xTaskGetTickCount();
 
-        // 1. 璁＄畻 PID (Ontimer 浼氭洿鏂?motor.current)
+        // 1. 计算 PID (Ontimer 会更新 motor.current)
         for (auto& motor : can1_motor) motor.Ontimer(can1.data, can1.temp_data);
         for (auto& motor : can2_motor) motor.Ontimer(can2.data, can2.temp_data);
 
-        // 浜戝彴鐢垫満
+        // 云台电机
         DM_motorYaw.DMmotorOntimer(can2.DMmotor_data, can2.DMmotor_temp_data_yaw);
         DM_motorPitch.DMmotorOntimer(can1.DMmotor_data, can1.DMmotor_temp_data_pitch);
 
         // =================================================================
-        // 2. 鍔熺巼闄愬埗璁＄畻
+        // 2. 功率限制计算
         // =================================================================
-
+      
 		// Read the referee power limit. Fall back to 80W when the referee is offline.
 		float ref_limit = (judgement.data.robot_status_t.chassis_power_limit > 10)
 			? (float)judgement.data.robot_status_t.chassis_power_limit
 			: 80.0f;
-
-
+		
+	
 
       const bool bypass_power_limit = (ctrl.mode == CONTROL::FOLLOW);
 
@@ -139,32 +142,32 @@ void MotorUpdateTask(void* pvParameters)
 		bypass_power_limit_last = bypass_power_limit;
 
         // =================================================================
-        // 3. 銆愬叧閿慨姝ｃ€戝皢闄愬埗鍚庣殑鐢垫祦瀹夊叏鍥炲～鍒?CAN2 缂撳啿鍖?
+        // 3. 【关键修正】将限制后的电流安全回填到 CAN2 缓冲区
         // =================================================================
 
-        // 鎴戜滑鐩存帴閬嶅巻 ctrl.chassis_motor锛岀‘淇濆彧澶勭悊搴曠洏鐢垫満
+        // 我们直接遍历 ctrl.chassis_motor，确保只处理底盘电机
         for (int i = 0; i < CHASSIS_MOTOR_NUM; i++) {
             Motor* m = ctrl.chassis_motor[i];
             if (m == nullptr) continue;
 
-            // 涓存椂鍙橀噺瀛樺偍鐢垫祦锛屾柟渚跨Щ浣嶆搷浣?
+            // 临时变量存储电流，方便移位操作
             int16_t safe_current = m->current;
 
-            // 鐩爣缂撳啿鍖烘寚閽?
+            // 目标缓冲区指针
             uint8_t* pBuffer = nullptr;
             int buffer_index = -1;
 
             // -------------------------------------------------------------
-            // 缁濆 ID 鏄犲皠 (Hardcoded Mapping) - 涓撴不鏁版嵁閿欎綅
+            // 绝对 ID 映射 (Hardcoded Mapping) - 专治数据错位
             // -------------------------------------------------------------
-            // 鏍规嵁澶х枂鐢佃皟鍗忚锛?
-            // ID 1 (0x201) -> 0x200甯?鐨?Byte 0, 1
-            // ID 2 (0x202) -> 0x200甯?鐨?Byte 2, 3
-            // ID 3 (0x203) -> 0x200甯?鐨?Byte 4, 5
-            // ID 4 (0x204) -> 0x200甯?鐨?Byte 6, 7
+            // 根据大疆电调协议：
+            // ID 1 (0x201) -> 0x200帧 的 Byte 0, 1
+            // ID 2 (0x202) -> 0x200帧 的 Byte 2, 3
+            // ID 3 (0x203) -> 0x200帧 的 Byte 4, 5
+            // ID 4 (0x204) -> 0x200帧 的 Byte 6, 7
 
-            // 鏃㈢劧浣犺鐢垫満鍦?CAN2锛屾垜浠彧鎿嶄綔 can2.temp_data
-            // 娉ㄦ剰锛欳anTransimtTask 閲屽彂閫?0x200 鐢ㄧ殑鏄?can2.temp_data
+            // 既然你说电机在 CAN2，我们只操作 can2.temp_data
+            // 注意：CanTransimtTask 里发送 0x200 用的是 can2.temp_data
 
             if (m->ID == 0x205) {
                 pBuffer = can2.temp_data;
@@ -183,10 +186,10 @@ void MotorUpdateTask(void* pvParameters)
                 buffer_index = 14;
             }
 
-            // 鍙湁鍖归厤鍒颁簡鎵嶅啓鍏ワ紝闃叉鏁扮粍瓒婄晫鎴栧啓閿欎綅缃?
+            // 只有匹配到了才写入，防止数组越界或写错位置
             if (pBuffer != nullptr && buffer_index >= 0) {
-                pBuffer[buffer_index] = (safe_current >> 8) & 0xFF; // 楂?浣?
-                pBuffer[buffer_index + 1] = safe_current & 0xFF;        // 浣?浣?
+                pBuffer[buffer_index] = (safe_current >> 8) & 0xFF; // 高8位
+                pBuffer[buffer_index + 1] = safe_current & 0xFF;        // 低8位
             }
         }
 
@@ -200,12 +203,38 @@ void CanTransimtTask(void* pvParameters)
 	{
 
 		TickType_t xlastWakeTime1 = xTaskGetTickCount();
+#if SENTRY_PITCH_ZERO_MODE
+		PitchZeroUpdate();
+		GimbalDiagnosticUpdate();
+		vTaskDelay(pdMS_TO_TICKS(5));
+		continue;
+#endif
+#if SENTRY_CALIBRATION_READ_ONLY
+		static bool disable_sent = false;
+		static uint32_t last_disable = 0;
+		const uint32_t now = HAL_GetTick();
+		if (!disable_sent || now - last_disable >= 500) {
+			const uint8_t disable[8] = {255,255,255,255,255,255,255,0xFD};
+			can1.Transmit(0x109, disable, 8);
+			disable_sent = true; last_disable = now;
+		}
+		// DaMiao status refresh: no enable, motion, parameter write or zero command.
+		const uint8_t query[8] = {0x09, 0x00, 0xCC, 0, 0, 0, 0, 0};
+		can1.Transmit(0x7FF, query, 8);
+		vTaskDelay(pdMS_TO_TICKS(50));
+		continue;
+#endif
 
 		switch ((timer.counter++) % 4)
 		{
 		case 0:
 			DM_motorYaw.DMmotorTransmit(0x206);
 			DM_motorPitch.DMmotorTransmit(0x109);
+			if (timer.counter % 250 == 4)
+			{
+				DM_motorYaw.MotorStart(0x206);
+				DM_motorPitch.MotorStart(0x109);
+			}
 			break;
 		case 1:
 			can1.Transmit(0x1ff, can1.temp_data + 8);
@@ -222,8 +251,8 @@ void CanTransimtTask(void* pvParameters)
 		default:
 			break;
 		}
-
-		vTaskDelayUntil(&xlastWakeTime1, pdMS_TO_TICKS(1));//寮€濮嬫墽琛岃浠诲姟涔嬪悗1ms鍐嶆墽琛岃浠诲姟
+		
+		vTaskDelayUntil(&xlastWakeTime1, pdMS_TO_TICKS(1));//开始执行该任务之后1ms再执行该任务
 
 	}
 }
@@ -232,6 +261,10 @@ void ControlTask(void* pvParameters)
 {
 	while (true)
 	{
+#if SENTRY_PITCH_ZERO_MODE
+		vTaskDelay(pdMS_TO_TICKS(5));
+		continue; // Dedicated gimbal controller owns commands in calibration mode.
+#endif
 		ctrl.chassis.Update();
 		ctrl.pantile.Update();
 		ctrl.shooter.Update();
@@ -252,10 +285,21 @@ void DecodeTask(void* pvParameters)
 		imu_pantile.Decode();
 		imu_gimbal.Decode();
        supercap.decode();
-		judgement.BuffData();
-		judgement.GetData();
+#if !SENTRY_PITCH_ZERO_MODE
+        judgement.BuffData();
+        judgement.GetData();
+#endif
        supercap.encode();
-		judgement.SendData();
+#if !SENTRY_PITCH_ZERO_MODE
+        judgement.SendData();
+#endif
 		vTaskDelay(5);
 	}
 }
+
+
+
+
+
+
+
