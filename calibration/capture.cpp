@@ -8,6 +8,7 @@
 #include <stdexcept>
 
 #include "io/camera.hpp"
+#include "calibration/imu_pose.hpp"
 #include "io/cboard.hpp"
 #include "io/xuc.hpp"
 #include "tools/cmdline.hpp"
@@ -19,7 +20,8 @@ const std::string keys =
   "{help h usage ?  |                          | 输出命令行参数说明}"
   "{@config-path c  | configs/calibration.yaml | yaml配置文件路径 }"
   "{output-folder o | data/calibration/sentry_intrinsics | 输出文件夹路径 }"
-  "{intrinsics-only |                          | 仅采集内参图像，不读取或保存姿态 }";
+  "{intrinsics-only |                          | 仅采集内参图像，不读取或保存姿态 }"
+  "{pose-check      | 0                        | 只读检查HI91姿态的秒数，不打开相机 }";
 
 void write_q(const std::string q_path, const Eigen::Quaterniond & q)
 {
@@ -32,14 +34,14 @@ void write_q(const std::string q_path, const Eigen::Quaterniond & q)
 
 void capture_loop(
   const std::string & config_path, const std::string & output_folder,
-  int pattern_cols, int pattern_rows, bool use_cboard, bool use_xuc)
+  int pattern_cols, int pattern_rows, bool use_cboard, bool use_xuc, bool use_hipnuc)
 {
   // CBoard 构造函数会阻塞等待 C 板 CAN 四元数帧。
-  // 没有 C 板时（仅做内参标定）跳过，四元数以单位四元数代替。
+  // 没有 C 板时（仅做内参标定）跳过，不保存姿态文件。
   std::unique_ptr<io::CBoard> cboard;
   if (use_cboard) {
     cboard = std::make_unique<io::CBoard>(config_path);
-  } else if (!use_xuc) {
+  } else if (!use_xuc && !use_hipnuc) {
     tools::logger()->warn("require_cboard=false: 未读取C板四元数，仅适用于内参标定");
   }
   std::unique_ptr<io::XucSender> xuc;
@@ -50,6 +52,12 @@ void capture_loop(
     }
     tools::logger()->info(
       "使用 XUC 串口姿态采集；capture 不发送任何控制或射击命令");
+  }
+  std::unique_ptr<CalibrationImu> hipnuc;
+  if (use_hipnuc) {
+    const auto cfg=YAML::LoadFile(config_path);
+    hipnuc=std::make_unique<CalibrationImu>(cfg["xuc_serial_port"].as<std::string>(),
+                                          cfg["xuc_serial_baud"].as<uint32_t>());
   }
   io::Camera camera(config_path);
   cv::Mat img;
@@ -72,8 +80,14 @@ void capture_loop(
   while (true) {
     camera.read(img, timestamp);
     Eigen::Quaterniond q = Eigen::Quaterniond::Identity();
-    bool pose_valid = !cboard && !xuc;
-    if (cboard) {
+    bool pose_valid = !cboard && !xuc && !hipnuc;
+    bool pose_stable = true;
+    if (hipnuc) {
+      const auto pose=hipnuc->sample();
+      q=pose.q;
+      pose_valid=CalibrationImu::fresh(pose);
+      pose_stable=CalibrationImu::can_save(pose);
+    } else if (cboard) {
       q = cboard->imu_at(timestamp);
       pose_valid = true;
     } else if (xuc && xuc->rx_valid()) {
@@ -92,6 +106,9 @@ void capture_loop(
     if (!pose_valid) {
       tools::draw_text(img_with_info, "IMU INVALID - DO NOT SAVE", {10, 150}, {0, 0, 255}, 1.0, 2);
     }
+
+    if (hipnuc && pose_valid && !pose_stable)
+      tools::draw_text(img_with_info, "Hold still for 0.5 s before saving", {10, 180}, {0, 255, 255});
 
     // HikRobot camera frames are RGB.  Detect on an explicitly converted
     // grayscale image; OpenCV display and image files use BGR ordering.
@@ -137,8 +154,8 @@ void capture_loop(
         tools::logger()->warn("未检测到棋盘格，无法保存！");
         continue;
       }
-      if (!pose_valid) {
-        tools::logger()->warn("XUC/IMU 姿态无效，拒绝保存这一帧");
+      if (!pose_valid || !pose_stable) {
+        tools::logger()->warn("姿态无效或尚未停稳，拒绝保存这一帧");
         continue;
       }
 
@@ -149,7 +166,7 @@ void capture_loop(
       cv::Mat saved_bgr;
       cv::cvtColor(img, saved_bgr, cv::COLOR_RGB2BGR);
       cv::imwrite(img_path, saved_bgr);
-      if (cboard || xuc) write_q(q_path, q); // No synthetic identity poses for intrinsic images.
+      if (cboard || xuc || hipnuc) write_q(q_path, q); // No synthetic identity poses for intrinsic images.
       tools::logger()->info("[{}] Saved to {} (corners: {})", count, output_folder, corners.size());
     }
   }
@@ -172,11 +189,22 @@ int main(int argc, char * argv[])
   auto config_path = cli.get<std::string>(0);
   auto output_folder = cli.get<std::string>("output-folder");
 
-  // 新建输出文件夹
-  std::filesystem::create_directories(output_folder);
 
   // 读取标定板尺寸
   auto yaml = YAML::LoadFile(config_path);
+  const bool hipnuc_config = yaml["calibration_pose_source"] &&
+      yaml["calibration_pose_source"].as<std::string>() == "hipnuc";
+  const auto check_seconds=cli.get<double>("pose-check");
+  if (check_seconds > 0) {
+    if (!hipnuc_config) throw std::runtime_error("pose-check requires calibration_pose_source: hipnuc");
+    CalibrationImu imu(yaml["xuc_serial_port"].as<std::string>(), yaml["xuc_serial_baud"].as<uint32_t>());
+    std::this_thread::sleep_for(std::chrono::duration<double>(std::min(check_seconds, 30.0)));
+    const auto pose=imu.sample();
+    fmt::print("HI91 samples={} fresh={} stationary={} device_ms={} q(wxyz)=[{}, {}, {}, {}]\n",
+      pose.count, CalibrationImu::fresh(pose), CalibrationImu::can_save(pose), pose.device_ms,
+      pose.q.w(), pose.q.x(), pose.q.y(), pose.q.z());
+    return CalibrationImu::fresh(pose) ? 0 : 2;
+  }
   int pattern_cols = yaml["pattern_cols"].as<int>();
   int pattern_rows = yaml["pattern_rows"].as<int>();
 
@@ -189,11 +217,17 @@ int main(int argc, char * argv[])
     use_cboard = false;
   }
 
+  bool use_hipnuc=hipnuc_config;
+  if (use_hipnuc) { use_cboard=false; use_xuc=false; }
   if (cli.has("intrinsics-only")) {
+    use_hipnuc=false;
     use_cboard = false;
     use_xuc = false;
   }
-  const std::string kind = (use_cboard || use_xuc) ? "image_and_pose" : "intrinsics_only";
+  if (use_hipnuc && (!yaml["calibration_pose_verified"] || !yaml["calibration_pose_verified"].as<bool>()))
+    throw std::runtime_error("Verify small-Y AND pitch pose response and mounting axes before hand-eye capture");
+  std::filesystem::create_directories(output_folder);
+  const std::string kind = (use_cboard || use_xuc || use_hipnuc) ? "image_and_pose" : "intrinsics_only";
   const auto marker = std::filesystem::path(output_folder) / "dataset_kind.txt";
   if (std::filesystem::exists(marker)) {
     std::ifstream in(marker); std::string existing; in >> existing;
@@ -204,8 +238,21 @@ int main(int argc, char * argv[])
     std::ofstream(marker) << kind << "\n";
   }
 
+  if (use_hipnuc) {
+    const auto source=std::filesystem::path(output_folder)/"pose_source.txt";
+    if (std::filesystem::exists(source)) {
+      std::ifstream in(source); std::string value; in >> value;
+      if (value != "hipnuc_uart3_wxyz") throw std::runtime_error("Different pose source in dataset");
+    } else {
+      for (const auto& e:std::filesystem::directory_iterator(output_folder))
+        if (e.path().extension()==".jpg")
+          throw std::runtime_error("Existing images have no verified HI91 pose source");
+      std::ofstream(source) << "hipnuc_uart3_wxyz\n";
+    }
+  }
+
   // 主循环，保存图片和对应四元数
-  capture_loop(config_path, output_folder, pattern_cols, pattern_rows, use_cboard, use_xuc);
+  capture_loop(config_path, output_folder, pattern_cols, pattern_rows, use_cboard, use_xuc, use_hipnuc);
 
   tools::logger()->warn("注意四元数输出顺序为wxyz");
 

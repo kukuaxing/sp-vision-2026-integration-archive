@@ -16,8 +16,4 @@ CAN 接收分界修正为 14，过滤器在接收中断前初始化；错误回�
 小 Y 手动辨识已确认对应 CAN1 0x205，现已加入编码器闭环，左摇杆左右控制。仅 CAN1 0x1FF 首个槽位放行，其余槽位为零；最大指令 2500，目标速度 0.10 rad/s、范围 ±0.18 rad。修复反馈时间戳的无符号减法误超时。最新版已烧录并完整读回，但当前所有 CAN 电机均无反馈、程序保持保护，尚未完成小 Y 运动验收；详见 FLASH_REPORT.md。
 
 
-HI91解析修复仅完成源码和构建，尚未烧录：imu_packet.h按HiPNUC原始传感器坐标解析roll/pitch/yaw和wxyz四元数；不能把原始轴直接当作安装后的云台轴。tools/test_imu_packet.cpp为实际帧、CRC、截断及异常数值回归，可用g++ -std=c++14 -fsanitize=address,undefined构建运行。新IMU队列将实际长度与内容一起复制，未收到新帧时不解码，不影响遥控等原有字节队列。
-
-
-现场接线已由用户确认：小Y IMU在UART3，大Y IMU在UART5。原固件错读USART1并让裁判系统占用USART3。接收侧波特率检查确认UART3在921600收到82字节HI91及CRC有效帧（115200/230400/460800未得到有效帧）；测试后已恢复寄存器。
-源码已将专用标定模式的小Y IMU改为USART3 921600，大Y保留UART5 115200，禁用标定模式下裁判系统对USART3的占用。校验通过的小Y原始HI91帧经UART4 460800单向转发给小电脑，保留四元数与设备时间戳；DMA忙时跳过，不改写正在发送的缓冲区。尚待烧录后的回传和双轴响应验证；旧capture的XUC解析不兼容该HI91数据。
+当前HI91修复及UART3端口/波特率修正已烧录，证据见FLASH_REPORT.md。imu_packet.h按厂家字段顺序解析原始传感器轴与wxyz四元数，保留时间戳和计数；安装后的云台坐标仍待验证。tests/calibration_pose_test.py通过PTY验证实际capture接收器，firmware/sentry/tools/test_imu_packet.cpp验证真实数据帧。

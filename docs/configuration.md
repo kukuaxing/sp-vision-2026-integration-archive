@@ -1,31 +1,30 @@
 # 配置与标定状态
 
-只编辑 `configs/standard.yaml`。启动器读取它并生成 `logs/xuc-bringup/field_autoaim.runtime.yaml`，仅覆盖已保存的敌方颜色。不要修改这个生成文件；下次启动会重建。
+正式运行配置为configs/standard.yaml，标定工具配置为configs/calibration.yaml。启动器生成的logs/xuc-bringup/field_autoaim.runtime.yaml是缓存；不要将它作为另一份配置源。颜色选择保存在~/.config/sp-vision/field_autoaim_enemy_color。
 
-颜色保存在 `~/.config/sp-vision/field_autoaim_enemy_color`。标定工具使用 `configs/calibration.yaml`，其历史外参与正式运行配置并不相同；二者用途不同，不能互相覆盖。
+## 内参：已完成
 
-用户最新安装测量：机器人中心为原点，X前、Y左、Z上，右手系；光心(15,0,50) cm，机身(10,0,50) cm，炮口(10,0,45) cm。测量记录尚未应用。代码中的相机、云台、IMU坐标原点和轴定义仍需核对，再完成标定。
+2026-09-17，海康MV-CS016-10UC、1440×1080。DFvision Q12-200-15，12×9方格、11×8内角点；格长15 mm由用户确认。29张图像全部识别，k3固定为0。平均逐点重投影距离0.0894 px，RMS 0.10465 px。
+留出6张检查的RMS为0.0580～0.1672 px；每张仍拟合自身板姿态，不等于独立距离精度验证。23张训练与29张全量的fx/fy差分别为-0.0707%/-0.0569%。角点覆盖凸包约60.7%，极边缘未完全覆盖。
+结果已写入两个现有配置。原始数据为data/calibration/sentry_intrinsics，详细质量记录为logs/calibration-quality.json。镜头焦距、对焦、分辨率或裁剪改变需重新核对。
+内参采集：`./build/capture configs/calibration.yaml --intrinsics-only -o=data/calibration/sentry_intrinsics`；s保存、q退出。只保存图像，不生成姿态文件。
+计算：`./build/calibrate_camera data/calibration/sentry_intrinsics -c=configs/calibration.yaml --no-display`。
 
-标定源文件在 `calibration/`；原始采集资料集中保留于小电脑 `data/`。旧实验配置和旧报告已清除，工作区不保留候选参数副本。
+## 姿态：回传已接通，双轴响应待确认
 
-## 当前哨兵标定采集
+用户确认小Y IMU在UART3，大Y IMU在UART5。现场接收测试确定小Y为921600，大Y为115200。原固件错误地从USART1读小Y、将USART3用于裁判系统，且HI91长度拼接、CRC和字段读取有问题。
+当前专用标定固件已修正并烧录：USART3由小Y IMU独占，标定模式禁用冲突的裁判收发；UART4 460800只读转发校验通过的小Y HI91完整帧，保留原始wxyz四元数、设备时间戳与CRC。串口DMA忙时丢弃新发包，不覆盖在途缓冲。没有恢复旧自瞄控制任务。
+两路IMU均约100 Hz。小电脑5秒收到500帧、CRC错误0；capture --pose-check=3收到299帧、fresh=true、stationary=true。实际回传通过，但还不能以静止接收代替两轴运动及安装坐标验证。
+此前约40秒只读记录中小Y摆幅13.49°、P摆幅10.39°，大Y/UART5的CRC有效姿态不变；这与大Y安装位置相符。SWD在运行中读取DMA缓冲可能跨帧，快照CRC失败不用于估算串口误码率。
+协议参考：[HiPNUC官方解码器](https://github.com/hipnuc/products/blob/master/c/hipnuc/hipnuc_dec.c)。传感器原始轴和欧拉角约定不直接等同本车云台坐标，手眼采用原始完整四元数。
 
-使用 DFvision Q12-200-15 棋盘格，12×9 方格、11×8 内角点；用户确认格长 15 mm。维护现有 configs/calibration.yaml 和 configs/standard.yaml，不创建配置副本。相机当前取流 1440×1080，内参数据统一保存 data/calibration/sentry_intrinsics。
-采集命令：`./build/capture configs/calibration.yaml --intrinsics-only -o=data/calibration/sentry_intrinsics`。启动前沿用现有现场启动器的 MVS 环境变量（/opt/MVS/lib/64 等），不要复制 SDK。按 s 保存有效角点图像、q 退出；内参模式不打开姿态串口、不保存伪造姿态。再次进入同一数据目录会接续编号，不覆盖已有图像。
-相机内参已由本次29张图像更新（平均误差0.0894 px、RMS 0.10465 px），同步写入现有 calibration.yaml 和 standard.yaml；外参仍为旧安装结果，尚未由本次数据替换。手眼标定需先验证哨兵固件姿态输出、上位机协议解析与坐标定义，不能使用缺失姿态的图像求外参。
+## 外参：尚未完成
 
+当前P轴state=4/fault=3，位置超出保存目标±0.20 rad启动范围，保持失能；小Y遥控未放行。等待用户用支撑物托回原保存角度附近、手离开、摇杆回中后检查。没有扩大启动范围或更改保存目标32685。
+恢复后先验证小Y姿态分别响应小Y和P，并确认IMU与相机刚性连接关系、轴方向和R_gimbal2imubody。若IMU只随小Y而不随P，需要正确的机构变换，不能直接套用现有手眼模型。
+`calibration_pose_source: hipnuc`选择只读HI91接收；`calibration_pose_verified: false`会阻止外参保存，姿态验证完成后才修改。旧XUC解析保持原样，不与HI91混解。
+采集工具支持`--pose-check=3`，仅检查姿态，不打开相机；正常采集要求姿态更新不超过100 ms、角速度小于2°/s且0.5秒内转角小于0.5°。断流、重复时间或未停稳均拒绝保存。数据目录保存来源标记hipnuc_uart3_wxyz，避免混入旧姿态样本。
+全部现场角点与姿态确认后，固定棋盘、只转动相机采集data/calibration/sentry_handeye；计算并检查外参后再更新现有配置。当前R_camera2gimbal、t_camera2gimbal、R_gimbal2imubody仍是旧安装值，不能视为哨兵实测。
 
-## 姿态链路检查（2026-09-17）
-
-内参已完成并写入两个现有配置；当前阻塞项是外参所需的相机刚性连接姿态源。
-用户遥控配合的约40秒只读采集中，小Y编码器变化13.49°，P轴变化10.39°。共131组SWD快照，UART5有60组通过HI91完整帧CRC校验；其设备时间戳增长，但roll/pitch/yaw和四元数完全不变。USART1缓存全零、接收长度为0。SWD读取运行中的DMA内存可能跨帧，剩余快照未通过CRC，不能据此推算串口误码率。
-这支持“UART5当前姿态不能用于小Y+P相机手眼”的结论，不能单凭此断定具体安装位置或传感器故障。需要确认相机支架上的IMU、电源和信号线，并验证它分别响应两根轴。
-小电脑串口以460800波特率只读2秒收到0字节；当前专用云台模式跳过xuc.Encode，而采集程序仍按旧步兵XUC格式读取。不能直接恢复旧哨兵发送函数并假设协议兼容。
-
-当前源码已修正HI91长度和CRC检查（前4字节及payload）、roll/pitch线序、未收到新包仍反复解码旧缓存的问题。IMU使用独立的带长度队列，保存原始四元数、设备时间、有效/错误/重复帧计数。仅支持现场已确认的单包82字节HI91；截断、拼包和其他类型拒绝，不宣称已支持通用串口流解析。传感器轴还未转换为本车云台轴。
-协议核对依据：[HiPNUC官方解码器](https://github.com/hipnuc/products/blob/master/c/hipnuc/hipnuc_dec.c)。固件构建通过，真实帧及CRC/长度/非有限值/四元数回归测试通过（ASan/UBSan）；云台控制器3组回归通过。
-**这次修复仅完成源码和构建，尚未烧录或进行新固件实机验收。** 车上仍是FLASH_REPORT.md记载的低速控制镜像，内参无需重采。下一步先解决姿态源，再适配只读姿态传输、完整四元数和坐标变换，最后固定棋盘、转动相机采集外参。旧外参不作为哨兵有效结果。
-
-
-现场接线已由用户确认：小Y IMU在UART3，大Y IMU在UART5。原固件错读USART1并让裁判系统占用USART3。接收侧波特率检查确认UART3在921600收到82字节HI91及CRC有效帧（115200/230400/460800未得到有效帧）；测试后已恢复寄存器。
-源码已将专用标定模式的小Y IMU改为USART3 921600，大Y保留UART5 115200，禁用标定模式下裁判系统对USART3的占用。校验通过的小Y原始HI91帧经UART4 460800单向转发给小电脑，保留四元数与设备时间戳；DMA忙时跳过，不改写正在发送的缓冲区。尚待烧录后的回传和双轴响应验证；旧capture的XUC解析不兼容该HI91数据。
+用户之前提供的机器人中心坐标为X前/Y左/Z上，光心(15,0,50) cm、机身(10,0,50) cm、炮口(10,0,45) cm；这些记录尚未应用，不能替代相机—云台手眼结果。
+运行相机工具前沿用现场MVS环境变量（/opt/MVS/lib/64等），不复制SDK。
