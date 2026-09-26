@@ -13,7 +13,9 @@
 #include <thread>
 #include <vector>
 
+#ifdef __linux__
 #include <sched.h>
+#endif
 
 #include "tools/img_tools.hpp"
 #include "tools/logger.hpp"
@@ -72,6 +74,7 @@ BigCoreInfo get_big_core_info()
 
 bool bind_current_thread_to_cores(const std::vector<int> & cores)
 {
+#ifdef __linux__
   if (cores.empty()) {
     return false;
   }
@@ -81,6 +84,10 @@ bool bind_current_thread_to_cores(const std::vector<int> & cores)
     CPU_SET(cpu, &cpuset);
   }
   return sched_setaffinity(0, sizeof(cpuset), &cpuset) == 0;
+#else
+  (void)cores;
+  return false;
+#endif
 }
 }  // namespace
 YOLO26::YOLO26(const std::string & config_path, bool debug)
@@ -170,7 +177,9 @@ YOLO26::YOLO26(const std::string & config_path, bool debug)
 
   // 🚀 优化1: 大核绑定，提升推理性能
   std::vector<int> big_cores;
-  const auto big_info = get_big_core_info();
+  const bool bind_big_cores = !yaml["yolo26_bind_big_cores"] ||
+    yaml["yolo26_bind_big_cores"].as<bool>();
+  const auto big_info = bind_big_cores ? get_big_core_info() : BigCoreInfo{};
   big_cores = big_info.ids;
   const int cpu_cores = static_cast<int>(std::thread::hardware_concurrency());
 
@@ -758,7 +767,7 @@ void YOLO26::draw_detections(
 void YOLO26::save(const Armor & armor) const
 {
   auto file_name = fmt::format("{:%Y-%m-%d_%H-%M-%S}", std::chrono::system_clock::now());
-  auto img_path = fmt::format("{}/{}_{}.jpg", save_path_, armor.name, file_name);
+  auto img_path = fmt::format("{}/{}_{}.jpg", save_path_, static_cast<int>(armor.name), file_name);
 
   // 相机输出是RGB格式，需要转换为BGR才能正确保存
   cv::Mat bgr_img;

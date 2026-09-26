@@ -1,5 +1,17 @@
 cmake_minimum_required(VERSION 3.16.3)
 
+# Explicit offline build: never discovers/links device SDKs, ROS or CUDA.
+# This also makes the real geometry/estimator sources testable on Windows.
+option(SP_BUILD_OFFLINE_ONLY "Build bounded offline regression programs only" OFF)
+if(SP_BUILD_OFFLINE_ONLY)
+  project(sp_vision_offline LANGUAGES CXX)
+  set(CMAKE_CXX_STANDARD 17)
+  set(CMAKE_CXX_STANDARD_REQUIRED ON)
+  enable_testing()
+  add_subdirectory(tests/offline)
+  return()
+endif()
+
 # 设置 CUDA 架构策略（必须在 project() 之前）
 if(POLICY CMP0104)
   cmake_policy(SET CMP0104 NEW)

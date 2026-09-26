@@ -53,6 +53,10 @@ public:
     const std::vector<std::pair<Armor, int>> & observations, int primary_armor_id);
 
   Eigen::VectorXd ekf_x() const;
+  // Sample the current kinematic mean at a relative time (negative allowed).
+  // This is not a filter prediction/update: covariance, time and trust stay
+  // unchanged. Used by the planner's centered finite-difference trajectory.
+  Eigen::VectorXd ekf_x_at(double relative_time_s) const;
   const tools::ExtendedKalmanFilter & ekf() const;
   bool yaw_eskf_trusted() const;
   double yaw_eskf_angle() const;
@@ -65,6 +69,7 @@ public:
   Eigen::Vector3d armor_motion_velocity(int id) const;
   double armor_motion_nis(int id) const;
   std::vector<Eigen::Vector4d> armor_xyza_list(bool prefer_direct_motion = false) const;
+  std::vector<Eigen::Vector4d> armor_xyza_list_at(double relative_time_s) const;
   int armor_num() const;
 
   bool diverged() const;

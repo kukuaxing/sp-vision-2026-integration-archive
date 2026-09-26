@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <limits>
 #include <numeric>
+#include <stdexcept>
 #include <utility>
 
 #include "measurement_noise.hpp"
@@ -67,7 +68,10 @@ Target::Target(
   armor_motion_filters_[0].reset(xyz.head<3>());
 }
 
-Target::Target(double x, double vyaw, double radius, double h) : armor_num_(4)
+Target::Target(double x, double vyaw, double radius, double h)
+: name(ArmorName::sentry), armor_type(ArmorType::small), priority(ArmorPriority::first),
+  jumped(false), last_id(0), armor_num_(4), switch_count_(0), update_count_(0),
+  is_switch_(false), is_converged_(false), t_(std::chrono::steady_clock::time_point{})
 {
   Eigen::VectorXd x0{{x, 0, 0, 0, 0, 0, 0, vyaw, radius, 0, h}};
   Eigen::VectorXd P0_dig{{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}};
@@ -415,6 +419,23 @@ Eigen::VectorXd Target::ekf_x() const
   return state;
 }
 
+Eigen::VectorXd Target::ekf_x_at(double relative_time_s) const
+{
+  if (!std::isfinite(relative_time_s)) {
+    throw std::invalid_argument("Target sampling time must be finite");
+  }
+  Eigen::VectorXd state = ekf_x();
+  if (state.size() < 11) throw std::logic_error("Cannot sample an uninitialized Target");
+  for (int position : {0, 2, 4}) state[position] += state[position + 1] * relative_time_s;
+  const double acceleration = yaw_eskf_.trusted() ? yaw_eskf_.acceleration() : 0.0;
+  state[6] += state[7] * relative_time_s +
+    0.5 * acceleration * relative_time_s * relative_time_s;
+  state[7] += acceleration * relative_time_s;
+  if (!state.allFinite()) throw std::invalid_argument("Target sampling horizon overflow");
+  state[6] = tools::limit_rad(state[6]);
+  return state;
+}
+
 const tools::ExtendedKalmanFilter & Target::ekf() const { return ekf_; }
 
 bool Target::yaw_eskf_trusted() const { return yaw_eskf_.trusted(); }
@@ -466,6 +487,19 @@ std::vector<Eigen::Vector4d> Target::armor_xyza_list(bool prefer_direct_motion) 
     _armor_xyza_list.push_back({xyz[0], xyz[1], xyz[2], angle});
   }
   return _armor_xyza_list;
+}
+
+std::vector<Eigen::Vector4d> Target::armor_xyza_list_at(double relative_time_s) const
+{
+  const Eigen::VectorXd state = ekf_x_at(relative_time_s);
+  std::vector<Eigen::Vector4d> list;
+  list.reserve(armor_num_);
+  for (int i = 0; i < armor_num_; ++i) {
+    const double angle = tools::limit_rad(state[6] + i * 2 * CV_PI / armor_num_);
+    const Eigen::Vector3d xyz = h_armor_xyz(state, i);
+    list.push_back({xyz[0], xyz[1], xyz[2], angle});
+  }
+  return list;
 }
 
 int Target::armor_num() const { return armor_num_; }

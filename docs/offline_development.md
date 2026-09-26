@@ -1,84 +1,96 @@
 # 不接实车的离线开发与联调
 
-当前阶段：协议客户端/虚拟主控、姿态时间对齐组件、通信记录回放和既有估计器回归测试。没有连接主控或小电脑，没有修改现场固件、运行配置或启动入口。
+2026-09-26：已补齐通信会话/传输、统一记录回放、真实检测器文件推理、实际几何/估计/规划回归和合成对照。本轮没有连接实车或小电脑，没有更改正式配置、现场固件和启动入口。`standard` 仍使用 SP；RMV 尚未作为现场链路启用。
 
-2026-09-26验证：36项Python测试通过；28种报文、1616个分包位置通过；Python黄金报文在C++中解析并重编码一致；9个C++测试程序在MSVC 14.44/C++17下通过。Linux正式视觉全量构建尚未验证。
+## 本机验证结果
 
-## 运行
+| 检查 | 实际结果与边界 |
+|---|---|
+| 原生 CMake/CTest | Windows/MSVC、Release，23 个验收入口全部通过；断言保持启用 |
+| Python | RMV 45 项、记录回放 42 项、指标 5 项；共 92 项，91 通过、1 项实际符号链接测试因 Windows 创建权限跳过 |
+| RMV 黄金报文 | 28 种、1616 个分包位置；Python 与 C++ 编解码字节一致 |
+| C++ ↔ Python | 3 组跨进程交互：持续同步、丢 ACK 原请求重试、重启、断流、旧目标到期、STOP |
+| Linux 私有 PTY | 实际内核串口字节流收到 15 条模拟目标；分包、噪声、坏 CRC 恢复、STOP/SAFE 通过；不代表 USB 或电机性能 |
+| Solver → Target → Aimer | 真实源码、9 个合成视角；最大位置往返误差约 1.42e-5 m；不验证安装外参真实性 |
+| Target → Planner → TinyMPC | 真实源码；修复后窗口中心误差约 -3.20e-10 rad，非零执行延迟只补一次 |
+| 合成估计器基准 | 16 场景、37 组对照、88,800 行；固定种子重复运行 CSV 字节一致 |
+| 实际 YOLO26 | 本机已有模型与历史视频，8 帧、9 个检测；两个独立模型实例结果完全一致；空图/黑图检查通过。单线程耗时中位约 28.8 ms，仅属于本机 |
 
-在本仓库根目录执行，Python 3.10+，Python部分无第三方依赖：
+完整日志在 `logs/offline_acceptance.log`、`logs/rmv/pty_acceptance.json`、`logs/benchmark/`、`logs/replay/`。模型、视频、图像和生成结果不提交 Git。GitHub Actions 工作流已配置；本轮没有推送或执行远端 CI。
+
+## 使用入口
+
+Python 3.10+。基础验收不需要 OpenCV、相机 SDK、ROS、模型或网络：
 
 ```text
+python scripts/check_offline.py
 python -m tools.rmv demo
 python -m tools.rmv inspect logs/rmv/offline_demo.jsonl
-python scripts/check_offline.py
+python -m tools.replay inspect data/replay/demo/events.jsonl
+python -m tools.replay replay data/replay/demo/events.jsonl
+python scripts/benchmark_offline.py
 ```
 
-Windows如果没有`python`命令，可使用现有解释器：
+基础脚本在 Windows 自动发现 MSVC，在 Linux 使用 g++/clang++。`--python-only` 明确跳过 C++，不能称为完整验收。所有编译串行执行，产物仅在 `build/`。
 
-```powershell
-& 'C:\Users\32751\AppData\Local\Programs\Python\Python313\python.exe' scripts/check_offline.py
+真实视觉数学模块使用独立的 CMake 离线构建入口，跳过相机 SDK、设备驱动、CUDA 和 ROS 发现。它编译工程中的 Solver、Target、Aimer、Planner 和 TinyMPC，并非另写一套算法。
+
+```text
+python scripts/check_offline.py --with-vision
 ```
 
-`demo`在一个进程内运行客户端和虚拟主控：握手→八次时间同步→参数枚举/修改/读回→标定模式→40次目标更新→停止→模拟断线。输出包含模拟角度、协议结果和日志路径。它不打开串口、网络、相机或电机。
+Windows 本机已有 vcpkg/OpenVINO，完整构建命令为：
 
-`inspect`将记录中的原始字节重新交给流式解析器，统计消息、CRC和格式错误；它不是图像回放，也不会把记录重新发送给设备。
+```text
+python scripts/check_offline.py --with-inference --vcpkg-root D:/Dev/vcpkg --openvino-dir C:/Users/32751/AppData/Local/Programs/Python/Python313/Lib/site-packages/openvino/cmake
+```
 
-`check_offline.py`先执行Python验收和演示，再编译运行C++协议/姿态测试以及8个现有估计器回归程序。Windows自动寻找Visual Studio C++ Build Tools；Linux使用g++/clang++，也可用CXX指定编译器。Eigen来自现有librm子模块。产物只写入`build/offline/`，日志在`logs/rmv/`；无相机SDK、ROS和OpenVINO要求。没有编译器时可以显式使用`--python-only`，输出会注明没有验证C++。
+本机 Python 完整路径为 `C:/Users/32751/AppData/Local/Programs/Python/Python313/python.exe`。其他电脑需使用自己的依赖路径；脚本不自动安装或改写全局环境。
 
-## 代码位置与边界
+`--with-inference` 只构建文件推理工具。用户显式指定文件后才能运行实际检测回放：
 
-| 文件 | 职责 |
-|---|---|
-| `tools/rmv/protocol.py` | Python帧格式、CRC、流解析、固定消息布局及黄金样例 |
-| `tools/rmv/simulator.py` | 可推进虚拟时间的两轴主控状态机 |
-| `tools/rmv/client.py` | 握手/同步/参数事务/模式/目标客户端、字节记录和回放检查 |
-| `tools/rmv/pose.py` | 时钟估计、带epoch的四元数历史和插值 |
-| `io/rmv/core.hpp` | 可用于后续正式程序适配的C++编解码和遥测/姿态组件 |
-| `tests/rmv/` | 交互、故障、姿态和跨语言字节一致性验收 |
-| `scripts/check_offline.py` | 本机统一验收入口 |
-| `docs/rmv_protocol.md` | 项目内维护的RMV协议约定 |
+```text
+python scripts/replay_detector.py --input assets/demo/test.mp4 --output data/replay/新的采集目录 --max-frames 8 --stride 10 --repeat-check
+```
 
-此前输出目录中的文件为首轮协议交付材料，后续实现以本仓库为准，不在多个位置维护运行模块。新协议仍需电控确认、实现和硬件验收。
+输出目录必须尚不存在，防止覆盖采集数据。Windows 子进程低于普通优先级；推理和解码各限制为单线程。没有同步姿态的视频只生成图像、检测与耗时记录，不生成目标、控制或命中数据。详见[记录与回放](replay.md)。
 
-## 本轮真正覆盖的内容
+Linux 可选运行 `python3 scripts/check_rmv_pty.py`。脚本低优先级单进程编译并创建自己的 `/dev/pts/`，拒绝真实串口路径；它不操作导航、ROS 或服务。导航仿真仍运行时，不应启动本工程的全量 Linux 编译或不受限推理争用资源。
 
-- 非零会话、nonce回显、重启标识、旧会话拒绝、活动控制期间拒绝抢占。
-- 完整帧CRC、分包、粘包、噪声、长度上限、50ms半帧恢复；C++逐字节重编码Python黄金样例。
-- 八次双向时间同步；超过3s或估计不确定度超过5ms时拒绝使用。时间模型是理想虚拟时钟，数值不代表USB实测精度。
-- 四元数wxyz、最短弧插值、重复样本、新鲜度、epoch切换、插值间隔；不外推、不把重复包视作新测量。
-- 虚拟物理许可、模式门控、目标80ms有效期、遥控接管、500ms心跳超时；心跳不能续期旧目标。
-- 指令接收与控制循环采用序号分开；重复有副作用的请求不重复执行。
-- 回执丢失时`Client.retry_last_request()`使用原序号和原内容；运动目标禁止此类重试。参数失败后可用`abort_parameters()`撤销尚未提交的事务。
-- 参数枚举、描述、只读限制、成组暂存/提交、版本冲突、2s事务超时、保存节流、模拟保存失败与重启读回。
-- 原始字节和主机单调时间的JSONL记录、离线解析统计。
-- 既有测量噪声、航向ESKF、装甲运动、距离滤波、拨弹延迟适配、旋转模型、相位调度和选面回归。
+## 本轮修复的实际问题
 
-## 模拟器的明确限制
+- YawESKF 把 0.40 s 预测截断到 0.10 s。现在完整积分预测时长，保留工作量上限和数值失效处理。
+- Planner 负时间回退只影响主 EKF，未同步回退航向子滤波器。现在从同一状态按相对时间只读采样，中央时刻严格一致。
+- Planner optional 入口重复补执行延迟；现在统一补一次，并支持显式时钟用于确定性回放。
+- 弹道无解时数值未初始化、非法速度/距离可能产生 NaN；现在有确定的无解结果、稳定低弧根和往返检验，Planner 在无解时提前返回。
+- 角度归一化对无限值或极大输入可能长循环；现在常数时间处理并保持原有 (-π,π] 约定。
+- Python 丢 MODE ACK 后仍可能允许目标，未决参数提交被其他请求覆盖；现在锁定控制与待重试请求，迟到 ACK/旧响应均匹配上下文。
+- C++ 旧模式 ACK 跨 epoch/安装版本解锁；现在要求原坐标上下文仍有效。
+- Solver 外参向量过短可能越界；现在先检查长度。另增明确的 G→W 直接姿态入口，避免 RMV 四元数重复应用旧安装变换。
+- 修正串口库 Windows 头文件顺序/端口前缀、fmt 枚举兼容及 YOLO 基类析构，算法输入不再强制依赖 SocketCAN。
 
-这是**协议交互参考模型**，不能当作整车数字孪生或完整电控固件。
+修复前后的基准与取舍见[离线基准](offline_benchmark.md)。没有依据合成排名改变正式滤波、弹道或发射参数。MPC 仍不是正式 standard 当前启用的控制链路。
 
-1. 仅模拟小Y/P，固定底座，世界视线角与关节角采用简化对应；参数范围是测试夹具值，不是本车机械限值。简单的限速/限加速度更新不模拟惯量、摩擦、堵转或真实PID。
-2. 不支持真实发射、底盘、大小Y协调、速度/加速度前馈、IMU原始流或硬件触发；对应请求明确返回UNSUPPORTED。
-3. 回零请求返回UNSUPPORTED，不伪造“回零成功”；服务状态只演示无底层故障时的清除/取消接口。
-4. 参数只提供用于事务测试的两个轴位置边界、速度和加速度等样例；电控仍需按协议提供实车参数表和合法范围。
-5. 持久化是在同一个Board对象内保存的虚拟存储；`reboot()`可检验RAM/保存值语义。没有模拟物理Flash的擦写、断电中断或损坏恢复；真实掉电一致性仍由电控验收。
-6. 诊断中的物理控制抖动、发送排队延迟等为0占位，不能据此声明实时性能。CRC/格式错误来自实际解析器。
-7. 客户端当前使用内存传输，不是可直接插USB操作车的串口工具。真实串口适配还需超时、异步接收、消息关联和操作界面验收。
+## 通信接入边界
 
-## C++后续接入方式
+协议、Python 虚拟主控和客户端、C++ 会话及真实串口适配分别位于：
 
-`io::rmv::Decoder::feed(bytes, host_now_us)`输出通过帧级校验的报文；调用方继续验证握手nonce、boot_id和能力后调用`TelemetryAdapter::establish(session, boot)`。所有时间使用同一个主机单调时钟域。
+- `docs/rmv_protocol.md`
+- `tools/rmv/protocol.py`、`simulator.py`、`client.py`
+- `io/rmv/core.hpp`、`session.hpp`、`transport.hpp`、`serial.hpp`
 
-由调用方匹配每次同步请求/响应后，给`adapter.clock.observe(t1,t2,t3,t4)`输入四个时间；本组件不接受未匹配的TIME_REPLY。STATUS/POSE经`consume()`进入有会话和序号检查的状态。`camera_pose_at(image_host_us, now_host_us)`返回对应图像时刻的四元数，无有效括号样本、间隔太大、失步或断流均返回空。
+[C++ 接入说明](rmv_cpp_session.md)定义单线程 pump、自动同步/心跳、5 ms 待发队列期限、消息关联和部分写入失败策略。Python 参数事务目前仍使用离线内存传输；不能拿演示命令直接插 USB 操作车辆。
 
-相机支架G与当前Solver的IMU坐标约定仍需统一；不能把RMV四元数直接塞进现有Solver并再次错误应用旧安装变换。`control_ready()`只是当前反馈有效性检查，不代替电控的最终许可、轨迹约束或应用层MODE确认。
+虚拟主控仅模拟固定底座上的小 Y/P 和协议语义。机械范围为夹具值，运动模型没有惯量/摩擦/真实 PID；不模拟发射、底盘、大小 Y 协同或真实 Flash 掉电。回零明确返回不支持。未测的控制抖动等诊断为占位值。
 
-本组件没有自动接管`src/standard.cpp`。正式程序仍使用现有SP链路；C++收发线程、完整握手状态机、正式程序坐标适配和Linux全量构建将作为下一步接入工作，不能把本次离线组件通过误报为正式自瞄已经迁移。
+## 已到达的现场边界
 
-## 下一步
+继续决定实际参数或放行控制，需要以下输入，不能从模拟器推断：
 
-1. 电控先用协议和黄金报文实现基础收发，并确认参数表、安装关系及状态语义。
-2. 在离线夹具中补齐C++主动会话和传输适配，再接正式程序；保留明确的协议选择，禁止混解析SP/HI91/RMV。
-3. 扩展为图像、检测、目标、姿态、指令、反馈的统一记录回放。当前JSONL只覆盖通信。
-4. 使用同一批合成目标和既有现场日志做估计器/规划器对照；真实识别泛化、安装外参、控制性能和命中效果仍需现场数据。
+1. 电控实现并确认 RMV、实车参数表、能力位及故障/保持语义；USB 硬件时序、拔插与重启验收。
+2. 确认 UART3 小 Y IMU 是否同时随 P 运动，以及相机支架、枪口、关节的完整安装关系；完成新外参。
+3. 在小电脑原有相机 SDK/OpenVINO 环境全量构建、核对曝光时间/缓存/端到端延迟。
+4. 获取本车同步的图像、检测、姿态、目标、指令和已采用反馈，验证真实噪声、丢帧、选面和跟踪。
+5. 实测轴响应、弹速、出膛延迟和命中偏差，再选择预测模型、滤波强度、前馈与发射策略。
+
+具体顺序和交付材料见[现场接续验收](field_acceptance.md)。这些项通过前，不能把当前“离线通过”写成“新车已调好”。

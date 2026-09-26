@@ -31,6 +31,11 @@ public:
 
   void set_R_gimbal2world(const Eigen::Quaterniond & q);
 
+  // RMV already reports the camera-support G -> W rotation. Do not apply the
+  // legacy IMU installation conjugation a second time. Reject invalid input
+  // without modifying the previous rotation; caller must then skip this frame.
+  bool set_R_gimbal2world_direct(const Eigen::Quaterniond & q);
+
   void solve(Armor & armor) const;
 
   std::vector<cv::Point2f> reproject_armor(

@@ -10,6 +10,7 @@ namespace auto_aim
 class YOLOBase
 {
 public:
+  virtual ~YOLOBase() = default;
   virtual std::list<Armor> detect(const cv::Mat & img, int frame_count) = 0;
 
   virtual std::list<Armor> postprocess(

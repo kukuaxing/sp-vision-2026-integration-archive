@@ -1,0 +1,33 @@
+name: Offline checks
+on: [push, pull_request, workflow_dispatch]
+
+jobs:
+  portable:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python scripts/check_source_tree.py
+      - run: git diff --check
+      - run: python scripts/check_offline.py
+
+  geometry:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install desktop math dependencies
+        run: sudo apt-get update && sudo apt-get install -y libopencv-dev libyaml-cpp-dev libfmt-dev libspdlog-dev
+      - run: python scripts/check_offline.py --with-vision
+      - run: python scripts/check_rmv_pty.py

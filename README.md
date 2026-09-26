@@ -11,6 +11,9 @@
 - [外部依赖与资源校验](docs/dependencies.md)
 - [配置与标定状态](docs/configuration.md)
 - [不接实车的离线联调与测试](docs/offline_development.md)
+- [统一记录与真实检测回放](docs/replay.md)
+- [估计器基准与规划时间修复](docs/offline_benchmark.md)
+- [回到实车后的接续验收](docs/field_acceptance.md)
 - [视觉—电控RMV串口协议](docs/rmv_protocol.md)
 - [固件选择](firmware/README.md)
 - [格式塔仿真](simulation/README.md)
@@ -40,5 +43,5 @@
 
 视觉源自原小电脑现场工程，整理前 `standard` 与9月12日归档的 SHA-256 一致：
 `d97ba9af270b1598c0b543bcc882db2a1cfd4f3cf3f234ed2f25c7c95cfb01c6`。
-这次整理不调整算法、弹道、外参或发射参数。新安装外参仍待标定。
+最初整理未调整算法或现场参数；后续离线开发修复了预测时间、规划窗口和弹道数值边界，详见离线开发说明。正式配置与现场发射参数未修改，新安装外参仍待标定。
 旧快照、旧标签和本地历史备份已删除，不能再从本仓库恢复旧版本。

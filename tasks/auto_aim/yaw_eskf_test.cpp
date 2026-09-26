@@ -117,6 +117,47 @@ int main()
   assert(recovered.trusted());
   assert(std::abs(recovered.rate() - true_rate) < 0.25);
 
+  // Aimer predicts the complete image-to-impact horizon, often 0.35--0.50 s.
+  // A single long call must agree with repeated short calls and must not
+  // silently stop after max_dt_s (the covariance integration step limit).
+  auto_aim::YawESKF horizon = filter;
+  auto_aim::YawESKF stepped = filter;
+  const double angle_before = horizon.continuous_angle();
+  const double rate_before = horizon.rate();
+  const double acceleration_before = horizon.acceleration();
+  horizon.predict(0.40);
+  for (int i = 0; i < 40; ++i) stepped.predict(0.01);
+  const double expected_angle = angle_before + 0.40 * rate_before +
+    0.5 * 0.40 * 0.40 * acceleration_before;
+  std::cout << "horizon_0.40s_error="
+            << horizon.continuous_angle() - expected_angle << std::endl;
+  assert(std::abs(horizon.continuous_angle() - expected_angle) < 1e-10);
+  assert(std::abs(horizon.continuous_angle() - stepped.continuous_angle()) < 1e-10);
+  assert(std::abs(horizon.rate() - stepped.rate()) < 1e-10);
+  assert(horizon.covariance().isApprox(stepped.covariance(), 1e-10));
+
+  const double valid_angle = horizon.continuous_angle();
+  horizon.predict(0.0);
+  horizon.predict(-1.0);
+  horizon.predict(std::numeric_limits<double>::quiet_NaN());
+  horizon.predict(std::numeric_limits<double>::infinity());
+  assert(horizon.continuous_angle() == valid_angle);
+  // Malformed durations must not produce an unbounded integration loop or
+  // leave an overflowing state trusted.
+  horizon.predict(std::numeric_limits<double>::max());
+  assert(!horizon.trusted());
+  assert(horizon.update(0.25, measurement_variance).accepted);
+  assert(horizon.initialized());
+  assert(!horizon.trusted());
+  assert(std::abs(horizon.angle() - 0.25) < 1e-12);
+
+  auto_aim::YawESKF::Config invalid_step_config;
+  invalid_step_config.max_dt_s = std::numeric_limits<double>::quiet_NaN();
+  auto_aim::YawESKF invalid_step(invalid_step_config);
+  invalid_step.reset(0.0, 2.0);
+  invalid_step.predict(0.40);
+  assert(std::abs(invalid_step.continuous_angle() - 0.80) < 1e-12);
+
   std::cout << "yaw_eskf_test: PASS rate=" << filter.rate()
             << " angle_error=" << wrap(filter.angle() - true_yaw)
             << " rejected=" << filter.rejected_updates() << '\n';

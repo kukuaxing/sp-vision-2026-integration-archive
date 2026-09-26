@@ -186,6 +186,171 @@ class IntegrationTests(unittest.TestCase):
         self.client.retry_last_request()
         self.assertEqual(self.board.op_seq, original_seq)
 
+    def test_lost_mode_ack_blocks_aim_and_survives_read_queries(self):
+        original = self.transport.exchange
+        def lose_ack(wire):
+            return b"".join(encode(f) for f in StreamDecoder().feed(original(wire))
+                            if f.msg_type != 0x00FF)
+        self.transport.exchange = lose_ack
+        with self.assertRaises(TimeoutError):
+            self.client.mode(3)
+        mode_seq = self.client.last_request[0].seq
+        self.transport.exchange = original
+        self.transport.advance(50_000)
+        self.client.poll()
+        self.client.heartbeat()
+        self.client.parameter(0x1003)
+        self.assertEqual(self.client.last_request[0].seq, mode_seq)
+        with self.assertRaises(ValueError):
+            self.client.aim(.1, .05)
+        self.assertIsNone(self.board.target)
+        self.client.retry_last_request()
+        self.client.aim(.1, .05)
+        self.assertIsNotNone(self.board.target)
+
+    def test_stop_timeout_immediately_locks_local_control(self):
+        self.active()
+        self.client.aim(.1, .05)
+        original = self.transport.exchange
+        def lose_all(wire):
+            original(wire)
+            return b""
+        self.transport.exchange = lose_all
+        with self.assertRaises(TimeoutError):
+            self.client.stop()
+        with self.assertRaises(ValueError):
+            self.client.aim(.1, .05)
+        self.assertIsNone(self.client.status)
+        self.transport.exchange = original
+        self.client.retry_last_request()
+        self.assertEqual(self.board.mode, 0)
+        with self.assertRaises(ValueError):
+            self.client.aim(.1, .05)
+
+    def test_epoch_and_geometry_require_a_new_mode_ack(self):
+        self.active()
+        for field in ("epoch", "geometry_rev"):
+            setattr(self.board, field, getattr(self.board, field) + 1)
+            self.transport.advance(50_000)
+            self.client.poll()
+            self.transport.advance(50_000)
+            self.client.poll()
+            with self.assertRaises(ValueError):
+                self.client.aim(.1, .05)
+            self.client.mode(3)
+            self.transport.advance(50_000)
+            self.client.poll()
+            self.client.aim(.1, .05)
+
+    def test_dedicated_time_reply_filters_old_echo_before_correct_reply(self):
+        original = self.transport.exchange
+        def prepend_stale(wire):
+            request = StreamDecoder().feed(wire)[0]
+            valid = original(wire)
+            if request.msg_type == 2:
+                t1, = struct.unpack("<Q", request.payload)
+                wrong = Frame(0x8002, 1, self.client.session, self.board.now,
+                              fixed_payload("TIME_REPLY", t1 - 1, self.board.now, self.board.now), 2)
+                short = Frame(0x8002, 2, self.client.session, self.board.now, request.payload, 2)
+                return encode(wrong) + encode(short) + valid
+            return valid
+        self.transport.exchange = prepend_stale
+        self.assertEqual(self.client.synchronize()[0], 4_000_000)
+
+    def test_parameter_dedicated_replies_filter_old_key_or_page(self):
+        original = self.transport.exchange
+        def prepend_stale(wire):
+            request = StreamDecoder().feed(wire)[0]
+            valid = original(wire)
+            if request.msg_type in (0x0300, 0x0301):
+                response = next(f for f in StreamDecoder().feed(valid)
+                                if f.msg_type == request.msg_type + 0x8000)
+                wrong = Frame(response.msg_type, response.seq, response.session_id,
+                              response.sender_time_us, b"\xfe\xff" + response.payload[2:], 2)
+                return encode(wrong) + valid
+            return valid
+        self.transport.exchange = prepend_stale
+        self.assertEqual(len(self.client.list_parameters()), 8)
+        self.assertEqual(self.client.parameter(0x1003)["key"], 0x1003)
+
+    def test_lost_commit_is_not_overwritten_by_reads_or_next_transaction(self):
+        original = self.transport.exchange
+        def lose_commit_ack(wire):
+            request = StreamDecoder().feed(wire)[0]
+            response = original(wire)
+            if request.msg_type == 0x0303:
+                return b"".join(encode(f) for f in StreamDecoder().feed(response)
+                                if f.msg_type != 0x00FF)
+            return response
+        self.transport.exchange = lose_commit_ack
+        with self.assertRaises(TimeoutError):
+            self.client.set_parameters({0x1003: .2})
+        commit = self.client.last_request[0]
+        self.assertEqual(commit.msg_type, 0x0303)
+        revision = self.board.param_rev
+        self.transport.exchange = original
+        self.client.parameter(0x1003)
+        self.client.list_parameters()
+        self.client.heartbeat()
+        self.assertEqual(self.client.last_request[0], commit)
+        with self.assertRaises(RuntimeError):
+            self.client.set_parameters({0x1003: .3})
+        self.assertEqual(self.client.transaction, 1)
+        self.client.retry_last_request()
+        self.assertEqual(self.board.param_rev, revision)
+        self.client.set_parameters({0x1003: .3})
+        self.assertEqual(self.board.param_rev, revision + 1)
+
+    def test_poll_resolves_delayed_mode_ack(self):
+        original = self.transport.exchange
+        delayed = []
+        def delay(wire):
+            response = original(wire)
+            delayed.append(response)
+            return b""
+        self.transport.exchange = delay
+        with self.assertRaises(TimeoutError):
+            self.client.mode(3)
+        self.transport.exchange = lambda wire: delayed.pop() + original(wire)
+        self.client.poll()
+        self.transport.exchange = original
+        self.transport.advance(50_000)
+        self.client.poll()
+        self.client.aim(.1, .05)
+        self.assertIsNotNone(self.board.target)
+
+    def test_wrong_session_bad_session_ack_cannot_override_valid_ack(self):
+        original = self.transport.exchange
+        def prepend_foreign_ack(wire):
+            request = StreamDecoder().feed(wire)[0]
+            wrong = Frame(0x00FF, 1, self.client.session + 99, self.board.now,
+                          fixed_payload("ACK", request.seq, request.msg_type, Result.BAD_SESSION, 0, 1), 2)
+            return encode(wrong) + original(wire)
+        self.transport.exchange = prepend_foreign_ack
+        session = self.client.session
+        self.client.mode(3)
+        self.assertEqual(self.client.session, session)
+
+    def test_hello_ignores_unmarked_ack_and_rejects_session_reuse(self):
+        original = self.transport.exchange
+        def prepend_unmarked_ack(wire):
+            request = StreamDecoder().feed(wire)[0]
+            wrong = Frame(0x00FF, 1, 0, self.board.now,
+                          fixed_payload("ACK", request.seq, 1, Result.BUSY, 0, 1), 0)
+            return encode(wrong) + original(wire)
+        self.transport.exchange = prepend_unmarked_ack
+        self.client.connect(124)
+        session = self.client.session
+        self.transport.exchange = original
+        def reuse_session(wire):
+            frames = StreamDecoder().feed(original(wire))
+            return b"".join(encode(Frame(f.msg_type, f.seq, session if f.msg_type == 0x8001 else f.session_id,
+                                          f.sender_time_us, f.payload, f.flags)) for f in frames)
+        self.transport.exchange = reuse_session
+        with self.assertRaises(ValueError):
+            self.client.connect(125)
+        self.assertEqual(self.client.session, 0)
+
     def test_parameter_wire_boundary_and_abort(self):
         self.client.set_parameters({0x1003: .01})
         self.assertAlmostEqual(self.client.parameter(0x1003)["current"], .01)

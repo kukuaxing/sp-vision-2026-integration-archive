@@ -31,6 +31,10 @@ Solver::Solver(const std::string & config_path) : R_gimbal2world_(Eigen::Matrix3
   auto R_gimbal2imubody_data = yaml["R_gimbal2imubody"].as<std::vector<double>>();
   auto R_camera2gimbal_data = yaml["R_camera2gimbal"].as<std::vector<double>>();
   auto t_camera2gimbal_data = yaml["t_camera2gimbal"].as<std::vector<double>>();
+  if (R_gimbal2imubody_data.size() != 9 || R_camera2gimbal_data.size() != 9 ||
+      t_camera2gimbal_data.size() != 3) {
+    throw std::runtime_error("extrinsics require two 3x3 rotations and one 3-vector");
+  }
   R_gimbal2imubody_ = Eigen::Matrix<double, 3, 3, Eigen::RowMajor>(R_gimbal2imubody_data.data());
   R_camera2gimbal_ = Eigen::Matrix<double, 3, 3, Eigen::RowMajor>(R_camera2gimbal_data.data());
   t_camera2gimbal_ = Eigen::Matrix<double, 3, 1>(t_camera2gimbal_data.data());
@@ -61,6 +65,14 @@ void Solver::set_R_gimbal2world(const Eigen::Quaterniond & q)
 {
   Eigen::Matrix3d R_imubody2imuabs = q.toRotationMatrix();
   R_gimbal2world_ = R_gimbal2imubody_.transpose() * R_imubody2imuabs * R_gimbal2imubody_;
+}
+
+bool Solver::set_R_gimbal2world_direct(const Eigen::Quaterniond & q)
+{
+  const auto norm = q.norm();
+  if (!q.coeffs().allFinite() || norm < 0.95 || norm > 1.05) return false;
+  R_gimbal2world_ = q.normalized().toRotationMatrix();
+  return true;
 }
 
 //solvePnP（获得姿态）

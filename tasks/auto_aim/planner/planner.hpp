@@ -38,6 +38,11 @@ public:
 
   Plan plan(Target target, double bullet_speed);
   Plan plan(std::optional<Target> target, double bullet_speed);
+  // Explicit planning time supports deterministic replay; the two-argument
+  // entry point supplies steady_clock::now().
+  Plan plan(
+    std::optional<Target> target, double bullet_speed,
+    std::chrono::steady_clock::time_point now);
 
 private:
   double yaw_offset_;
@@ -52,8 +57,9 @@ private:
   void setup_yaw_solver(const std::string & config_path);
   void setup_pitch_solver(const std::string & config_path);
 
-  Eigen::Matrix<double, 2, 1> aim(const Target & target, double bullet_speed);
-  Trajectory get_trajectory(Target & target, double yaw0, double bullet_speed);
+  Eigen::Matrix<double, 2, 1> aim(
+    const Target & target, double bullet_speed, double relative_time_s = 0.0);
+  Trajectory get_trajectory(const Target & target, double yaw0, double bullet_speed);
 };
 
 }  // namespace auto_aim

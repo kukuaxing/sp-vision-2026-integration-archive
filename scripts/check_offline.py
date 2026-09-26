@@ -19,13 +19,13 @@ sys.path.insert(0, str(ROOT))
 
 def run(arguments, **kwargs):
     print("+ " + " ".join(map(str, arguments)), flush=True)
-    subprocess.run(list(map(str, arguments)), cwd=ROOT, check=True, **kwargs)
+    subprocess.run(list(map(str, arguments)), cwd=ROOT, check=True, timeout=kwargs.pop("timeout", 600), **kwargs)
 
 
 def compiler_environment():
     candidate = os.environ.get("CXX") or shutil.which("g++") or shutil.which("clang++")
     if candidate:
-        return candidate, os.environ.copy(), False
+        return candidate, os.environ.copy(), Path(candidate).stem.lower() in ("cl", "clang-cl")
     cl = shutil.which("cl")
     if cl:
         return cl, os.environ.copy(), True
@@ -60,23 +60,72 @@ def compiler_environment():
     return compiler, environment, True
 
 
+def cmake_environment(compiler, environment, requested=None):
+    search_path = next((v for k, v in environment.items() if k.lower() == "path"), "")
+    cmake = requested or shutil.which("cmake", path=search_path)
+    if not cmake:
+        for parent in Path(compiler).parents:
+            candidate = parent / "Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/bin/cmake.exe"
+            if candidate.is_file():
+                cmake = str(candidate)
+                break
+    if not cmake:
+        raise RuntimeError("CMake not found; supply --cmake PATH")
+    return str(cmake)
+
+
+def native_checks(args, compiler, environment):
+    cmake = cmake_environment(compiler, environment, args.cmake)
+    ctest = str(Path(cmake).with_name("ctest.exe" if os.name == "nt" else "ctest"))
+    if not Path(ctest).is_file():
+        ctest = shutil.which("ctest") or ctest
+    build = ROOT / "build/native-offline"
+    arguments = [cmake, "-S", ROOT, "-B", build, "-DSP_BUILD_OFFLINE_ONLY=ON",
+                 "-DSP_OFFLINE_WITH_VISION=ON", "-DPython3_EXECUTABLE=" + sys.executable,
+                 "-DSP_OFFLINE_WITH_INFERENCE=" + ("ON" if args.with_inference else "OFF")]
+    if args.vcpkg_root:
+        arguments += ["-DCMAKE_TOOLCHAIN_FILE=" + str(args.vcpkg_root.resolve() / "scripts/buildsystems/vcpkg.cmake")]
+    if args.openvino_dir:
+        arguments += ["-DOpenVINO_DIR=" + str(args.openvino_dir.resolve())]
+    run(arguments, env=environment)
+    run([cmake, "--build", build, "--config", "Release", "--parallel", "1"], env=environment)
+    run([ctest, "--test-dir", build, "-C", "Release", "--output-on-failure", "-j", "1"], env=environment)
+    print("PASS: native geometry/estimator/transport regressions; no device I/O. Detector replay is explicit.")
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--python-only", action="store_true")
+    parser.add_argument("--with-vision", action="store_true", help="also build real OpenCV Solver/Target/Aimer/Planner")
+    parser.add_argument("--with-inference", action="store_true", help="also build explicit YOLO26 file replay (does not auto-run)")
+    parser.add_argument("--cmake", help="CMake executable if not on PATH")
+    parser.add_argument("--vcpkg-root", type=Path, help="optional Windows vcpkg installation")
+    parser.add_argument("--openvino-dir", type=Path, help="OpenVINO CMake package directory")
     args = parser.parse_args()
-    run([sys.executable, "-m", "unittest", "discover", "-s", "tests/rmv", "-v"])
+    if args.python_only and (args.with_vision or args.with_inference):
+        parser.error("--python-only conflicts with native vision/inference checks")
+    # The native CTest gate includes these same Python checks.
+    if not (args.with_vision or args.with_inference):
+        for suite in ("rmv", "replay", "benchmark"):
+            run([sys.executable, "-m", "unittest", "discover", "-s", "tests/" + suite, "-v"])
     run([sys.executable, "-m", "tools.rmv", "demo"])
     run([sys.executable, "-m", "tools.rmv", "inspect", "logs/rmv/offline_demo.jsonl"])
     if args.python_only:
         print("Python checks passed; C++ checks explicitly skipped.")
         return
     compiler, environment, msvc = compiler_environment()
+    if args.with_vision or args.with_inference:
+        native_checks(args, compiler, environment)
+        return
     build = ROOT / "build/offline"
     build.mkdir(parents=True, exist_ok=True)
     from tools.rmv.protocol import examples, encode
     golden = build / "rmv_vectors.txt"
     golden.write_text("\n".join(encode(f).hex(" ") for _, f in examples()) + "\n", encoding="ascii")
-    targets = [("rmv_core_test", "tests/rmv/core_test.cpp")]
+    targets = [("rmv_core_test", "tests/rmv/core_test.cpp"),
+               ("rmv_session_test", "tests/rmv/session_test.cpp"),
+               ("rmv_transport_test", "tests/rmv/transport_test.cpp"),
+               ("rmv_session_peer", "tests/rmv/session_peer.cpp")]
     # These are existing header-only estimator regressions, not replacement implementations.
     for name in ("measurement_noise", "yaw_eskf", "armor_motion_filter", "robust_range_filter",
                  "shot_delay_adapter", "rotation_model_manager", "gyro_phase_scheduler", "gyro_face_selector"):
@@ -91,8 +140,11 @@ def main():
             arguments = [compiler, "-std=c++17", "-O2", "-UNDEBUG", "-I.", "-Ilibrm/libs/eigen",
                          source, "-o", binary]
         run(arguments, env=environment)
-        run([binary] + ([golden] if name == "rmv_core_test" else []), env=environment)
-    print(f"PASS: offline acceptance and {len(targets)} C++ executables; no device I/O.")
+        if name == "rmv_session_peer":
+            run([sys.executable, "-m", "tools.rmv.cpp_interop", binary], env=environment)
+        else:
+            run([binary] + ([golden] if name == "rmv_core_test" else []), env=environment)
+    print(f"PASS: offline acceptance and {len(targets)} C++ executables, including cross-language scenarios; no device I/O.")
 
 
 if __name__ == "__main__":

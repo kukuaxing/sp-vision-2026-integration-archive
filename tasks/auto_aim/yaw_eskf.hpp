@@ -21,7 +21,7 @@ public:
     double angular_jerk_variance = 20.0;
     double measurement_variance_floor = std::pow(1.0 * M_PI / 180.0, 2);
     double nis_reject_threshold = 16.0;
-    double max_dt_s = 0.10;
+    double max_dt_s = 0.10;  // preferred covariance integration step, not horizon
     int min_trusted_updates = 6;
     double trusted_rate_variance = 4.0;
     double max_trusted_abs_rate_rad_s = std::numeric_limits<double>::infinity();
@@ -56,7 +56,25 @@ public:
   void predict(double dt_s)
   {
     if (!initialized_ || !std::isfinite(dt_s) || dt_s <= 0.0) return;
-    const double dt = std::min(dt_s, std::max(1e-3, config_.max_dt_s));
+    // Target also calls this for the complete image-to-impact horizon. A
+    // clipped duration makes a trusted yaw state overwrite the vehicle EKF
+    // with a prediction from an earlier instant. Integrate the whole horizon.
+    // Bound work even for malformed but finite durations/configuration; the
+    // linear constant-acceleration transition and white-jerk Q remain exact
+    // for the larger steps selected by this guard.
+    const double preferred_step = std::isfinite(config_.max_dt_s)
+      ? std::max(1e-3, config_.max_dt_s) : 0.10;
+    const int steps = static_cast<int>(std::min(
+      1000.0, std::max(1.0, std::ceil(dt_s / preferred_step))));
+    for (int i = 0; i < steps; ++i) {
+      predict_step(dt_s / steps);
+      if (!initialized_) return;
+    }
+  }
+
+private:
+  void predict_step(double dt)
+  {
     const double dt2 = dt * dt;
     const double dt3 = dt2 * dt;
     const double dt4 = dt3 * dt;
@@ -74,8 +92,16 @@ public:
          dt4 / 8.0, dt3 / 3.0, dt2 / 2.0,
          dt3 / 6.0, dt2 / 2.0, dt;
     P_ = F * P_ * F.transpose() + q * Q;
+    if (!x_.allFinite() || !P_.allFinite()) {
+      // Overflow is not a usable prediction. The next finite observation
+      // will initialize a fresh state and earn trust again.
+      initialized_ = false;
+      return;
+    }
     stabilize_covariance();
   }
+
+public:
 
   UpdateResult update(double measured_body_yaw_rad, double measurement_variance)
   {

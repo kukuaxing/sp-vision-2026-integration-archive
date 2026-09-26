@@ -1,6 +1,7 @@
 #include "planner.hpp"
 
 #include <vector>
+#include <utility>
 
 #include "tools/math_tools.hpp"
 #include "tools/trajectory.hpp"
@@ -33,7 +34,7 @@ Planner::Planner(const std::string & config_path)
 Plan Planner::plan(Target target, double bullet_speed)
 {
   // 0. Check bullet speed
-  if (bullet_speed < 10 || bullet_speed > 25) {
+  if (!std::isfinite(bullet_speed) || bullet_speed < 10 || bullet_speed > 25) {
     bullet_speed = 22;
   }
 
@@ -48,6 +49,7 @@ Plan Planner::plan(Target target, double bullet_speed)
     }
   }
   auto bullet_traj = tools::Trajectory(bullet_speed, min_dist, xyz.z());
+  if (bullet_traj.unsolvable) return {false};
   // Compensate for actuation delay by predicting an extra actuation_delay_
   target.predict(bullet_traj.fly_time + actuation_delay_);
 
@@ -102,15 +104,21 @@ Plan Planner::plan(Target target, double bullet_speed)
 
 Plan Planner::plan(std::optional<Target> target, double bullet_speed)
 {
+  return plan(std::move(target), bullet_speed, std::chrono::steady_clock::now());
+}
+
+Plan Planner::plan(
+  std::optional<Target> target, double bullet_speed,
+  std::chrono::steady_clock::time_point now)
+{
   if (!target.has_value()) return {false};
 
   double delay_time =
     std::abs(target->ekf_x()[7]) > decision_speed_ ? high_speed_delay_time_ : low_speed_delay_time_;
 
-  auto future = std::chrono::steady_clock::now() + std::chrono::microseconds(int(delay_time * 1e6));
-
-  // include configured actuation delay when predicting future target state
-  future += std::chrono::microseconds(int(actuation_delay_ * 1e6));
+  // plan(Target) adds flight and actuation delay once. This wrapper adds only
+  // the observation-to-planning age and configured processing delay.
+  auto future = now + std::chrono::microseconds(int(delay_time * 1e6));
   target->predict(future);
 
   return plan(*target, bullet_speed);
@@ -162,13 +170,14 @@ void Planner::setup_pitch_solver(const std::string & config_path)
   pitch_solver_->settings->max_iter = 10;
 }
 
-Eigen::Matrix<double, 2, 1> Planner::aim(const Target & target, double bullet_speed)
+Eigen::Matrix<double, 2, 1> Planner::aim(
+  const Target & target, double bullet_speed, double relative_time_s)
 {
   Eigen::Vector3d xyz;
   double yaw;
   auto min_dist = 1e10;
 
-  for (auto & xyza : target.armor_xyza_list()) {
+  for (auto & xyza : target.armor_xyza_list_at(relative_time_s)) {
     auto dist = xyza.head<2>().norm();
     if (dist < min_dist) {
       min_dist = dist;
@@ -185,19 +194,20 @@ Eigen::Matrix<double, 2, 1> Planner::aim(const Target & target, double bullet_sp
   return {tools::limit_rad(azim + yaw_offset_), -bullet_traj.pitch - pitch_offset_};
 }
 
-Trajectory Planner::get_trajectory(Target & target, double yaw0, double bullet_speed)
+Trajectory Planner::get_trajectory(const Target & target, double yaw0, double bullet_speed)
 {
   Trajectory traj;
 
-  target.predict(-DT * (HALF_HORIZON + 1));
-  auto yaw_pitch_last = aim(target, bullet_speed);
-
-  target.predict(DT);  // [0] = -HALF_HORIZON * DT -> [HHALF_HORIZON] = 0
-  auto yaw_pitch = aim(target, bullet_speed);
+  // A centered reference window needs negative relative times. Rewinding the
+  // live filters is inconsistent: the main EKF accepted negative dt while yaw
+  // and armor filters ignored it, then accumulated all positive steps. Sample
+  // one immutable kinematic mean instead; column HALF_HORIZON is exactly t=0.
+  auto yaw_pitch_last = aim(target, bullet_speed, -DT * (HALF_HORIZON + 1));
+  auto yaw_pitch = aim(target, bullet_speed, -DT * HALF_HORIZON);
 
   for (int i = 0; i < HORIZON; i++) {
-    target.predict(DT);
-    auto yaw_pitch_next = aim(target, bullet_speed);
+    const double next_time = DT * (i - HALF_HORIZON + 1);
+    auto yaw_pitch_next = aim(target, bullet_speed, next_time);
 
     auto yaw_vel = tools::limit_rad(yaw_pitch_next(0) - yaw_pitch_last(0)) / (2 * DT);
     auto pitch_vel = (yaw_pitch_next(1) - yaw_pitch_last(1)) / (2 * DT);

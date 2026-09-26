@@ -4,6 +4,7 @@
 #ifdef ENABLE_OPENVINO
 
 #include <yaml-cpp/yaml.h>
+#include <algorithm>
 
 namespace auto_aim
 {
@@ -13,8 +14,13 @@ Classifier::Classifier(const std::string & config_path)
   auto model = yaml["classify_model"].as<std::string>();
   net_ = cv::dnn::readNetFromONNX(model);
   auto ovmodel = core_.read_model(model);
-  compiled_model_ = core_.compile_model(
-    ovmodel, "AUTO", ov::hint::performance_mode(ov::hint::PerformanceMode::LATENCY));
+  const auto device = yaml["classifier_device"]
+    ? yaml["classifier_device"].as<std::string>() : "AUTO";
+  ov::AnyMap properties{ov::hint::performance_mode(ov::hint::PerformanceMode::LATENCY)};
+  if (yaml["classifier_infer_threads"])
+    properties[ov::inference_num_threads.name()] =
+      std::max(1, yaml["classifier_infer_threads"].as<int>());
+  compiled_model_ = core_.compile_model(ovmodel, device, properties);
 }
 
 void Classifier::classify(Armor & armor)
