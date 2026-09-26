@@ -10,6 +10,8 @@
 - [构建、目录和日常维护](docs/development.md)
 - [外部依赖与资源校验](docs/dependencies.md)
 - [配置与标定状态](docs/configuration.md)
+- [不接实车的离线联调与测试](docs/offline_development.md)
+- [视觉—电控RMV串口协议](docs/rmv_protocol.md)
 - [固件选择](firmware/README.md)
 - [格式塔仿真](simulation/README.md)
 - [后续修改规则](AGENTS.md)
