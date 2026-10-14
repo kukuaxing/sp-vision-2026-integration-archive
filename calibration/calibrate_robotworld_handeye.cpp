@@ -7,6 +7,7 @@
 #include <opencv2/opencv.hpp>
 
 #include "tools/chessboard.hpp"
+#include "calibration/dataset_source.hpp"
 #include "tools/cmdline.hpp"
 #include "tools/img_tools.hpp"
 #include "tools/math_tools.hpp"
@@ -174,6 +175,10 @@ int main(int argc, char * argv[])
   }
   auto input_folder = cli.get<std::string>(0);
   auto config_path = cli.get<std::string>("config-path");
+  if (raw_rmv_dataset(input_folder)) {
+    fmt::print(stderr, "Raw RMV poses are sensor1/frame1, not G. Use python3 scripts/calibrate_rmv_rotation.py; no verified sensor translations are available.\n");
+    return 2;
+  }
 
   // 从输入文件夹中加载标定所需的数据
   std::vector<double> R_gimbal2imubody_data;

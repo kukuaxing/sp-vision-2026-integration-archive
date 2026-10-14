@@ -124,15 +124,46 @@ Plan Planner::plan(
   return plan(*target, bullet_speed);
 }
 
+Plan Planner::plan_joint_trajectory(const Trajectory& reference, double yaw0)
+{
+  if (!reference.allFinite() || !std::isfinite(yaw0)) return {false};
+  Trajectory local=reference;
+  double previous=0;
+  for(int i=0;i<HORIZON;++i){
+    const double relative=tools::limit_rad(reference(0,i)-yaw0);
+    local(0,i)=previous+tools::limit_rad(relative-previous);
+    previous=local(0,i);
+  }
+  // This is the desired trajectory model, not a measured plant simulation.
+  // The first column is 500 ms before NOW. Never put NOW feedback there.
+  tiny_set_x0(yaw_solver_,Eigen::Vector2d(local(0,0),local(1,0)));
+  tiny_set_x0(pitch_solver_,Eigen::Vector2d(local(2,0),local(3,0)));
+  yaw_solver_->work->Xref=local.topRows<2>();
+  pitch_solver_->work->Xref=local.bottomRows<2>();
+  tiny_solve(yaw_solver_);tiny_solve(pitch_solver_);
+  constexpr int k=HALF_HORIZON;
+  if(!yaw_solver_->work->x.allFinite() || !pitch_solver_->work->x.allFinite() ||
+     !yaw_solver_->work->u.allFinite() || !pitch_solver_->work->u.allFinite())return {false};
+  Plan p{};p.control=true;p.fire=false;
+  p.target_yaw=reference(0,k);p.target_pitch=reference(2,k);
+  p.yaw=tools::limit_rad(yaw0+yaw_solver_->work->x(0,k));
+  p.yaw_vel=yaw_solver_->work->x(1,k);p.yaw_acc=yaw_solver_->work->u(0,k);
+  p.pitch=pitch_solver_->work->x(0,k);p.pitch_vel=pitch_solver_->work->x(1,k);
+  p.pitch_acc=pitch_solver_->work->u(0,k);
+  return p;
+}
+
 void Planner::setup_yaw_solver(const std::string & config_path)
 {
   auto yaml = tools::load(config_path);
+  const bool rmv=yaml["board_protocol"] && yaml["board_protocol"].as<std::string>()=="RMV";
   auto max_yaw_acc = tools::read<double>(yaml, "max_yaw_acc");
   auto Q_yaw = tools::read<std::vector<double>>(yaml, "Q_yaw");
   auto R_yaw = tools::read<std::vector<double>>(yaml, "R_yaw");
 
   Eigen::MatrixXd A{{1, DT}, {0, 1}};
-  Eigen::MatrixXd B{{0}, {DT}};
+  // RMV executes a continuous constant-acceleration segment between packets.
+  Eigen::MatrixXd B{{rmv ? .5*DT*DT : 0.0}, {DT}};
   Eigen::VectorXd f{{0, 0}};
   Eigen::Matrix<double, 2, 1> Q(Q_yaw.data());
   Eigen::Matrix<double, 1, 1> R(R_yaw.data());
@@ -140,6 +171,7 @@ void Planner::setup_yaw_solver(const std::string & config_path)
 
   Eigen::MatrixXd x_min = Eigen::MatrixXd::Constant(2, HORIZON, -1e17);
   Eigen::MatrixXd x_max = Eigen::MatrixXd::Constant(2, HORIZON, 1e17);
+  if(rmv){x_min.row(1).setConstant(-2);x_max.row(1).setConstant(2);}
   Eigen::MatrixXd u_min = Eigen::MatrixXd::Constant(1, HORIZON - 1, -max_yaw_acc);
   Eigen::MatrixXd u_max = Eigen::MatrixXd::Constant(1, HORIZON - 1, max_yaw_acc);
   tiny_set_bound_constraints(yaw_solver_, x_min, x_max, u_min, u_max);
@@ -150,12 +182,13 @@ void Planner::setup_yaw_solver(const std::string & config_path)
 void Planner::setup_pitch_solver(const std::string & config_path)
 {
   auto yaml = tools::load(config_path);
+  const bool rmv=yaml["board_protocol"] && yaml["board_protocol"].as<std::string>()=="RMV";
   auto max_pitch_acc = tools::read<double>(yaml, "max_pitch_acc");
   auto Q_pitch = tools::read<std::vector<double>>(yaml, "Q_pitch");
   auto R_pitch = tools::read<std::vector<double>>(yaml, "R_pitch");
 
   Eigen::MatrixXd A{{1, DT}, {0, 1}};
-  Eigen::MatrixXd B{{0}, {DT}};
+  Eigen::MatrixXd B{{rmv ? .5*DT*DT : 0.0}, {DT}};
   Eigen::VectorXd f{{0, 0}};
   Eigen::Matrix<double, 2, 1> Q(Q_pitch.data());
   Eigen::Matrix<double, 1, 1> R(R_pitch.data());
@@ -163,6 +196,8 @@ void Planner::setup_pitch_solver(const std::string & config_path)
 
   Eigen::MatrixXd x_min = Eigen::MatrixXd::Constant(2, HORIZON, -1e17);
   Eigen::MatrixXd x_max = Eigen::MatrixXd::Constant(2, HORIZON, 1e17);
+  if(rmv){x_min.row(0).setConstant(-.72);x_max.row(0).setConstant(.45);
+    x_min.row(1).setConstant(-1.5);x_max.row(1).setConstant(1.5);}
   Eigen::MatrixXd u_min = Eigen::MatrixXd::Constant(1, HORIZON - 1, -max_pitch_acc);
   Eigen::MatrixXd u_max = Eigen::MatrixXd::Constant(1, HORIZON - 1, max_pitch_acc);
   tiny_set_bound_constraints(pitch_solver_, x_min, x_max, u_min, u_max);

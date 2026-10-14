@@ -9,6 +9,7 @@
 #include <limits>
 #include <optional>
 #include <stdexcept>
+#include <string>
 #include <vector>
 
 namespace io::rmv {
@@ -139,6 +140,8 @@ struct Pose {
   std::uint64_t sample_us;
   std::uint32_t counter, epoch;
   Quaternion q;
+  std::array<double,3> gyro{};
+  bool gyro_valid=false;
 };
 class PoseHistory {
   std::deque<Pose> poses_;
@@ -177,6 +180,21 @@ public:
     }
     return {};
   }
+  std::optional<std::array<double,3>> gyro_at(std::uint64_t stamp,std::uint64_t now)const{
+    if(!at(stamp,now))return {};
+    for(std::size_t i=0;i<poses_.size();++i){
+      if(stamp==poses_[i].sample_us)return poses_[i].gyro_valid?
+        std::optional<std::array<double,3>>(poses_[i].gyro):std::nullopt;
+      if(i && stamp<poses_[i].sample_us){
+        if(!poses_[i-1].gyro_valid || !poses_[i].gyro_valid)return {};
+        const double f=double(stamp-poses_[i-1].sample_us)/double(poses_[i].sample_us-poses_[i-1].sample_us);
+        auto g=poses_[i-1].gyro;
+        for(unsigned k=0;k<3;++k)g[k]+=f*(poses_[i].gyro[k]-g[k]);
+        return g;
+      }
+    }
+    return {};
+  }
 };
 class ClockSync {
   struct Sample { std::uint64_t time; double offset, uncertainty; };
@@ -207,10 +225,18 @@ public:
         double(stamp) + *delta >= double(std::numeric_limits<std::uint64_t>::max())) return {};
     return static_cast<std::uint64_t>(std::round(double(stamp) + *delta));
   }
+  std::optional<double> uncertainty_us(std::uint64_t now) const {
+    const auto delta=offset(now);if(!delta)return {};
+    const Sample* best=&samples_.front();
+    for(const auto& s:samples_)if(s.uncertainty<best->uncertainty)best=&s;
+    double error=best->uncertainty;
+    for(const auto& s:samples_)error=std::max(error,std::abs(s.offset-*delta));
+    return error;
+  }
 };
 struct Status {
   std::uint8_t mode = 0, owner = 0;
-  bool control_permitted = false;
+  bool control_permitted = false, fire_permitted=false;
   std::uint32_t faults = 0, received_seq = 0, applied_seq = 0, parameter_revision = 0, geometry_revision = 0;
   std::uint16_t result = 0, constraints = 0;
 };
@@ -240,6 +266,7 @@ public:
           (status_seq_ && !newer(frame.seq, *status_seq_))) return false;
       Status s;
       s.mode = p[0]; s.owner = p[1]; s.control_permitted = p[6] != 0;
+      s.fire_permitted=p[7]!=0;
       s.faults = static_cast<std::uint32_t>(integer(p, 8, 4));
       s.received_seq = static_cast<std::uint32_t>(integer(p, 12, 4));
       s.applied_seq = static_cast<std::uint32_t>(integer(p, 16, 4));
@@ -262,6 +289,8 @@ public:
     Pose pose{integer(p, 8, 8), static_cast<std::uint32_t>(integer(p, 4, 4)),
               static_cast<std::uint32_t>(integer(p, 24, 4)),
               {real(p, 28), real(p, 32), real(p, 36), real(p, 40)}};
+    pose.gyro_valid=(valid&2)!=0;
+    for(unsigned k=0;k<3;++k){pose.gyro[k]=real(p,44+4*k);pose.gyro_valid&=std::isfinite(pose.gyro[k]);}
     if (!poses.add(pose, *now)) return false;
     if (epoch && *epoch != pose.epoch) status.reset();
     epoch = pose.epoch; return true;
@@ -275,6 +304,24 @@ public:
     return status && epoch && host_now >= status_time_ && host_now-status_time_ <= 100000 &&
            status->owner == 2 && status->control_permitted && !status->faults &&
            (status->mode == 2 || status->mode == 3) && now_mcu && poses.fresh(*now_mcu);
+  }
+  std::optional<std::uint64_t> status_age_us(std::uint64_t host_now) const {
+    if(!status || host_now<status_time_)return {};
+    return host_now-status_time_;
+  }
+  std::string control_ready_reason(std::uint64_t host_now) const {
+    if(!status)return "waiting_status";
+    if(!epoch)return "waiting_pose_epoch";
+    auto age=status_age_us(host_now);
+    if(!age || *age>100000)return "stale_status";
+    if(status->owner!=2)return "local_rc_control";
+    if(!status->control_permitted)return "mcu_permission_missing";
+    if(status->faults)return "mcu_fault";
+    if(status->mode!=2 && status->mode!=3)return "wrong_mode";
+    auto now=clock.to_mcu(host_now,host_now);
+    if(!now)return "waiting_clock_sync";
+    if(!poses.fresh(*now))return "stale_mounted_pose";
+    return "ready";
   }
 };
 } // namespace io::rmv

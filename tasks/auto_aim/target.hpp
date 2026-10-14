@@ -69,7 +69,8 @@ public:
   Eigen::Vector3d armor_motion_velocity(int id) const;
   double armor_motion_nis(int id) const;
   std::vector<Eigen::Vector4d> armor_xyza_list(bool prefer_direct_motion = false) const;
-  std::vector<Eigen::Vector4d> armor_xyza_list_at(double relative_time_s) const;
+  std::vector<Eigen::Vector4d> armor_xyza_list_at(
+    double relative_time_s, bool prefer_direct_motion = false) const;
   int armor_num() const;
 
   bool diverged() const;

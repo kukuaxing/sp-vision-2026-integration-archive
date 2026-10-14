@@ -19,6 +19,7 @@
 #include "io/camera.hpp"
 #include "io/cboard.hpp"
 #include "io/xuc.hpp"
+#include "rmv_debug.hpp"
 #include "tasks/auto_aim/aimer.hpp"
 #include "tasks/auto_aim/gyro_face_selector.hpp"
 #include "tasks/auto_aim/gyro_phase_scheduler.hpp"
@@ -42,7 +43,14 @@ using namespace std::chrono;
 
 const std::string keys =
   "{help h usage ? |      | 输出命令行参数说明}"
-  "{@config-path   | configs/standard.yaml | 位置参数，yaml配置文件路径 }";
+  "{@config-path   | configs/standard.yaml | 位置参数，yaml配置文件路径 }"
+  "{rmv-follow | false | RMV大Y/P跟踪，不发射 }"
+  "{rmv-rotate | false | RMV四装甲旋转预测与弹道试算，默认不发射 }"
+  "{rmv-fire | false | RMV固定/旋转靶单发，双上转稳后由上位机触发，无摇杆许可 }"
+  "{rmv-check | false | 仅核对RMV调试配置，不打开设备 }"
+  "{rmv-shot-test | 0 | 保持当前云台角度的连续单发测试，1至20次，无视觉瞄准 }"
+  "{rmv-rpm-delay | false | 配合rmv-shot-test，以200Hz轮速估计指令到掉速的延迟 }"
+  "{seconds | 0 | RMV调试运行秒数，0为直到退出 }";
 
 int main(int argc, char * argv[])
 {
@@ -63,9 +71,6 @@ int main(int argc, char * argv[])
 
   tools::logger()->info("[Performance] Thread limits: OpenCV=1, TBB=4, OMP=4");
 
-  tools::Exiter exiter;
-  tools::Plotter plotter;
-  tools::Recorder recorder;
   cv::CommandLineParser cli(argc, argv, keys);
 
   auto config_path = cli.get<std::string>(0);
@@ -75,6 +80,30 @@ int main(int argc, char * argv[])
   }
 
   const auto integration_yaml = YAML::LoadFile(config_path);
+  const auto shot_count=cli.get<int>("rmv-shot-test");
+  const bool rpm_measurement=cli.get<bool>("rmv-rpm-delay");
+  if(!cli.check() || shot_count<0 || shot_count>20) {
+    std::cerr<<"Invalid command line / rmv-shot-test must be 1 to 20"<<std::endl;return 2;
+  }
+  if(rpm_measurement && !shot_count){std::cerr<<"rmv-rpm-delay requires a bounded rmv-shot-test"<<std::endl;return 2;}
+  if(shot_count) {
+    if(!integration_yaml["board_protocol"] || integration_yaml["board_protocol"].as<std::string>()!="RMV" ||
+       cli.get<bool>("rmv-fire") || cli.get<bool>("rmv-follow") || cli.get<bool>("rmv-rotate")) {
+      std::cerr<<"Shot test requires RMV and cannot be combined with tracking options"<<std::endl;return 2;
+    }
+    return run_rmv_shot_test(config_path,shot_count,cli.get<double>("seconds"),cli.get<bool>("rmv-check"),rpm_measurement);
+  }
+  if (integration_yaml["board_protocol"] &&
+      integration_yaml["board_protocol"].as<std::string>()=="RMV")
+    return run_rmv_debug(config_path,cli.get<bool>("rmv-follow"),
+      cli.get<double>("seconds"),cli.get<bool>("rmv-check"),cli.get<bool>("rmv-rotate"),cli.get<bool>("rmv-fire"));
+  if(cli.get<bool>("rmv-check") || cli.get<bool>("rmv-follow") || cli.get<bool>("rmv-rotate") || cli.get<bool>("rmv-fire")) {
+    std::cerr<<"RMV options require board_protocol: RMV; no device was opened"<<std::endl;
+    return 2;
+  }
+  tools::Exiter exiter;
+  tools::Plotter plotter;
+  tools::Recorder recorder;
   const bool competition_headless =
     integration_yaml["competition_headless"] &&
     integration_yaml["competition_headless"].as<bool>();

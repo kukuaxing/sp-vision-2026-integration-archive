@@ -43,6 +43,9 @@ public:
   Plan plan(
     std::optional<Target> target, double bullet_speed,
     std::chrono::steady_clock::time_point now);
+  // Centered joint reference, as in the original Tongji planner. Column
+  // HALF_HORIZON is NOW; geometry and firing are supplied by the RMV adapter.
+  Plan plan_joint_trajectory(const Trajectory& reference, double yaw0);
 
 private:
   double yaw_offset_;

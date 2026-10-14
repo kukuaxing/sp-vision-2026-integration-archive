@@ -21,7 +21,8 @@ struct Fixture {
   }
   Frame begin(std::uint64_t nonce = 1234) {
     assert(session.begin(nonce, now)); auto request = outgoing();
-    assert(request.type == 1 && request.session == 0 && integer(request.payload, 0, 8) == nonce);
+    assert(request.type == 1 && request.flags == 1 && request.session == 0 &&
+           integer(request.payload, 0, 8) == nonce);
     return request;
   }
   void hello(std::uint64_t nonce = 1234, std::uint64_t boot = 1, std::uint32_t sid = 10,
@@ -49,8 +50,8 @@ struct Fixture {
     receive(0x0102, p);
   }
   void status(std::uint8_t mode = 3, bool permitted = true,
-              std::optional<std::uint64_t> stamp = {}) {
-    Bytes p{mode, 2, 3, 3, 3, 1, static_cast<std::uint8_t>(permitted), 0};
+              std::optional<std::uint64_t> stamp = {},bool fire=false) {
+    Bytes p{mode, 2, 3, 3, 3, 1, static_cast<std::uint8_t>(permitted), static_cast<std::uint8_t>(fire)};
     for (unsigned i = 0; i < 3; ++i) append(p, 0, 4);
     append(p, 0, 2); append(p, 0, 2); append(p, 3, 4); append(p, 7, 4);
     receive(0x0101, p, 0, 0, stamp);
@@ -219,9 +220,54 @@ void automatic_tests() {
     assert(!f.session.control_ready(f.now)); // Maintenance never requests mode/target.
   }
 }
+void shooting_tests(){
+  Fixture f;assert(f.session.begin(1234,f.now,1));f.outgoing();f.hello(1234,1,10,11291|128);f.sync();f.pose();f.status(0,false);
+  assert(f.session.request_mode(2,6,f.now));const auto mode=f.outgoing();f.ack(mode);f.status(2);
+  assert(f.session.aim(.1,.2,f.now,2,60000,true,2));const auto aim=f.outgoing();
+  assert(!f.session.shoot(1,f.now)); // RC fire permission is independent
+  f.status(2,true,{},true);assert(!f.session.shoot(0,f.now));
+  assert(!f.session.shoot(1,f.now,60001)); // cannot outlive associated target
+  assert(f.session.shoot(1,f.now));const auto shot=f.outgoing();
+  assert(shot.type==0x203&&shot.flags==1&&integer(shot.payload,8,4)==aim.seq);
+  assert(integer(shot.payload,12,8)==f.now+f.offset+30000);
+  assert(!f.session.shoot(2,f.now));f.ack(shot);
+  assert(f.session.aim(0,0,f.now,2,60000,false,2));f.outgoing();assert(!f.session.shoot(2,f.now));
+  assert(f.session.aim(.1,.2,f.now,2,60000,true,2));f.outgoing();assert(f.session.shoot(3,f.now));f.outgoing();
+  f.now+=100000;f.session.tick(f.now);assert(!f.session.retry(f.now)); // shot is never retried automatically
+  Fixture old;old.ready();assert(!old.session.request_mode(2,6,old.now));assert(!old.session.shoot(1,old.now));
+}
+void wheel_profile_tests(){
+  Fixture f;f.begin();f.hello(1234,1,10,0x1f|128);
+  assert(f.session.request_wheel_measurement_profile(true,f.now));
+  const auto req=f.outgoing();assert(req.type==4 && req.flags==1 && req.payload.size()==36);
+  const unsigned types[]={0x101,0x102,0x103,0x104},rates[]={20,50,50,200};
+  for(unsigned i=0;i<4;++i){
+    assert(integer(req.payload,4+i*8,2)==types[i]);
+    assert(integer(req.payload,6+i*8,2)==rates[i]);
+    assert(integer(req.payload,8+i*8,4)==(i==1?1:0));
+  }
+  assert(!f.session.request_wheel_measurement_profile(false,f.now));f.ack(req);
+  assert(f.session.request_wheel_measurement_profile(false,f.now));auto restore=f.outgoing();
+  assert(integer(restore.payload,14,2)==100 && integer(restore.payload,22,2)==100 &&
+    integer(restore.payload,30,2)==20);f.ack(restore,7);
+  assert(f.session.last_result()->completion==Completion::rejected);
+  Fixture old;old.connect();assert(!old.session.request_wheel_measurement_profile(true,old.now));
+}
+void trajectory_tests(){
+  Fixture f;assert(f.session.begin(1234,f.now,1));f.outgoing();
+  f.hello(1234,1,10,11419|(1u<<15));f.sync();f.pose(1,11);f.status(0,false);
+  assert(f.session.request_mode(3,6,f.now));auto mode=f.outgoing();f.ack(mode);f.status(3);
+  assert(f.session.aim(.1,.2,f.now,2,60000,true,2,true,.4,-.3,2,-1));auto aim=f.outgoing();
+  assert(integer(aim.payload,22,2)==7 && std::abs(real(aim.payload,32)-.4)<1e-6 &&
+    std::abs(real(aim.payload,36)+.3)<1e-6 && real(aim.payload,40)==2 && real(aim.payload,44)==-1);
+  assert(f.session.telemetry().poses.gyro_at(f.now+f.offset,f.now+f.offset));
+  assert(!f.session.aim(0,0,f.now,2,60000,true,2,true,2.01,0,0,0));
+  assert(!f.session.aim(0,0,f.now,2,60000,true,2,false,.4,0,0,0));
+  Fixture old;old.ready();assert(!old.session.aim(0,0,old.now,2,60000,true,2,true,0,0,0,0));
+}
 }
 int main() {
   handshake_tests(); timing_tests(); control_tests(); retry_tests(); expiry_tests();
-  parser_tests(); automatic_tests();
+  parser_tests(); automatic_tests();shooting_tests();trajectory_tests();wheel_profile_tests();
   std::cout << "PASS: RMV active-session correlation, retries, timeouts, lifecycle and automatic maintenance\n";
 }

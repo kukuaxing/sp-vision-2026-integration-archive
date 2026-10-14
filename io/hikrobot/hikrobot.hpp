@@ -48,7 +48,8 @@ private:
   std::thread capture_thread_;
   std::atomic<bool> capturing_;
   std::atomic<bool> capture_quit_;
-  tools::ThreadSafeQueue<CameraData> queue_;
+  // Preview consumers can stall in detection/GUI: retain the newest frame.
+  tools::ThreadSafeQueue<CameraData, true> queue_;
 
   int vid_, pid_;
 

@@ -2,8 +2,9 @@
 # 用法（在 Ubuntu 小电脑上）：
 #   1) 采集:   ./build/capture configs/calibration.yaml --intrinsics-only -o data/calibration/sentry_intrinsics
 #   2) 内参:   ./build/calibrate_camera data/calibration/sentry_intrinsics -c=configs/calibration.yaml --no-display
-#   3) 手眼:   ./build/calibrate_handeye data/calibration/sentry_handeye -c=configs/calibration.yaml --no-display
-# 内参标定结果需要先回填到下面的 camera_matrix / distort_coeffs，手眼标定才能进行。
+#   3) 原始姿态采集: ./build/capture configs/calibration.yaml -o=data/calibration/sentry_handeye
+#   4) 相机到IMU旋转: python3 scripts/calibrate_rmv_rotation.py data/calibration/sentry_handeye
+# 旋转结果仅写 logs/calibration/rmv-rotation.json；尚不估计平移或自动修改运行外参。
 
 #####-----标定板参数-----#####
 pattern_cols: 11                 # 当前板照片：宽方向12格，11个内角点
@@ -65,6 +66,8 @@ xuc_allow_control: false         # 接板确认前禁止驱动云台
 xuc_allow_shoot: false           # 首次接板固定禁射
 
 
-# 哨兵标定专用：UART3 921600的HI91原始姿态经UART4 460800只读转发。
-calibration_pose_source: hipnuc
-calibration_pose_verified: false # 两轴响应及安装坐标验证后才允许保存手眼图像
+# RMV 标定：UART4 460800，接收 sensor_id=1/frame_id=1 小Y原始IMU四元数。
+# 仅发送 HELLO、空闲心跳及 TIME_SYNC；不请求控制或发射。
+calibration_pose_source: rmv
+calibration_pose_verified: false # 相机支架 G 安装变换尚未验证；不作为原始 RMV 采集放行
+calibration_raw_pose_verified: true # 用户确认刚性安装；2026-10-05 P/小Y独立响应已核对，仅允许原始传感器图像+姿态采集

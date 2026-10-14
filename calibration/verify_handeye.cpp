@@ -36,6 +36,7 @@
 #include <vector>
 
 #include "io/camera.hpp"
+#include "calibration/dataset_source.hpp"
 #include "io/cboard.hpp"
 #include "tasks/auto_aim/solver.hpp"
 #include "tools/img_tools.hpp"
@@ -518,6 +519,10 @@ int main(int argc, char * argv[])
   auto c_path = cli.get<std::string>("config-path");
   auto e_path = cli.get<std::string>("extrinsics-path");
   auto in_folder = cli.get<std::string>("input-folder");
+  if (!cli.has("live") && raw_rmv_dataset(in_folder)) {
+    fmt::print(stderr, "Raw RMV poses are sensor1/frame1, not G. Use scripts/calibrate_rmv_rotation.py for raw rotation validation.\n");
+    return 2;
+  }
   bool live = cli.has("live");
   bool compare = cli.has("compare-roll-flip");
   bool verbose = cli.has("verbose");

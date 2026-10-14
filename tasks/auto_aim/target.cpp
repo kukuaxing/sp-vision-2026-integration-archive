@@ -489,14 +489,21 @@ std::vector<Eigen::Vector4d> Target::armor_xyza_list(bool prefer_direct_motion) 
   return _armor_xyza_list;
 }
 
-std::vector<Eigen::Vector4d> Target::armor_xyza_list_at(double relative_time_s) const
+std::vector<Eigen::Vector4d> Target::armor_xyza_list_at(
+  double relative_time_s, bool prefer_direct_motion) const
 {
   const Eigen::VectorXd state = ekf_x_at(relative_time_s);
   std::vector<Eigen::Vector4d> list;
   list.reserve(armor_num_);
   for (int i = 0; i < armor_num_; ++i) {
     const double angle = tools::limit_rad(state[6] + i * 2 * CV_PI / armor_num_);
-    const Eigen::Vector3d xyz = h_armor_xyz(state, i);
+    Eigen::Vector3d xyz = h_armor_xyz(state, i);
+    // Sample the same low-speed physical-face CV estimator as the original
+    // runtime. Negative centered-window times must not rewind live filters.
+    if (prefer_direct_motion && armor_motion_trusted(i)) {
+      xyz = armor_motion_filters_[i].position() +
+        armor_motion_filters_[i].velocity() * relative_time_s;
+    }
     list.push_back({xyz[0], xyz[1], xyz[2], angle});
   }
   return list;

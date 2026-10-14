@@ -2,7 +2,7 @@
 """Run the real C++ YOLO26 on explicit files, record events, and optionally compare two runs.
 
 No cameras, serial devices, networks, target tracking, motion commands or firing outputs.
-Video decoding uses an already-installed cv2 FFmpeg backend with one decoder thread;
+Video decoding uses an installed cv2 FFmpeg backend or FFmpeg CLI, with one decoder thread;
 the actual inference and detection postprocessing remain in the repository C++ sources.
 """
 
@@ -15,6 +15,8 @@ import json
 import math
 import os
 import platform
+import re
+import shutil
 import statistics
 import subprocess
 import sys
@@ -77,8 +79,52 @@ def read_raw(path: Path) -> tuple[dict, list[dict]]:
     return records[0], frames
 
 
+def prepare_ffmpeg_input(source: Path, directory: Path, max_frames: int, stride: int) -> tuple[list[str], dict]:
+    """Use an installed FFmpeg when the Python cv2 lacks decoder thread control."""
+    executable = shutil.which("ffmpeg")
+    if executable is None:
+        raise RecordingError("Video requires cv2 with CAP_PROP_N_THREADS or an installed ffmpeg; images remain supported")
+    directory.mkdir()
+    arguments = [executable, "-hide_banner", "-nostdin", "-nostats", "-loglevel", "info", "-n",
+                 "-protocol_whitelist", "file,pipe", "-threads", "1", "-filter_threads", "1",
+                 "-filter_complex_threads", "1", "-copyts", "-i", str(source), "-map", "0:v:0",
+                 "-an", "-sn", "-dn", "-vf", f"select=not(mod(n\\,{stride})),showinfo",
+                 "-vsync", "0", "-frames:v", str(max_frames), "-threads", "1",
+                 str(directory / "frame-%06d.png")]
+    result = subprocess.run(arguments, env=environment([]), capture_output=True, timeout=600,
+                            creationflags=subprocess.BELOW_NORMAL_PRIORITY_CLASS if os.name == "nt" else 0)
+    (directory / "decoder.log").write_bytes(result.stderr)
+    if result.returncode:
+        raise RecordingError(f"Single-thread FFmpeg failed; see {directory / 'decoder.log'}")
+    times = {}
+    for line in result.stderr.decode("utf-8", errors="replace").splitlines():
+        if "showinfo" not in line:
+            continue
+        match = re.search(r"\bn:\s*(\d+).*?\bpts_time:([^\s]+)", line)
+        if match:
+            try:
+                seconds = float(match[2])
+                times[int(match[1])] = round(seconds * 1e6) if math.isfinite(seconds) and seconds >= 0 else None
+            except ValueError:
+                pass
+    frames = [{"path": str(path.resolve()), "source_index": index * stride,
+               "video_pts_us": times.get(index)}
+              for index, path in enumerate(sorted(directory.glob("frame-*.png")))]
+    if not frames or len(frames) > max_frames:
+        raise RecordingError("FFmpeg produced no frames or exceeded the requested frame limit")
+    list_path = directory / "frames.json"
+    list_path.write_text(json.dumps(frames, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    return ["--image-list", str(list_path.resolve())], {
+        "kind": "video", "decoder": "FFmpeg CLI; decoder/filter/encoder threads=1",
+        "decoder_executable": executable, "fps_metadata": None,
+        "selected_source_indices": [row["source_index"] for row in frames],
+        "pts_meaning": "Container presentation time from showinfo with copyts; null if unavailable",
+        "hardware_exposure_time": None,
+    }
+
+
 def prepare_input(source: Path, directory: Path, max_frames: int, stride: int) -> tuple[list[str], dict]:
-    """Use stdlib for images; decode videos with the existing Python OpenCV/FFmpeg wheel."""
+    """Use C++ for images; decode video with a bounded cv2 or installed FFmpeg."""
     image_extensions = {".png", ".jpg", ".jpeg", ".bmp", ".pgm", ".ppm", ".tif", ".tiff", ".webp"}
     if source.suffix.lower() in image_extensions:
         return ["--input", str(source)], {"kind": "image", "decoder": "C++ OpenCV", "hardware_exposure_time": None}
@@ -87,10 +133,10 @@ def prepare_input(source: Path, directory: Path, max_frames: int, stride: int) -
             os.environ[key] = value
     try:
         import cv2
-    except ImportError as error:
-        raise RecordingError("Video input requires the already-installed Python cv2 or direct C++ FFmpeg support") from error
+    except ImportError:
+        return prepare_ffmpeg_input(source, directory, max_frames, stride)
     if not hasattr(cv2, "CAP_PROP_N_THREADS"):
-        raise RecordingError("This Python OpenCV lacks decoder thread control; use a local image or a newer cv2 build")
+        return prepare_ffmpeg_input(source, directory, max_frames, stride)
     cv2.setNumThreads(1)
     cv2.ocl.setUseOpenCL(False)
     capture = cv2.VideoCapture(str(source), cv2.CAP_FFMPEG, [cv2.CAP_PROP_N_THREADS, 1])
@@ -224,7 +270,8 @@ def main(argv: list[str] | None = None) -> int:
     inputs = parser.add_mutually_exclusive_group(required=True)
     inputs.add_argument("--input", type=Path, help="Explicit existing video/image file, never a camera ID or URL")
     inputs.add_argument("--blank", action="store_true", help="Real-model empty-image and 640x640 black-image regression")
-    parser.add_argument("--executable", type=Path, default=ROOT / "build/native-offline/bin/Release/detector_replay.exe")
+    replay_binary = "Release/detector_replay.exe" if os.name == "nt" else "detector_replay"
+    parser.add_argument("--executable", type=Path, default=ROOT / "build/native-offline/bin" / replay_binary)
     parser.add_argument("--config", type=Path, default=ROOT / "configs/standard.yaml")
     parser.add_argument("--output", type=Path, required=True, help="New capture directory under data/replay/")
     parser.add_argument("--report", type=Path, help="New JSON report under logs/replay/")
@@ -292,7 +339,7 @@ def main(argv: list[str] | None = None) -> int:
                   "detections": sum(len(frame["objects"]) for frame in first),
                   "empty_and_black_image_regression": "passed" if args.blank else "not requested",
                   "detector_wall_us": {"min": times[0], "median": statistics.median(times), "max": times[-1],
-                                       "meaning": "preprocessing + inference + postprocessing; this Windows machine only"},
+                                       "meaning": "preprocessing + inference + postprocessing; this host only"},
                   "repeat_consistency": consistency, "recording_integrity": integrity, "provenance": metadata,
                   "limits": ["No annotations: this is not a detection accuracy or robustness measurement.",
                              "No pose/IMU, target tracking, ballistic calculation, commands or physical feedback was fabricated.",

@@ -38,4 +38,6 @@ if(rclcpp_FOUND AND tf2_ros_FOUND AND geometry_msgs_FOUND AND visualization_msgs
 endif()
 
 # 链接fmt库以解决undefined reference错误
-target_link_libraries(tools PUBLIC fmt::fmt)
+# Recorder and image helpers depend on OpenCV themselves. Propagate this edge
+# so Linux --as-needed does not discard videoio before resolving libtools.a.
+target_link_libraries(tools PUBLIC fmt::fmt ${OpenCV_LIBS})

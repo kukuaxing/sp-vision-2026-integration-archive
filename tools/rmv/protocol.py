@@ -186,7 +186,7 @@ def examples() -> list[tuple[str, Frame]]:
     session = 0x10203040
     nonce = 0x0102030405060708
     definitions = [
-        ("HELLO", (nonce, 0x1F, 1, 1, 0), 0, 0),
+        ("HELLO", (nonce, 0x1F, 1, 1, 0), 0, ACK_REQUEST),
         ("HELLO_REPLY", (nonce, 0x1112131415161718, 1, 0x1F, 7, 3, 256, 2, 2), session, RESPONSE),
         ("TIME_SYNC", (1000000,), session, 0),
         ("TIME_REPLY", (1000000, 5000100, 5000200), session, RESPONSE),

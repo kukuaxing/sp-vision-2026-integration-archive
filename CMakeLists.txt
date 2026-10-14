@@ -193,7 +193,7 @@ add_subdirectory(tasks/omniperception)
 add_subdirectory(librm)
 
 ####################src###################
-add_executable(standard src/standard.cpp)
+add_executable(standard src/standard.cpp src/rmv_debug.cpp)
 add_executable(daheng_camera_test src/daheng_camera_test.cpp)
 add_executable(uav_debug src/uav_debug.cpp)
 add_executable(standard_mpc src/standard_mpc.cpp)
@@ -350,7 +350,7 @@ target_link_libraries(trigger_test ${OpenCV_LIBS} fmt::fmt yaml-cpp tools io)
 if(ament_cmake_FOUND AND rclcpp_FOUND AND std_msgs_FOUND AND visualization_msgs_FOUND AND tf2_ros_FOUND AND geometry_msgs_FOUND)
     message(STATUS "ROS2 environment found, compiling standard_ros2 with marker visualization")
 
-    add_executable(standard_ros2 src/standard.cpp)
+    add_executable(standard_ros2 src/standard.cpp src/rmv_debug.cpp)
     target_link_libraries(standard_ros2 ${OpenCV_LIBS} fmt::fmt yaml-cpp auto_aim auto_buff tools io rclcpp::rclcpp)
     ament_target_dependencies(standard_ros2 rclcpp std_msgs visualization_msgs tf2_ros geometry_msgs)
     target_compile_definitions(standard_ros2 PRIVATE AMENT_CMAKE_FOUND)

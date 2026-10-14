@@ -257,7 +257,7 @@ class Client:
             raise ValueError("new connections require a fresh nonzero nonce")
         self.invalidate()
         self.decoder = StreamDecoder()
-        frame = self.frame(1, fixed_payload("HELLO", nonce, 0x1F, 1, 1, 0))
+        frame = self.frame(1, fixed_payload("HELLO", nonce, 0x1F, 1, 1, 0), ACK_REQUEST)
         for reply in self.exchange_frame(frame):
             if (reply.msg_type == 0x00FF and reply.flags == RESPONSE and reply.session_id == 0
                     and len(reply.payload) == 16):
@@ -269,7 +269,7 @@ class Client:
             values = struct.unpack(LAYOUTS["HELLO_REPLY"][1], reply.payload)
             if values[0] != nonce or not reply.session_id:
                 continue
-            if (values[3] & 0x1F != 0x1F or values[3] & ~0x3FFF or values[6] != 256
+            if (values[3] & 0x1F != 0x1F or values[3] & ~0xBFFF or values[6] != 256
                     or not values[7] or values[8] not in (2, 3)
                     or (values[1], reply.session_id) in self._used_sessions):
                 raise ValueError("invalid/reused HELLO session or capabilities")

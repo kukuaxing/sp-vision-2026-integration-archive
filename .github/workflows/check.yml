@@ -29,5 +29,7 @@ jobs:
           python-version: '3.11'
       - name: Install desktop math dependencies
         run: sudo apt-get update && sudo apt-get install -y libopencv-dev libyaml-cpp-dev libfmt-dev libspdlog-dev
+      - name: Install calibration test dependencies
+        run: python -m pip install numpy PyYAML opencv-python-headless
       - run: python scripts/check_offline.py --with-vision
       - run: python scripts/check_rmv_pty.py

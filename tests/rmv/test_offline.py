@@ -46,6 +46,18 @@ class IntegrationTests(unittest.TestCase):
         self.assertAlmostEqual(self.client.clock.estimate(self.client.now)[0], 4_000_000)
         self.assertEqual(self.client.epoch, 1)
 
+    def test_hello_requires_ack_request_as_delivered_firmware(self):
+        board = Board()
+        decoder = StreamDecoder()
+        hello = Frame(1, 1, 0, 1000000, fixed_payload("HELLO", 456, 0x1F, 1, 1, 0), 0)
+        replies = decoder.feed(board.receive(encode(hello)))
+        self.assertEqual(board.session, 0)
+        self.assertEqual(replies[0].msg_type, 0xFF)
+        self.assertEqual(struct.unpack("<IHHII", replies[0].payload)[2], Result.BAD_VALUE)
+        client = Client(InMemoryTransport(board))
+        client.connect(456)
+        self.assertNotEqual(client.session, 0)
+
     def test_permission_and_applied_sequence_are_distinct(self):
         self.active()
         frame = self.aim_frame()

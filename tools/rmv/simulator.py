@@ -224,7 +224,7 @@ class Board:
             nonce, required, low, high, reserved = struct.unpack("<QIBBH", req.payload)
         except struct.error:
             return self._ack(req, Result.BAD_LENGTH)
-        if reserved or low > high:
+        if req.flags != ACK_REQUEST or reserved or low > high:
             return self._ack(req, Result.BAD_VALUE)
         if not low <= 1 <= high:
             return self._ack(req, Result.BAD_VERSION)

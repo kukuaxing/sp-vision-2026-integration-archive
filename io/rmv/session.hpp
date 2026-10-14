@@ -46,6 +46,9 @@ class Session {
   std::uint32_t parameter_revision_ = 0, geometry_revision_ = 0, firmware_ = 0;
   unsigned sync_samples_ = 0;
   bool control_blocked_ = true;
+  std::uint32_t last_aim_seq_=0;
+  std::uint64_t last_aim_deadline_=0;
+  bool last_aim_valid_=false;
 
   void reset_session() {
     state_ = SessionState::disconnected; session_ = 0; boot_ = 0;
@@ -53,6 +56,7 @@ class Session {
     telemetry_ = TelemetryAdapter{}; decoder_ = Decoder{};
     pending_.reset(); outgoing_.clear(); last_sync_sent_.reset(); sync_samples_ = 0;
     control_blocked_ = true;
+    last_aim_seq_=0;last_aim_deadline_=0;last_aim_valid_=false;
   }
   void fail(Completion reason) {
     RequestResult result;
@@ -124,7 +128,7 @@ class Session {
       const auto caps = static_cast<std::uint32_t>(integer(p, 20, 4));
       const auto boot = integer(p, 8, 8);
       if (integer(p, 0, 8) != nonce_) return;
-      if ((caps & required_caps_) != required_caps_ || (caps & ~0x3fffu) ||
+      if ((caps & required_caps_) != required_caps_ || (caps & ~0xbfffu) ||
           integer(p, 32, 2) != MAX_PAYLOAD || ((caps & 1) && p[34] == 0) ||
           p[35] < 2 || p[35] > 3 ||
           std::find(used_sessions_.begin(), used_sessions_.end(),
@@ -194,9 +198,14 @@ public:
   bool control_ready(std::uint64_t now) const {
     return active() && !control_blocked_ && telemetry_.control_ready(now);
   }
+  std::string control_ready_reason(std::uint64_t now) const {
+    if(!active())return "inactive_session";
+    if(control_blocked_)return "session_control_blocked";
+    return telemetry_.control_ready_reason(now);
+  }
   void disconnect() { fail(Completion::disconnected); }
   bool begin(std::uint64_t nonce, std::uint64_t now, std::uint32_t required_caps = 0x1f) {
-    if (!observe_now(now) || !nonce || (required_caps & ~0x3fffu) ||
+    if (!observe_now(now) || !nonce || (required_caps & ~0xbfffu) ||
         std::find(used_nonces_.begin(), used_nonces_.end(), nonce) != used_nonces_.end()) return false;
     reset_session(); result_.reset(); nonce_ = nonce; required_caps_ = required_caps;
     used_nonces_.push_back(nonce);
@@ -204,7 +213,8 @@ public:
     state_ = SessionState::connecting; last_rx_ = now;
     Bytes p; append(p, nonce, 8); append(p, required_caps, 4);
     p.insert(p.end(), {1, 1, 0, 0});
-    return request(1, std::move(p), now, false);
+    // HELLO uses a dedicated reply, but the delivered firmware requires ACK_REQUEST.
+    return request(1, std::move(p), now, true);
   }
   void ingest(const Bytes& bytes, std::uint64_t now) {
     if (!observe_now(now)) return;
@@ -276,40 +286,80 @@ public:
     if (!observe_now(now)) return false;
     expire(now);
     if (!active() || pending_ || (mode != 0 && mode != 2 && mode != 3) ||
-        (axis_mask & ~7u) || (mode && (axis_mask & 3u) != 3) || !fresh_pose(now) ||
-        (mode == 2 && !(capabilities_ & 4)) || (mode == 3 && !(capabilities_ & 8)) ||
+        (axis_mask & ~7u) || (mode && (axis_mask & 3u) != 3 &&
+          !(axis_mask==6 && (capabilities_&(1u<<13)) && (mode==3 || (mode==2 && (capabilities_&128))))) || !fresh_pose(now) ||
+        (mode == 2 && axis_mask!=6 && !(capabilities_ & 4)) || ((mode == 3 || axis_mask==6) && !(capabilities_ & 8)) ||
         ((axis_mask & 4u) && !(capabilities_ & (1u << 13)))) return false;
     Bytes p{mode, axis_mask, 0, 0}; append(p, *telemetry_.epoch, 4);
     // Require a new STATUS after a mode request and its successful ACK.
-    control_blocked_ = true; telemetry_.status.reset();
+    control_blocked_ = true; telemetry_.status.reset();last_aim_valid_=false;
     outgoing_.erase(std::remove_if(outgoing_.begin(), outgoing_.end(),
       [](const Queued& item) { return item.frame.type == 0x0201; }), outgoing_.end());
     return request(0x0200, std::move(p), now, true);
   }
+  // Fixed-angle wheel-drop measurement only. 29,764 bytes/s fits the MCU's
+  // 30,000 byte/s telemetry budget without changing control-loop frequency.
+  bool request_wheel_measurement_profile(bool enabled,std::uint64_t now) {
+    if(!observe_now(now))return false;
+    expire(now);if(!active() || pending_ || !(capabilities_&128))return false;
+      const bool trace=firmware_==2026100704 || firmware_==2026100705 || firmware_==2026100706 || firmware_==2026100707 || firmware_==2026100708;
+      Bytes p{static_cast<std::uint8_t>(trace?5:4),0,0,0};
+      const std::uint16_t types[]={0x101,0x102,0x103,0x104,0x109};
+      const std::uint16_t rates[]={20,static_cast<std::uint16_t>(enabled?50:100),
+        static_cast<std::uint16_t>(enabled?50:100),static_cast<std::uint16_t>(enabled?200:20),0};
+      for(unsigned i=0;i<(trace?5u:4u);++i){
+        const unsigned hz=trace && enabled?(i==1||i==2?25:i==3?0:i==4?200:20):rates[i];
+        append(p,types[i],2);append(p,hz,2);append(p,i==1?1:0,4);
+      }
+    return request(4,std::move(p),now,true);
+  }
   bool aim(float yaw, float pitch, std::uint64_t now, std::uint8_t reference = 0,
-           std::uint64_t lifetime_us = 80000, bool valid = true) {
+           std::uint64_t lifetime_us = 80000, bool valid = true,std::uint8_t policy=0,
+           bool trajectory=false,float yaw_rate=0,float pitch_rate=0,float yaw_accel=0,float pitch_accel=0) {
     if (!observe_now(now)) return false;
     expire(now);
     if (!control_ready(now) || !std::isfinite(yaw) || !std::isfinite(pitch) ||
-        (reference != 0 && reference != 2) || !lifetime_us || lifetime_us > 100000 ||
+        (reference != 0 && reference != 2) || (policy!=0 &&
+          !(policy==2 && reference==2 && (capabilities_&(1u<<13)))) || !lifetime_us || lifetime_us > 100000 ||
         (reference == 0 && !(capabilities_ & 4)) ||
-        (reference == 2 && (!(capabilities_ & 8) || telemetry_.status->mode != 3))) return false;
+        (reference == 2 && (!(capabilities_ & 8) || (telemetry_.status->mode != 3 &&
+          !(telemetry_.status->mode==2 && policy==2 && (capabilities_&128)))))) return false;
+    for(float v:{yaw_rate,pitch_rate,yaw_accel,pitch_accel})if(!std::isfinite(v))return false;
+    if(trajectory && (policy!=2 || reference!=2 || !(capabilities_&(1u<<15)) ||
+       std::abs(yaw_rate)>2 || std::abs(pitch_rate)>1.5 || std::abs(yaw_accel)>100 || std::abs(pitch_accel)>100))return false;
+    if(!trajectory && (yaw_rate || pitch_rate || yaw_accel || pitch_accel))return false;
     const auto stamp = telemetry_.clock.to_mcu(now, now);
     if (!stamp || *stamp > std::numeric_limits<std::uint64_t>::max() - lifetime_us) return false;
     Bytes p; append(p, *telemetry_.epoch, 4); append(p, *stamp, 8);
-    append(p, *stamp + lifetime_us, 8); p.push_back(reference); p.push_back(0);
-    append(p, valid ? 1 : 0, 2);
-    for (float number : {valid ? yaw : 0.f, valid ? pitch : 0.f, 0.f, 0.f, 0.f, 0.f}) {
+    append(p, *stamp + lifetime_us, 8); p.push_back(reference); p.push_back(policy);
+    append(p, valid ? (trajectory?7:1) : 0, 2);
+    for (float number : {valid ? yaw : 0.f, valid ? pitch : 0.f,
+       valid?yaw_rate:0.f,valid?pitch_rate:0.f,valid?yaw_accel:0.f,valid?pitch_accel:0.f}) {
       std::uint32_t bits; std::memcpy(&bits, &number, sizeof(bits)); append(p, bits, 4);
     }
-    return queue(frame(0x0201, std::move(p), now), now);
+    auto value=frame(0x0201,std::move(p),now);
+    last_aim_seq_=value.seq;last_aim_deadline_=*stamp+lifetime_us;last_aim_valid_=valid;
+    return queue(std::move(value),now);
+  }
+  bool shoot(std::uint32_t id,std::uint64_t now,std::uint64_t lifetime_us=30000){
+    if(!observe_now(now))return false;
+    expire(now);
+    if(!id || pending_ || !(capabilities_&128) || !control_ready(now) ||
+       telemetry_.status->mode!=2 || !telemetry_.status->fire_permitted ||
+       !last_aim_seq_ || !last_aim_valid_ || !lifetime_us || lifetime_us>100000)return false;
+    const auto stamp=telemetry_.clock.to_mcu(now,now);
+    if(!stamp || *stamp>std::numeric_limits<std::uint64_t>::max()-lifetime_us ||
+       *stamp+lifetime_us>last_aim_deadline_)return false;
+    Bytes p;append(p,id,4);p.insert(p.end(),{1,0,0,0});append(p,last_aim_seq_,4);
+    append(p,*stamp+lifetime_us,8);
+    return request(0x0203,std::move(p),now,true);
   }
   bool stop(std::uint64_t now, std::uint16_t reason = 0) {
     if (!observe_now(now)) return false;
     expire(now);
     if (!active()) return false;
     // STOP supersedes an uncertain mode change and every unsent motion target.
-    pending_.reset(); outgoing_.clear(); control_blocked_ = true; telemetry_.status.reset();
+    pending_.reset(); outgoing_.clear(); control_blocked_ = true; telemetry_.status.reset();last_aim_valid_=false;
     Bytes p; append(p, reason, 2); append(p, 0, 2);
     return request(0x0202, std::move(p), now, true);
   }
