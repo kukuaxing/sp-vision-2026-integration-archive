@@ -108,11 +108,15 @@ select_color() {
 prepare_runtime_config() {
   local temp="$RUNTIME_CONFIG.tmp.$$"
   mkdir -p -- "$(dirname "$RUNTIME_CONFIG")"
-  if ! awk -v color="$LOCK_COLOR" '
+  if ! awk -v color="$LOCK_COLOR" -v override="$OVERRIDE_BOARD_COLOR" '
       BEGIN { updated = 0 }
       /^[[:space:]]*enemy_color[[:space:]]*:/ && !updated {
         print "enemy_color: \"" color "\""
         updated = 1
+        next
+      }
+      /^[[:space:]]*sentinel_use_detect_color[[:space:]]*:/ && override == "true" {
+        print "sentinel_use_detect_color: false # explicit operator color selection"
         next
       }
       { print }
@@ -253,6 +257,8 @@ if [[ "$CHECK_ONLY" == true ]]; then
   exit 0
 fi
 
+OVERRIDE_BOARD_COLOR=false
+if [[ -n "$LOCK_COLOR" || "$SELECT_COLOR" == true ]]; then OVERRIDE_BOARD_COLOR=true; fi
 if [[ -z "$LOCK_COLOR" ]]; then LOCK_COLOR="$(read_saved_color)"; fi
 if [[ "$SELECT_COLOR" == true ]]; then
   if selected="$(select_color "$LOCK_COLOR")"; then
@@ -305,7 +311,7 @@ for _ in $(seq 1 100); do
     tail -n 80 "$LOG_FILE" || true
     fail "自瞄程序在建立通信前退出，请查看日志。"
   fi
-  if grep -Eq '\[SYNC\]\[(XUC|RMV)\]' "$LOG_FILE"; then
+  if grep -Eq '\[SYNC\]\[(XUC|RMV)\]|\[SYNC\]\[SENTINEL\] yaw=' "$LOG_FILE"; then
     connected=true
     break
   fi

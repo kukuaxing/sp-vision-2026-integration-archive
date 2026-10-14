@@ -122,7 +122,8 @@ def main():
     from tools.rmv.protocol import examples, encode
     golden = build / "rmv_vectors.txt"
     golden.write_text("\n".join(encode(f).hex(" ") for _, f in examples()) + "\n", encoding="ascii")
-    targets = [("rmv_core_test", "tests/rmv/core_test.cpp"),
+    targets = [("sentinel_protocol_test", "tests/sentinel/protocol_test.cpp"),
+               ("rmv_core_test", "tests/rmv/core_test.cpp"),
                ("rmv_session_test", "tests/rmv/session_test.cpp"),
                ("rmv_transport_test", "tests/rmv/transport_test.cpp"),
                ("rmv_session_peer", "tests/rmv/session_peer.cpp")]

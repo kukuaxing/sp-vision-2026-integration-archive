@@ -1,5 +1,7 @@
 # 配置与标定状态
 
+2026-10-14：正式通信已改 `SENTINEL`，上行64字节、下行40字节、921600波特率，详见 [Sentinel固定帧](sentinel_protocol.md)。当前控制/开火关闭；相机与标定成果保留，原始RMV标定配置不能与新版电控采集姿态。以下记录按日期仅描述对应旧固件，不作为新版的档位/控制许可依据。
+
 2026-10-06 当前 RMV 调试使用固件2026100602。`configs/standard.yaml` 中 `rmv_debug_yaw_axis: big`，`rmv_debug_max_displacement_deg: 0.0`：大 Y/P 跟踪、小 Y 保持、无相对角度限幅；默认只读，显式 `--rmv-follow` 才允许跟踪，P 原机械范围保留。安装候选、光心/枪口与真实枪管方向继续使用。标定配置未改，完整标定放行仍false。操作见 [当前RMV调试](rmv_debug.md)，下文历史状态以日期区分。
 
 正式运行配置为configs/standard.yaml，标定工具配置为configs/calibration.yaml。启动器生成的logs/xuc-bringup/field_autoaim.runtime.yaml是缓存；不要将它作为另一份配置源。颜色选择保存在~/.config/sp-vision/field_autoaim_enemy_color。

@@ -44,6 +44,7 @@ using namespace std::chrono;
 const std::string keys =
   "{help h usage ? |      | 输出命令行参数说明}"
   "{@config-path   | configs/standard.yaml | 位置参数，yaml配置文件路径 }"
+  "{sentinel-check | false | 只检查Sentinel固定帧配置，不打开设备 }"
   "{rmv-follow | false | RMV大Y/P跟踪，不发射 }"
   "{rmv-rotate | false | RMV四装甲旋转预测与弹道试算，默认不发射 }"
   "{rmv-fire | false | RMV固定/旋转靶单发，双上转稳后由上位机触发，无摇杆许可 }"
@@ -80,12 +81,28 @@ int main(int argc, char * argv[])
   }
 
   const auto integration_yaml = YAML::LoadFile(config_path);
+  const bool sentinel_protocol = integration_yaml["board_protocol"] &&
+    integration_yaml["board_protocol"].as<std::string>() == "SENTINEL";
   const auto shot_count=cli.get<int>("rmv-shot-test");
   const bool rpm_measurement=cli.get<bool>("rmv-rpm-delay");
   if(!cli.check() || shot_count<0 || shot_count>20) {
     std::cerr<<"Invalid command line / rmv-shot-test must be 1 to 20"<<std::endl;return 2;
   }
   if(rpm_measurement && !shot_count){std::cerr<<"rmv-rpm-delay requires a bounded rmv-shot-test"<<std::endl;return 2;}
+  if (cli.get<bool>("sentinel-check")) {
+    const bool valid = sentinel_protocol && integration_yaml["xuc_enable"] &&
+      integration_yaml["xuc_enable"].as<bool>() && integration_yaml["xuc_serial_baud"] &&
+      integration_yaml["xuc_serial_baud"].as<int>() == 921600;
+    std::cout << nlohmann::json({{"protocol", "SENTINEL"}, {"config_valid", valid},
+      {"rx_bytes", 64}, {"tx_bytes", 40}, {"baud", 921600}, {"wire_units", "deg, deg/s, ms"},
+      {"device_opened", false}, {"live_verified", false}}).dump() << std::endl;
+    return valid ? 0 : 2;
+  }
+  if (sentinel_protocol && (!integration_yaml["xuc_enable"] ||
+      !integration_yaml["xuc_enable"].as<bool>())) {
+    std::cerr << "SENTINEL requires xuc_enable: true; no device was opened" << std::endl;
+    return 2;
+  }
   if(shot_count) {
     if(!integration_yaml["board_protocol"] || integration_yaml["board_protocol"].as<std::string>()!="RMV" ||
        cli.get<bool>("rmv-fire") || cli.get<bool>("rmv-follow") || cli.get<bool>("rmv-rotate")) {
@@ -162,7 +179,7 @@ int main(int argc, char * argv[])
   // yaw.  This layer sits after target prediction, so it removes actuator lag and
   // bias without replacing the ESKF/phase lead used for moving targets.
   const bool yaw_tracking_pi_enabled =
-    integration_yaml["xuc_yaw_tracking_pi_enabled"] &&
+    !sentinel_protocol && integration_yaml["xuc_yaw_tracking_pi_enabled"] &&
     integration_yaml["xuc_yaw_tracking_pi_enabled"].as<bool>();
   const double yaw_tracking_kp = integration_yaml["xuc_yaw_tracking_kp"]
     ? std::clamp(integration_yaml["xuc_yaw_tracking_kp"].as<double>(), 0.0, 2.0)
@@ -478,7 +495,7 @@ int main(int argc, char * argv[])
       : std::min(0.5, xuc_event_fire_delay_s + 0.020);
   auto_aim::ShotDelayAdapter::Config shot_delay_config;
   shot_delay_config.enabled =
-    integration_yaml["xuc_shot_delay_adaptation_enabled"] &&
+    !sentinel_protocol && integration_yaml["xuc_shot_delay_adaptation_enabled"] &&
     integration_yaml["xuc_shot_delay_adaptation_enabled"].as<bool>();
   shot_delay_config.nominal_delay_s = xuc_event_fire_delay_s;
   shot_delay_config.min_delay_s = std::min(
@@ -745,8 +762,12 @@ int main(int argc, char * argv[])
 #endif
 
   io::CBoard cboard(config_path);
+  io::XucSender xuc(config_path);
+  if (sentinel_protocol && !xuc.enabled()) {
+    tools::logger()->error("[SENTINEL] serial open failed; camera/control not started");
+    return 2;
+  }
   io::Camera camera(config_path);
-  io::XucSender xuc(config_path);  // 新版XUC：接收IMU，发送目标角
 
   auto_aim::YOLO detector(config_path, false);  // 启用调试，显示检测窗口
   auto_aim::Solver solver(config_path);
@@ -959,125 +980,151 @@ int main(int argc, char * argv[])
       // 新版硬件中IMU连接下位机，姿态由XUC上行包提供。
       if (xuc.enabled()) {
         if (xuc.rx_valid()) {
-          const double imu_yaw = xuc.imu_yaw();
-          const double imu_pitch = xuc.imu_pitch();
+          const auto imu_angles = xuc.imu_angles_rad();
+          const double imu_yaw = imu_angles[2];
+          const double imu_pitch = imu_angles[1];
           q = Eigen::AngleAxisd(imu_yaw, Eigen::Vector3d::UnitZ()) *
-              Eigen::AngleAxisd(imu_pitch, Eigen::Vector3d::UnitY());
+              Eigen::AngleAxisd(imu_pitch, Eigen::Vector3d::UnitY()) *
+              Eigen::AngleAxisd(imu_angles[0], Eigen::Vector3d::UnitX());
           q.normalize();
           solver.set_R_gimbal2world(q);
           cboard.mode = static_cast<io::Mode>(xuc.mode());
-          const double lower_diagnostic_value = xuc.bullet_speed();
-          const auto feeder_feedback = xuc.feeder_feedback();
-          const auto feedback_now = std::chrono::steady_clock::now();
-          if (feeder_feedback.transition_sequence != xuc_feeder_transition_sequence) {
-            xuc_feeder_transition_sequence = feeder_feedback.transition_sequence;
-            const auto feeder_edge_time = std::chrono::steady_clock::time_point(
-              std::chrono::nanoseconds(feeder_feedback.transition_time_ns));
-            xuc_feeder_active = feeder_feedback.active;
-            if (feeder_feedback.active) {
-              xuc_feeder_activity_seen = true;
-              xuc_feeder_last_active = feeder_edge_time;
-              if (xuc_pending_shot) {
-                const double command_to_feeder_ms =
-                  std::chrono::duration<double, std::milli>(
-                    feeder_edge_time - xuc_pending_shot_time).count();
-                if (command_to_feeder_ms >= 0.0 &&
-                    command_to_feeder_ms <= xuc_shot_feedback_timeout_s * 1000.0) {
-                  xuc_active_shot_id = xuc_pending_shot_id;
-                  xuc_active_shot_start_time = feeder_edge_time;
-                  const auto adaptation =
-                    shot_delay_adapter.update(command_to_feeder_ms / 1000.0);
-                  if (adaptation.accepted) {
-                    aimer.set_delay_adjustment(shot_delay_adapter.delay_adjustment_s());
-                    if (adaptation.regime_change) {
+          if (!xuc.is_sentinel()) {
+            const double lower_diagnostic_value = xuc.bullet_speed();
+            const auto feeder_feedback = xuc.feeder_feedback();
+            const auto feedback_now = std::chrono::steady_clock::now();
+            if (feeder_feedback.transition_sequence != xuc_feeder_transition_sequence) {
+              xuc_feeder_transition_sequence = feeder_feedback.transition_sequence;
+              const auto feeder_edge_time = std::chrono::steady_clock::time_point(
+                std::chrono::nanoseconds(feeder_feedback.transition_time_ns));
+              xuc_feeder_active = feeder_feedback.active;
+              if (feeder_feedback.active) {
+                xuc_feeder_activity_seen = true;
+                xuc_feeder_last_active = feeder_edge_time;
+                if (xuc_pending_shot) {
+                  const double command_to_feeder_ms =
+                    std::chrono::duration<double, std::milli>(
+                      feeder_edge_time - xuc_pending_shot_time).count();
+                  if (command_to_feeder_ms >= 0.0 &&
+                      command_to_feeder_ms <= xuc_shot_feedback_timeout_s * 1000.0) {
+                    xuc_active_shot_id = xuc_pending_shot_id;
+                    xuc_active_shot_start_time = feeder_edge_time;
+                    const auto adaptation =
+                      shot_delay_adapter.update(command_to_feeder_ms / 1000.0);
+                    if (adaptation.accepted) {
+                      aimer.set_delay_adjustment(shot_delay_adapter.delay_adjustment_s());
+                      if (adaptation.regime_change) {
+                        tools::logger()->warn(
+                          "[SHOTADAPT] persistent feeder-delay shift detected; "
+                          "rebuilding robust window");
+                      }
+                      tools::logger()->info(
+                        "[SHOTADAPT] id={} feeder_ms={:.2f} samples={} ready={} "
+                        "delay_ms={:.2f} pi95_ms=[{:.2f},{:.2f}]",
+                        xuc_active_shot_id, command_to_feeder_ms,
+                        adaptation.sample_count, adaptation.ready ? 1 : 0,
+                        adaptation.delay_s * 1000.0,
+                        adaptation.delay_min_s * 1000.0,
+                        adaptation.delay_max_s * 1000.0);
+                    } else if (adaptation.rejected_outlier) {
                       tools::logger()->warn(
-                        "[SHOTADAPT] persistent feeder-delay shift detected; "
-                        "rebuilding robust window");
+                        "[SHOTADAPT] id={} rejected feeder outlier {:.2f} ms; "
+                        "delay held at {:.2f} ms",
+                        xuc_active_shot_id, command_to_feeder_ms,
+                        shot_delay_adapter.delay_s() * 1000.0);
                     }
                     tools::logger()->info(
-                      "[SHOTADAPT] id={} feeder_ms={:.2f} samples={} ready={} "
-                      "delay_ms={:.2f} pi95_ms=[{:.2f},{:.2f}]",
-                      xuc_active_shot_id, command_to_feeder_ms,
-                      adaptation.sample_count, adaptation.ready ? 1 : 0,
-                      adaptation.delay_s * 1000.0,
-                      adaptation.delay_min_s * 1000.0,
-                      adaptation.delay_max_s * 1000.0);
-                  } else if (adaptation.rejected_outlier) {
+                      "[SHOT] id={} feeder_start command_to_feeder_ms={:.2f} rpm={:.0f}",
+                      xuc_active_shot_id, command_to_feeder_ms, feeder_feedback.rpm);
+                  } else {
                     tools::logger()->warn(
-                      "[SHOTADAPT] id={} rejected feeder outlier {:.2f} ms; "
-                      "delay held at {:.2f} ms",
-                      xuc_active_shot_id, command_to_feeder_ms,
-                      shot_delay_adapter.delay_s() * 1000.0);
+                      "[SHOT] id={} feeder_start_unmatched age_ms={:.2f} rpm={:.0f}",
+                      xuc_pending_shot_id, command_to_feeder_ms, feeder_feedback.rpm);
                   }
-                  tools::logger()->info(
-                    "[SHOT] id={} feeder_start command_to_feeder_ms={:.2f} rpm={:.0f}",
-                    xuc_active_shot_id, command_to_feeder_ms, feeder_feedback.rpm);
+                  xuc_pending_shot = false;
+                  xuc_pending_shot_id = 0;
                 } else {
-                  tools::logger()->warn(
-                    "[SHOT] id={} feeder_start_unmatched age_ms={:.2f} rpm={:.0f}",
-                    xuc_pending_shot_id, command_to_feeder_ms, feeder_feedback.rpm);
+                  tools::logger()->info(
+                    "[SHOT] feeder_start_unpaired rpm={:.0f}", feeder_feedback.rpm);
                 }
-                xuc_pending_shot = false;
-                xuc_pending_shot_id = 0;
               } else {
+                xuc_feeder_last_active = feeder_edge_time;
+                if (xuc_active_shot_id != 0) {
+                  const double feeder_motion_ms =
+                    std::chrono::duration<double, std::milli>(
+                      feeder_edge_time - xuc_active_shot_start_time).count();
+                  tools::logger()->info(
+                    "[SHOT] id={} feeder_stop feeder_motion_ms={:.1f}",
+                    xuc_active_shot_id, feeder_motion_ms);
+                  xuc_active_shot_id = 0;
+                }
                 tools::logger()->info(
-                  "[SHOT] feeder_start_unpaired rpm={:.0f}", feeder_feedback.rpm);
+                  "[XUC][FIRE] feeder stopped; post-feed hold={:.0f} ms",
+                  xuc_gyro_post_feed_recovery_s * 1000.0);
               }
-            } else {
-              xuc_feeder_last_active = feeder_edge_time;
-              if (xuc_active_shot_id != 0) {
-                const double feeder_motion_ms =
-                  std::chrono::duration<double, std::milli>(
-                    feeder_edge_time - xuc_active_shot_start_time).count();
-                tools::logger()->info(
-                  "[SHOT] id={} feeder_stop feeder_motion_ms={:.1f}",
-                  xuc_active_shot_id, feeder_motion_ms);
-                xuc_active_shot_id = 0;
-              }
-              tools::logger()->info(
-                "[XUC][FIRE] feeder stopped; post-feed hold={:.0f} ms",
-                xuc_gyro_post_feed_recovery_s * 1000.0);
             }
+            if (xuc_pending_shot &&
+                std::chrono::duration<double>(feedback_now - xuc_pending_shot_time).count() >
+                  xuc_shot_feedback_timeout_s) {
+              tools::logger()->warn(
+                "[SHOT] id={} no_feeder_feedback timeout_ms={:.0f}",
+                xuc_pending_shot_id, xuc_shot_feedback_timeout_s * 1000.0);
+              xuc_pending_shot = false;
+              xuc_pending_shot_id = 0;
+            }
+            const uint8_t motion_gate_bits = xuc.robot_id();
+            const uint16_t packed_wheel_rpm = xuc.bullet_count();
+            const unsigned wheel0_rpm =
+              static_cast<unsigned>(packed_wheel_rpm & 0xffU) * 40U;
+            const unsigned wheel1_rpm =
+              static_cast<unsigned>((packed_wheel_rpm >> 8U) & 0xffU) * 40U;
+
+
+            static int xuc_imu_log_counter = 0;
+            const int xuc_log_period_frames = (xuc.mode() == 1) ? 5 : 50;
+            if (++xuc_imu_log_counter % xuc_log_period_frames == 0) {
+              tools::logger()->info(
+                "[SYNC][XUC] mode={} yaw={:.2f} deg pitch={:.2f} deg "
+                "feeder_rpm={:.2f} wheel0_rpm={} wheel1_rpm={} wheel_delta={} "
+                "projectile_speed={:.2f} gate=0x{:02X} "
+                "switch={} rc={} sticks={} imu={} serial={} control={} yaw_armed={} pitch_active={}",
+                static_cast<int>(xuc.mode()),
+                imu_yaw * 180.0 / M_PI, imu_pitch * 180.0 / M_PI,
+                lower_diagnostic_value, wheel0_rpm, wheel1_rpm,
+                static_cast<int>(wheel0_rpm) - static_cast<int>(wheel1_rpm),
+                cboard.bullet_speed, static_cast<unsigned>(motion_gate_bits),
+                (motion_gate_bits >> 0U) & 1U, (motion_gate_bits >> 1U) & 1U,
+                (motion_gate_bits >> 2U) & 1U, (motion_gate_bits >> 3U) & 1U,
+                (motion_gate_bits >> 4U) & 1U, (motion_gate_bits >> 5U) & 1U,
+                (motion_gate_bits >> 6U) & 1U, (motion_gate_bits >> 7U) & 1U);
+            }
+          } else {
+            const auto feedback = xuc.sentinel_feedback();
+            static int sentinel_log_counter = 0;
+            if (++sentinel_log_counter % 50 == 0)
+              tools::logger()->info(
+                "[SYNC][SENTINEL] yaw={:.2f} pitch={:.2f} roll={:.2f} deg "
+                "p_time={} p_id={} p_valid={} c_time={} c_id={} c_valid={} rx_total={} rx_count={} color={}",
+                imu_yaw * 180.0 / M_PI, imu_pitch * 180.0 / M_PI, xuc.imu_roll() * 180.0 / M_PI,
+                feedback.gimbal.time_ms, feedback.gimbal.id, feedback.gimbal.valid,
+                feedback.chassis.time_ms, feedback.chassis.id, feedback.chassis.valid,
+                feedback.rx_total, feedback.rx_count, feedback.detect_color);
           }
-          if (xuc_pending_shot &&
-              std::chrono::duration<double>(feedback_now - xuc_pending_shot_time).count() >
-                xuc_shot_feedback_timeout_s) {
-            tools::logger()->warn(
-              "[SHOT] id={} no_feeder_feedback timeout_ms={:.0f}",
-              xuc_pending_shot_id, xuc_shot_feedback_timeout_s * 1000.0);
-            xuc_pending_shot = false;
-            xuc_pending_shot_id = 0;
-          }
-          const uint8_t motion_gate_bits = xuc.robot_id();
-          const uint16_t packed_wheel_rpm = xuc.bullet_count();
-          const unsigned wheel0_rpm =
-            static_cast<unsigned>(packed_wheel_rpm & 0xffU) * 40U;
-          const unsigned wheel1_rpm =
-            static_cast<unsigned>((packed_wheel_rpm >> 8U) & 0xffU) * 40U;
           cboard.bullet_speed = xuc_projectile_speed_mps;
           mode = cboard.mode;
-
-          static int xuc_imu_log_counter = 0;
-          const int xuc_log_period_frames = (xuc.mode() == 1) ? 5 : 50;
-          if (++xuc_imu_log_counter % xuc_log_period_frames == 0) {
-            tools::logger()->info(
-              "[SYNC][XUC] mode={} yaw={:.2f} deg pitch={:.2f} deg "
-              "feeder_rpm={:.2f} wheel0_rpm={} wheel1_rpm={} wheel_delta={} "
-              "projectile_speed={:.2f} gate=0x{:02X} "
-              "switch={} rc={} sticks={} imu={} serial={} control={} yaw_armed={} pitch_active={}",
-              static_cast<int>(xuc.mode()),
-              imu_yaw * 180.0 / M_PI, imu_pitch * 180.0 / M_PI,
-              lower_diagnostic_value, wheel0_rpm, wheel1_rpm,
-              static_cast<int>(wheel0_rpm) - static_cast<int>(wheel1_rpm),
-              cboard.bullet_speed, static_cast<unsigned>(motion_gate_bits),
-              (motion_gate_bits >> 0U) & 1U, (motion_gate_bits >> 1U) & 1U,
-              (motion_gate_bits >> 2U) & 1U, (motion_gate_bits >> 3U) & 1U,
-              (motion_gate_bits >> 4U) & 1U, (motion_gate_bits >> 5U) & 1U,
-              (motion_gate_bits >> 6U) & 1U, (motion_gate_bits >> 7U) & 1U);
-          }
         } else {
           cboard.mode = io::Mode::idle;
           mode = io::Mode::idle;
+          if (xuc.is_sentinel()) {
+            static int invalid_pose_log_counter = 0;
+            if (++invalid_pose_log_counter % 50 == 0) {
+              const auto feedback = xuc.sentinel_feedback();
+              tools::logger()->warn(
+                "[SYNC][SENTINEL] link={} pose=0 p_valid={} p_id={} p_time={} frames={} crc_errors={}",
+                xuc.feedback_link_valid(), feedback.gimbal.valid, feedback.gimbal.id,
+                feedback.gimbal.time_ms, xuc.valid_packets(), xuc.crc_errors());
+            }
+          }
         }
       // 海康等不提供 frame_id 的相机使用 steady_clock 时间戳插值。
       } else if (frame_id == 0) {
@@ -1162,6 +1209,23 @@ int main(int argc, char * argv[])
     auto t1 = std::chrono::steady_clock::now();  // 🔍 性能监控
     auto armors = detector.detect(img);
     auto t2 = std::chrono::steady_clock::now();
+    if (xuc.is_sentinel()) {
+      const auto feedback = xuc.sentinel_feedback();
+      const bool use_board_color = integration_yaml["sentinel_use_detect_color"] &&
+        integration_yaml["sentinel_use_detect_color"].as<bool>();
+      bool reset_requested = xuc.consume_tracker_reset() || !xuc.rx_valid();
+      if (use_board_color && xuc.feedback_link_valid())
+        reset_requested |= tracker.set_enemy_color(feedback.detect_color ? auto_aim::Color::blue : auto_aim::Color::red);
+      if (reset_requested) {
+        tracker.reset();
+        gyro_phase_scheduler.reset();
+        gyro_face_selector.reset();
+        direct_yaw_initialized = direct_pitch_initialized = false;
+        direct_yaw_control_confirmed = false;
+        xuc_fire_candidate_active = xuc_fire_ready_logged = false;
+      }
+      if (!xuc.rx_valid()) armors.clear();
+    }
     auto targets = tracker.track(armors, t);
     auto t3 = std::chrono::steady_clock::now();
 
@@ -1683,7 +1747,7 @@ int main(int argc, char * argv[])
     // into the inner position loop in one frame.
     const bool lower_yaw_armed_now = xuc.enabled() && xuc.rx_valid() &&
       xuc.mode() == static_cast<uint8_t>(io::Mode::auto_aim) &&
-      (xuc.robot_id() & (1U << 6U)) != 0U;
+      xuc.lower_yaw_armed();
     if (final_yaw_command_max_rate_rad_s > 0.0 && xuc.enabled()) {
       const auto limiter_now = std::chrono::steady_clock::now();
       const bool actual_yaw_valid = xuc.rx_valid() &&
@@ -1753,7 +1817,7 @@ int main(int argc, char * argv[])
       const bool predictive_fire_active =
         gyro_predicted_fire_active || vehicle_predicted_fire_active;
       const bool feedback_cadence_gate_open =
-        !xuc.enabled() ||
+        !xuc.enabled() || xuc.is_sentinel() ||
         (!xuc_pending_shot && xuc_active_shot_id == 0 &&
          (!xuc_feeder_activity_seen ||
           (!xuc_feeder_active &&
@@ -2117,7 +2181,7 @@ int main(int argc, char * argv[])
           // next pulse immediately; no frame-rate-level command flood and no
           // fixed one-second software divider are involved.
           command.shoot = stable_time >= required_stable_s &&
-            (!xuc.enabled() || !xuc_fire_ready_logged);
+            (!xuc.enabled() || xuc.is_sentinel() || !xuc_fire_ready_logged);
         }
         if (command.shoot && !xuc_fire_ready_logged) {
           tools::logger()->info(
@@ -2311,6 +2375,8 @@ int main(int argc, char * argv[])
       }
     }
 
+    // Sentinel consumes a fire level. No feeder ACK or measured RPM is available;
+    // qualified stationary fire may remain high and MCU owns its repeat cadence.
     // For an event-qualified gyro shot, wait for the exact steady-clock due
     // instant instead of quantizing the request to the next camera frame.  A
     // sample that was already late before this deliberate wait is discarded;
@@ -2358,7 +2424,7 @@ int main(int argc, char * argv[])
           "[SHOT] id={} superseded_without_feedback by={}",
           xuc_pending_shot_id, shot_id);
       }
-      xuc_pending_shot = true;
+      xuc_pending_shot = !xuc.is_sentinel();
       xuc_pending_shot_id = shot_id;
       xuc_pending_shot_time = issue_time;
       const double processing_age_ms =
@@ -2440,12 +2506,31 @@ int main(int argc, char * argv[])
     plot_data["mcu_q_x"] = q.x();
     plot_data["mcu_q_y"] = q.y();
     plot_data["mcu_q_z"] = q.z();
+    if (xuc.is_sentinel()) {
+      const auto feedback = xuc.sentinel_feedback();
+      const auto gyro = xuc.gimbal_gyro_rad_s();
+      plot_data["sentinel_link_valid"] = xuc.feedback_link_valid();
+      plot_data["sentinel_pose_valid"] = xuc.rx_valid();
+      plot_data["sentinel_p_time_ms"] = feedback.gimbal.time_ms;
+      plot_data["sentinel_p_id"] = feedback.gimbal.id;
+      plot_data["sentinel_p_valid"] = feedback.gimbal.valid;
+      plot_data["sentinel_p_raw_rpy_deg"] = {feedback.gimbal.roll_deg, feedback.gimbal.pitch_deg, feedback.gimbal.yaw_deg};
+      plot_data["sentinel_p_gyro_rad_s"] = gyro;
+      plot_data["sentinel_c_time_ms"] = feedback.chassis.time_ms;
+      plot_data["sentinel_c_id"] = feedback.chassis.id;
+      plot_data["sentinel_c_valid"] = feedback.chassis.valid;
+      plot_data["sentinel_c_raw_rpy_deg"] = {feedback.chassis.roll_deg, feedback.chassis.pitch_deg, feedback.chassis.yaw_deg};
+      plot_data["sentinel_rx_total"] = feedback.rx_total;
+      plot_data["sentinel_rx_count"] = feedback.rx_count;
+    }
     plotter.plot(plot_data);
 
     // 🎯 关键：将 send 移到循环开头
     // 这样下一次循环时，会先发送这个命令，然后才读取相机
     // 形成闭环：发送命令 → 电控触发相机 → 读取图像 → 处理 → 发送下一条命令
     if (xuc.enabled()) {
+      if (xuc.is_sentinel() && std::isfinite(ballistic_camera_range_m))
+        command.horizon_distance = ballistic_camera_range_m;
       xuc.send(command);
       if (command.shoot) {
         const int64_t tx_ns = xuc.last_shoot_tx_ns();

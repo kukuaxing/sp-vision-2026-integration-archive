@@ -7,7 +7,7 @@ import yaml
 
 def protocol_report(config, calibration):
     board = str(config.get('board_protocol', '')).strip().upper() or 'UNKNOWN'
-    runtime = 'RMV' if board == 'RMV' and config.get('rmv_debug_enabled', False) else ('SP' if config.get('xuc_enable', False) else 'CBOARD_CAN')
+    runtime = 'RMV' if board == 'RMV' and config.get('rmv_debug_enabled', False) else (('SENTINEL' if board == 'SENTINEL' else 'SP') if config.get('xuc_enable', False) else 'CBOARD_CAN')
     if calibration.get('calibration_pose_source') == 'rmv':
         pose_reader = 'RMV'
     elif calibration.get('calibration_pose_source') == 'hipnuc':
@@ -24,6 +24,8 @@ def protocol_report(config, calibration):
         blockers.append('尚未声明下位机协议；请核对当前固件后设置 standard.yaml 的 board_protocol。')
     elif board != runtime:
         blockers.append(f'下位机配置协议为 {board}，正式 standard 使用 {runtime}；需完成接口适配后才能启动自瞄。')
+    if board == 'SENTINEL' and config.get('xuc_serial_baud') != 921600:
+        blockers.append('SENTINEL 固定使用 921600 波特率。')
     pose_matches = board != 'UNKNOWN' and board == pose_reader
     if not pose_matches:
         warnings.append(f'标定姿态接收器使用 {pose_reader}，与声明的下位机协议 {board} 不匹配；不能按旧流程采集外参姿态。')
@@ -85,6 +87,16 @@ def main():
     config = yaml.safe_load((root/'configs/standard.yaml').read_text())
     calibration = yaml.safe_load((root/'configs/calibration.yaml').read_text())
     protocols = protocol_report(config, calibration)
+    if protocols['runtime_protocol'] == 'SENTINEL':
+        binary = root/'build/standard'
+        help_result = subprocess.run([str(binary),'--help'],env=env,capture_output=True,text=True,timeout=5)
+        if help_result.returncode or 'sentinel-check' not in help_result.stdout:
+            protocols['runtime_blockers'].append('standard 缺少 Sentinel 固定帧入口；请重新编译。')
+        else:
+            check = subprocess.run([str(binary),str(root/'configs/standard.yaml'),'--sentinel-check'],env=env,capture_output=True,text=True,timeout=5)
+            if check.returncode:
+                protocols['runtime_blockers'].append('Sentinel 静态配置检查失败：'+check.stdout+check.stderr)
+        protocols['runtime_protocol_compatible'] = not protocols['runtime_blockers']
     if protocols['runtime_protocol'] == 'RMV':
         # Check help before the static flag so an old binary cannot open devices.
         binary = root/'build/standard'

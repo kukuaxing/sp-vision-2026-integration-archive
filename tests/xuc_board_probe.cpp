@@ -12,7 +12,7 @@ int main(int argc, char ** argv)
 {
   if (argc < 2) {
     std::printf(
-      "用法: %s <serial_port> [baud=460800] [seconds=10] [--safe-heartbeat]\n",
+      "用法: %s <serial_port> [baud=460800] [seconds=10] [--sentinel|--safe-heartbeat]\n",
       argv[0]);
     return 2;
   }
@@ -21,6 +21,7 @@ int main(int argc, char ** argv)
   uint32_t baud = 460800;
   double duration_seconds = 10.0;
   bool safe_heartbeat = false;
+  const bool sentinel = argc >= 5 && std::string(argv[4]) == "--sentinel";
 
   try {
     if (argc >= 3) baud = static_cast<uint32_t>(std::stoul(argv[2]));
@@ -40,6 +41,7 @@ int main(int argc, char ** argv)
   {
     std::ofstream config(config_path);
     config
+      << "board_protocol: " << (sentinel ? "SENTINEL" : "SP") << "\n"
       << "xuc_enable: true\n"
       << "xuc_serial_port: \"" << port << "\"\n"
       << "xuc_serial_baud: " << baud << "\n"
@@ -54,6 +56,7 @@ int main(int argc, char ** argv)
 
   std::printf("XUC_PROBE_PORT=%s\n", port.c_str());
   std::printf("XUC_PROBE_BAUD=%u\n", baud);
+  if (sentinel) std::printf("PROTOCOL=SENTINEL RX=64 TX=40; receive-only, sends 0 bytes\n");
   std::printf(
     "XUC_PROBE_MODE=%s\n",
     safe_heartbeat ? "SAFE_HEARTBEAT" : "RECEIVE_ONLY");
@@ -81,7 +84,7 @@ int main(int argc, char ** argv)
          duration_seconds) {
     if (safe_heartbeat) xuc.send(safe_command);
 
-    const bool valid = xuc.rx_valid();
+    const bool valid = sentinel ? xuc.feedback_link_valid() : xuc.rx_valid();
     if (valid) {
       ++valid_samples;
     } else {
@@ -91,12 +94,26 @@ int main(int argc, char ** argv)
     const auto now = std::chrono::steady_clock::now();
     if (now >= next_log || valid != was_valid) {
       if (valid) {
+        if (sentinel) {
+          const auto f = xuc.sentinel_feedback();
+          std::printf("[SENTINEL] link=1 pose=%u color=%u reset=%u rx_total=%u rx_count=%u "
+                      "p_deg=(%.3f,%.3f,%.3f) p_dps=(%.3f,%.3f,%.3f) p_time=%u p_id=%u p_valid=%u "
+                      "c_deg=(%.3f,%.3f,%.3f) c_time=%u c_id=%u c_valid=%u\n",
+            xuc.rx_valid() ? 1U : 0U, unsigned(f.detect_color), unsigned(f.reset_tracker),
+            unsigned(f.rx_total), unsigned(f.rx_count),
+            f.gimbal.roll_deg, f.gimbal.pitch_deg, f.gimbal.yaw_deg,
+            f.gimbal.gx_dps, f.gimbal.gy_dps, f.gimbal.gz_dps,
+            f.gimbal.time_ms, unsigned(f.gimbal.id), unsigned(f.gimbal.valid),
+            f.chassis.roll_deg, f.chassis.pitch_deg, f.chassis.yaw_deg,
+            f.chassis.time_ms, unsigned(f.chassis.id), unsigned(f.chassis.valid));
+        } else {
         std::printf(
           "[RX] valid=1 mode=%u robot_id=%u bullet_speed=%.3f bullet_count=%u "
           "imu_pitch=%.6f imu_yaw=%.6f\n",
           static_cast<unsigned>(xuc.mode()), static_cast<unsigned>(xuc.robot_id()),
           xuc.bullet_speed(), static_cast<unsigned>(xuc.bullet_count()),
           xuc.imu_pitch(), xuc.imu_yaw());
+        }
       } else {
         std::printf("[RX] valid=0 waiting_or_timeout\n");
       }

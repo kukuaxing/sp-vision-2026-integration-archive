@@ -195,24 +195,24 @@ max_pitch_acc: 100
 Q_pitch: [9e6, 0]
 R_pitch: [1]
 
-#####-----XUC 新版双向串口（实际波特率接板确认）-----#####
+#####-----Sentinel 固定帧双向串口（UART4 @921600）-----#####
 xuc_enable: true                 # 接收IMU，发送云台目标角
 xuc_serial_port: "/dev/serial/by-id/usb-1a86_USB_Serial-if00-port0"
-xuc_serial_baud: 460800          # 与下位机 UART4 一致
-xuc_yaw_sign: 0.94074425         # 世界系目标角 -> 下位机原始yaw：同号并除以1.06298816
-xuc_pitch_sign: 1                # 实车验收：正号使目标朝图像垂直误差减小方向运动
-xuc_imu_yaw_sign: -1.06298816    # 零roll三点实测：下位机原始yaw -> 世界系yaw
-xuc_imu_pitch_sign: 1            # 下位机IMU pitch方向，实机小角度确认
+xuc_serial_baud: 921600          # 与下位机 UART4 一致
+xuc_yaw_sign: 1                  # legacy SP only; Sentinel uses inverse IMU transform
+xuc_pitch_sign: 1                # legacy SP only; Sentinel uses inverse IMU transform
+xuc_imu_yaw_sign: 1 # SENTINEL degree-to-radian conversion; mounting sign not field-verified
+xuc_imu_pitch_sign: 1 # SENTINEL normalized pitch; mounting sign not field-verified
 xuc_imu_yaw_offset_rad: 0.0
 xuc_imu_pitch_offset_rad: 0.0
 xuc_require_feedback_for_control: true
-xuc_require_auto_mode_for_control: false  # 下位机按当前遥控器档位直接回报 mode；避免串口互锁
-xuc_max_yaw_excursion_rad: 0.0          # 双轴联调：上位机不额外截断，下位机保留 Yaw ±25°/实际±28°保护
-xuc_lock_pitch_for_control: false       # 允许下发 Pitch；下位机限制 ±15°/80°每秒
+xuc_require_auto_mode_for_control: true # SENTINEL infer AUTO from fresh upstream, not a wire mode bit
+xuc_max_yaw_excursion_rad: 0.0          # legacy SP only; Sentinel motor limits are owned by its firmware
+xuc_lock_pitch_for_control: false       # legacy SP only; Sentinel uses current-to-target error
 xuc_allow_control: false
 xuc_allow_shoot: false
 xuc_fire_guard_enabled: true       # require fresh measured armor in both axes
-xuc_fire_stable_ms: 120.0          # short debounce; feedback-driven pulses handle repetition
+xuc_fire_stable_ms: 120.0          # stable qualification; Sentinel MCU owns held-level repeat cadence
 xuc_fire_yaw_tolerance_deg: 3.0    # 0.91m约±4.8cm，仍在小装甲板水平范围内
 xuc_fire_pitch_tolerance_deg: 1.1  # 介于无射击的0.8°与明显低弹的2.0°之间；配合更强Pitch闭环
 xuc_gyro_center_follow_enabled: true
@@ -305,7 +305,7 @@ xuc_event_fire_delay_max_ms: 105
 # baseline from five matched shots, then compensate only subsequent mechanical
 # drift. The 85 ms calibration is unchanged during warm-up. A median/MAD window,
 # 1.5 ms per-shot slew limit and hard 65--105 ms bounds prevent oscillation.
-xuc_shot_delay_adaptation_enabled: true
+xuc_shot_delay_adaptation_enabled: false # SENTINEL has no feeder feedback; keep provisional delay unchanged
 xuc_shot_delay_reference_ms: 0
 xuc_shot_delay_sample_min_ms: 3
 xuc_shot_delay_sample_max_ms: 80
@@ -366,7 +366,15 @@ xuc_event_face_max_alignment_deg: 15.0
 xuc_event_gimbal_tracking_tolerance_deg: 4.0
 xuc_shot_feedback_timeout_ms: 800
 
-board_protocol: "RMV"
+# Current firmware source: Hohokamk/Sentinel_robot b6f4697 (2026-10-14).
+# UART4 PA0(TX)/PA1(RX); RX=64 bytes, TX=40 bytes, CRC16/MCRF4XX.
+board_protocol: "SENTINEL"
+sentinel_tx_hz: 100
+sentinel_swap_roll_pitch: true # undo firmware HI91 roll/pitch and gx/gy exchange
+sentinel_use_detect_color: true # bit0: 0 red, 1 blue; manual launcher color overrides
+# New MCU has no motor/RPM/feeder/fire-permission feedback. Control remains
+# disabled for receive-only commissioning; existing RMV calibration is retained.
+# Verify physical signs/mounting before enabling xuc_allow_control; no auto fire.
 
 rmv_port: "/dev/serial/by-id/usb-1a86_USB_Serial-if00-port0"
 

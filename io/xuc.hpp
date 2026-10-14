@@ -13,6 +13,7 @@
 #include <serial/serial.h>
 
 #include "io/command.hpp"
+#include "io/sentinel/protocol.hpp"
 
 namespace io
 {
@@ -64,10 +65,28 @@ public:
   ~XucSender();
 
   bool enabled() const { return enabled_; }
+  bool is_sentinel() const { return sentinel_; }
+  // A valid wire packet is not proof of a valid/fresh gimbal IMU.
+  bool feedback_link_valid() const;
+  sentinel::Feedback sentinel_feedback() const;
+  bool consume_tracker_reset() { return tracker_reset_.exchange(false); }
+  double imu_roll() const;
+  double raw_imu_pitch() const;
+  std::array<double, 3> imu_angles_rad() const;
+  std::array<double, 3> gimbal_gyro_rad_s() const {
+    const auto imu = sentinel_feedback().gimbal;
+    return {(sentinel_swap_roll_pitch_ ? imu.gy_dps : imu.gx_dps) * sentinel::deg_to_rad,
+            imu_pitch_sign_ * (sentinel_swap_roll_pitch_ ? imu.gx_dps : imu.gy_dps) * sentinel::deg_to_rad,
+            imu_yaw_sign_ * imu.gz_dps * sentinel::deg_to_rad};
+  }
+  bool lower_yaw_armed() const {
+    return sentinel_ ? control_ready() : (rx_valid() && mode() == 1 && (robot_id() & 0x40));
+  }
   void send(const Command & cmd);
   bool control_ready() const
   {
-    return allow_control_ && (!require_feedback_for_control_ || rx_valid()) &&
+    return allow_control_ && (!sentinel_ || rx_valid()) &&
+           (!require_feedback_for_control_ || rx_valid()) &&
            (!require_auto_mode_for_control_ || mode() == 1);
   }
 
@@ -107,10 +126,12 @@ public:
   }
   double command_yaw_to_raw(double command_yaw_rad) const
   {
+    if (sentinel_) return (command_yaw_rad - imu_yaw_offset_rad_) / imu_yaw_sign_;
     return yaw_sign_ * command_yaw_rad;
   }
   double raw_yaw_correction_to_command(double raw_correction_rad) const
   {
+    if (sentinel_) return imu_yaw_sign_ * raw_correction_rad;
     return std::abs(yaw_sign_) > 1e-9 ? raw_correction_rad / yaw_sign_ : 0.0;
   }
   uint64_t rx_bytes() const { return rx_bytes_.load(std::memory_order_relaxed); }
@@ -127,9 +148,24 @@ public:
 
 private:
   void recv_loop();
+  void recv_sentinel_loop();
+  void send_sentinel(const Command & cmd);
 
   serial::Serial serial_;
   bool enabled_ = false;
+  bool sentinel_ = false;
+  bool sentinel_swap_roll_pitch_ = true;
+  int64_t sentinel_tx_interval_ns_ = 10000000; // 100 Hz; MCU queue/DecodeTask max 200 Hz.
+  int64_t sentinel_last_tx_ns_ = 0;
+  int64_t sentinel_sensor_timeout_ns_ = 250000000;
+  bool sentinel_output_active_ = false;
+  mutable std::mutex sentinel_mutex_;
+  sentinel::Feedback sentinel_feedback_{};
+  int64_t sentinel_last_sample_ns_ = 0;
+  bool sentinel_have_sample_ = false;
+  uint32_t sentinel_last_sample_time_ms_ = 0;
+  bool sentinel_reset_level_ = false;
+  std::atomic<bool> tracker_reset_{false};
   double yaw_sign_ = 1.0;     // 目标 yaw 符号
   double pitch_sign_ = -1.0;  // 目标 pitch 符号（与现有 CAN 发送 -command.pitch 一致）
   double imu_yaw_sign_ = 1.0;

@@ -37,6 +37,8 @@ public:
   Tracker(const std::string & config_path, Solver & solver);
 
   std::string state() const;
+  void reset();
+  bool set_enemy_color(Color color);
   const std::vector<ArmorAssociation> & last_associations() const;
   int primary_detection_index() const;
   int primary_face_id() const;

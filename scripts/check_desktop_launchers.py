@@ -28,12 +28,12 @@ with tempfile.TemporaryDirectory(prefix='rm27-desktop-test-') as td:
     for name in ['field_start_autoaim.sh', 'field_stop_autoaim.sh']:
         shutil.copy2(ROOT / 'tools' / name, root / 'tools' / name)
     shutil.copy2(ROOT / 'scripts/check_deployment.py', root / 'scripts/deployment_protocol_check.py')
-    (root / 'configs/standard.yaml').write_text('enemy_color: "blue"\nxuc_allow_control: false\nxuc_allow_shoot: false\nauto_fire: false\n')
+    (root / 'configs/standard.yaml').write_text('enemy_color: "blue"\nxuc_allow_control: false\nxuc_allow_shoot: false\nauto_fire: false\nsentinel_use_detect_color: true\n')
     (root / 'scripts/runtime_env.sh').write_text(f'export PATH="{root}/fakebin:/usr/bin:/bin"\n')
     (root / 'scripts/check_deployment.py').write_text('''import json, os, sys
 from deployment_protocol_check import protocol_report
 assert '--require-runtime' in sys.argv
-protocols = protocol_report({'xuc_enable': True, 'board_protocol': os.getenv('BOARD_PROTOCOL', 'SP')}, {'calibration_pose_source': 'hipnuc'})
+protocols = protocol_report({'xuc_enable': True, 'board_protocol': os.getenv('BOARD_PROTOCOL', 'SP'), 'xuc_serial_baud': 921600}, {'calibration_pose_source': 'hipnuc'})
 errors = ['simulated missing hardware'] if os.getenv('FAIL_CHECK') else protocols['runtime_blockers']
 print(json.dumps({'errors': errors, 'hardware': {'serial_path': '/nonexistent-rm27-test-device'}, **protocols}))
 sys.exit(1 if errors else 0)
@@ -105,6 +105,7 @@ int main(void) {
                 assert state.read_text().strip() == color
                 assert f'enemy_color: "{color}"' in runtime.read_text()
                 assert 'xuc_allow_control: false' in runtime.read_text()
+                assert ('sentinel_use_detect_color: false' if args else 'sentinel_use_detect_color: true') in runtime.read_text()
                 if duplicate:
                     r = run(start + ['--color', 'blue'])
                     assert r.returncode != 0 and state.read_text().strip() == color
@@ -129,6 +130,8 @@ int main(void) {
     cycle([], 'blue')
     assert dialogs.read_text() == ''
     print('PASS: remembered defaults, blue selection, unattended restart without dialog')
+    cycle(['--color', 'red'], 'red', {'BOARD_PROTOCOL': 'SENTINEL'})
+    print('PASS: Sentinel preflight and explicit manual color override')
     r = run(start, {'NO_HEARTBEAT': '1'})
     assert r.returncode != 0 and not pidfile.exists()
     print('PASS: no heartbeat stops child and reports failure')

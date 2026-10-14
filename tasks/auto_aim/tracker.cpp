@@ -6,6 +6,7 @@
 #include <cmath>
 #include <functional>
 #include <limits>
+#include <numeric>
 #include <tuple>
 
 #include "tools/logger.hpp"
@@ -20,6 +21,24 @@
 
 namespace auto_aim
 {
+void Tracker::reset()
+{
+  state_ = pre_state_ = "lost";
+  detect_count_ = temp_lost_count_ = switch_candidate_frames_ = 0;
+  switch_candidate_name_ = ArmorName::not_armor;
+  primary_detection_index_ = primary_face_id_ = -1;
+  last_associations_.clear();
+  last_timestamp_ = std::chrono::steady_clock::now();
+}
+
+bool Tracker::set_enemy_color(Color color)
+{
+  if (enemy_color_ == color) return false;
+  enemy_color_ = color;
+  reset();
+  return true;
+}
+
 Tracker::Tracker(const std::string & config_path, Solver & solver)
 : solver_{solver},
   detect_count_(0),
