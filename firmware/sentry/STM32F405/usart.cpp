@@ -19,63 +19,59 @@
   /* USER CODE END Header */
   /* Includes ------------------------------------------------------------------*/
 #include "usart.h"
+#include "task.h"
 #include "stm32f4xx_hal_gpio.h"
 #include "label.h"
 #include "queue.h"
-#include <cstring>
+#include "tim.h"		// TIM::NowUs() —— V2 协议的 µs 时间戳
 
 UART& UART::Init(USART_TypeDef* Instance, const uint32_t BaudRate)
 {
-	huart.Instance = Instance;								//���ô���ͨ��
-	huart.Init.BaudRate = BaudRate;							//���ò�����
-	huart.Init.WordLength = UART_WORDLENGTH_8B;				//���������ֳ���8λ
-	huart.Init.StopBits = UART_STOPBITS_1;					//ֹͣλ�ֳ���1λ
-	huart.Init.Parity = UART_PARITY_NONE;					//����żЧ��λ
-	huart.Init.Mode = UART_MODE_TX_RX;						//�շ�ģʽ
-	huart.Init.HwFlowCtl = UART_HWCONTROL_NONE;				//��Ӳ����
-	huart.Init.OverSampling = UART_OVERSAMPLING_16;			//16����������ȥ������
-	// DR16 DBUS uses 8 data bits plus even parity (9-bit STM32 word).
-	if (Instance == USART2 && BaudRate == 100000) {
-		huart.Init.WordLength = UART_WORDLENGTH_9B;
-		huart.Init.Parity = UART_PARITY_EVEN;
-	}
-	HAL_UART_Init(&huart);									//����HAL���ʼ������
+	huart.Instance = Instance;								//设置串口通道
+	huart.Init.BaudRate = BaudRate;							//设置波特率
+	huart.Init.WordLength = UART_WORDLENGTH_8B;				//传输数据字长，8位
+	huart.Init.StopBits = UART_STOPBITS_1;					//停止位字长，1位
+	huart.Init.Parity = UART_PARITY_NONE;					//无奇偶效验位
+	huart.Init.Mode = UART_MODE_TX_RX;						//收发模式
+	huart.Init.HwFlowCtl = UART_HWCONTROL_NONE;				//无硬件流
+	huart.Init.OverSampling = UART_OVERSAMPLING_16;			//16倍过采样，去除干扰
+	HAL_UART_Init(&huart);									//调用HAL库初始化函数
 	return *this;
 }
 
 UART& UART::DMATxInit(void)
 {
-	__HAL_DMA_DISABLE(huart.hdmatx);						//�������DMA����
-	huart.hdmatx->Instance->PAR = reinterpret_cast<uint32_t>(&huart.Instance->DR);//д��DMA�����ַ
-	huart.hdmatx->Instance->M0AR = 0;						//0�Ŵ洢��
+	__HAL_DMA_DISABLE(huart.hdmatx);						//清除串口DMA发送
+	huart.hdmatx->Instance->PAR = reinterpret_cast<uint32_t>(&huart.Instance->DR);//写入DMA外设地址
+	huart.hdmatx->Instance->M0AR = 0;						//0号存储器
 	DMAClearAllFlags(huart.hdmatx);
-	__HAL_DMA_ENABLE_IT(huart.hdmatx, DMA_IT_TC);			//��������DMA����
-	SET_BIT(huart.Instance->CR3, USART_CR3_DMAT);			//���ÿ�����3��ʹ��DMA
+	__HAL_DMA_ENABLE_IT(huart.hdmatx, DMA_IT_TC);			//开启串口DMA发送
+	SET_BIT(huart.Instance->CR3, USART_CR3_DMAT);			//设置控制器3，使能DMA
 	return *this;
 }
 
 
 UART& UART::DMARxInit(const uint8_t* buffer, const uint32_t size)//size = UART_MAX_LEN
 {
-	__HAL_DMA_DISABLE(huart.hdmarx);						//ʧ�ܴ���DMA����
+	__HAL_DMA_DISABLE(huart.hdmarx);						//失能串口DMA接收
 	huart.hdmarx->Instance->PAR = reinterpret_cast<uint32_t>(&huart.Instance->DR);
 	//PAR is DMA stream x peripheral address register,DR is UART Date register address
-	huart.hdmarx->Instance->NDTR = size;					//���ô������ݳ���
-	if (buffer == nullptr)									//���û�����
+	huart.hdmarx->Instance->NDTR = size;					//设置串口数据长度
+	if (buffer == nullptr)									//设置缓冲区
 		buffer = m_uartrx;
-	huart.hdmarx->Instance->M0AR = reinterpret_cast<uint32_t>(buffer);//���ô洢��0��ַ
+	huart.hdmarx->Instance->M0AR = reinterpret_cast<uint32_t>(buffer);//设置存储器0地址
 	DMAClearAllFlags(huart.hdmarx);
-	__HAL_DMA_ENABLE(huart.hdmarx);							//ʹ�ܴ���DMA����	
+	__HAL_DMA_ENABLE(huart.hdmarx);							//使能串口DMA接收	
 	SET_BIT(huart.Instance->CR3, USART_CR3_DMAR);
 
-	__HAL_UART_CLEAR_PEFLAG(&huart);						//�������ڿ����ж�
+	__HAL_UART_CLEAR_PEFLAG(&huart);						//开启串口空闲中断
 	__HAL_UART_ENABLE_IT(&huart, UART_IT_IDLE);
 	return *this;
 }
 
 /*
- * @brief		������������ʼ��
- * @param		*uartHandle		:	���ھ��
+ * @brief		串口相关外设初始化
+ * @param		*uartHandle		:	串口句柄
 */
 void HAL_UART_MspInit(UART_HandleTypeDef* uartHandle)
 {
@@ -93,8 +89,8 @@ void HAL_UART_MspInit(UART_HandleTypeDef* uartHandle)
 		PG9     ------> USART6_RX
 		*/
 		GPIO_InitStruct.Pin = GPIO_PIN_9 | GPIO_PIN_10;
-		GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;//���츴�ù���
-		GPIO_InitStruct.Pull = GPIO_PULLUP;//����
+		GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;//推挽复用功能
+		GPIO_InitStruct.Pull = GPIO_PULLUP;//上拉
 		GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
 		GPIO_InitStruct.Alternate = GPIO_AF7_USART1;
 		HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
@@ -196,7 +192,7 @@ void HAL_UART_MspInit(UART_HandleTypeDef* uartHandle)
 
 		/* USART6 interrupt Init */
 		HAL_NVIC_SetPriority(USART2_IRQn, 6, 0);
-		HAL_NVIC_EnableIRQ(USART2_IRQn);//�ж�ʹ�ܣ����յ�8λ���ݾ��ж�һ��
+		HAL_NVIC_EnableIRQ(USART2_IRQn);//中断使能，接收到8位数据就中断一次
 
 		/* DMA interrupt init */
 		/* DMA2_Stream1_IRQn interrupt configuration */
@@ -455,6 +451,16 @@ void HAL_UART_MspInit(UART_HandleTypeDef* uartHandle)
 	}
 }
 
+bool UART::ReceiveSnapshot(uint8_t* bytes, uint16_t& length, uint32_t& arrival_us)
+{
+    if (!bytes || !UartQueueHandler) return false;
+    taskENTER_CRITICAL();
+    const BaseType_t ready = xQueueReceive(UartQueueHandler, bytes, 0);
+    if (ready == pdTRUE) { length = rx_len; arrival_us = rx_time_us; }
+    taskEXIT_CRITICAL();
+    return ready == pdTRUE;
+}
+
 void UART::OnUARTITHandler(void)
 {
 	if (__HAL_UART_GET_FLAG(&huart, UART_FLAG_IDLE) && __HAL_UART_GET_IT_SOURCE(&huart, UART_IT_IDLE))
@@ -462,24 +468,33 @@ void UART::OnUARTITHandler(void)
 		__HAL_UART_CLEAR_IDLEFLAG(&huart);
 		__HAL_DMA_DISABLE(huart.hdmarx);
 
-		// �����ü�����ǰ��¼ʵ���յ����ֽ���
-		dataDmaNum = UART_MAX_LEN - __HAL_DMA_GET_COUNTER(huart.hdmarx);
+		/* ---- ① 本帧真实长度：NDTR 是"剩余未传输字节数"，随接收【递减】----
+		 * 必须【先 DISABLE 再读】：DMA 还在跑时 NDTR 随时在变。
+		 *   重装时 NDTR = UART_MAX_LEN；每收 1 字节减 1 ⇒ 实际长度 = MAX - NDTR。
+		 * ⚠️ 原来的实现直接 SET_COUNTER 重置，DMA 缓冲【不清零】⇒
+		 *    短帧的尾部挂着上一帧的残字节。消费端只能靠这个长度知道数据到哪结束。*/
+		const uint32_t ndtr = huart.hdmarx->Instance->NDTR;
+		uint32_t len = 0u;
+		if (ndtr <= UART_MAX_LEN) len = UART_MAX_LEN - ndtr;   // 正常路径
+		else { len = UART_MAX_LEN; ++rx_overflow; }            // NDTR 异常，防御性钳位
+		rx_len = (uint16_t)len;
 
-		// Reject partial/concatenated DBUS packets instead of reusing stale bytes.
-		if (huart.Instance == USART2 && dataDmaNum != 18) memset(m_uartrx, 0, UART_MAX_LEN);
-		if (FrameQueueHandler != NULL) {
-            UartRxFrame packet{};
-            packet.size = dataDmaNum <= UART_MAX_LEN ? dataDmaNum : 0;
-            memcpy(packet.data, m_uartrx, packet.size);
-            pd_Rx = xQueueOverwriteFromISR(FrameQueueHandler, &packet, NULL);
-        } else {
-            pd_Rx = xQueueOverwriteFromISR((QueueHandle_t)UartQueueHandler, m_uartrx, NULL);
-        }
+		/* ---- ② 到达时刻（V2 的 sample_time_us 基准）----
+		 * 取在 IDLE 判定之后、任何搬运之前，尽量贴近"最后一个字节落地"的时刻。
+		 * ⚠️ 与模块 system_time 对齐需要做线性回归（见 2026-10-15 笔记 A 实验）。*/
+		rx_time_us = TIM::NowUs();
+
+		/* ---- ③ 覆盖丢帧统计 ----
+		 * 队列深度 1：进来时已有数据 ⇒ 本帧会覆盖掉上一帧。
+		 * 原来这个丢失是完全静默的（xQueueOverwriteFromISR 无返回值可查）。*/
+		if (uxQueueMessagesWaitingFromISR((QueueHandle_t)UartQueueHandler) > 0)
+			++rx_drop_cnt;
+
+		pd_Rx = xQueueOverwriteFromISR((QueueHandle_t)UartQueueHandler, m_uartrx, NULL);
+		++rx_cnt;
 
 		DMAClearAllFlags(huart.hdmarx);
 
-		// �����ڴ��ַ�Ĵ����ػ�������ʼ����ֹÿ���������ַ����ƫ�Ƶ���Խ��
-		huart.hdmarx->Instance->M0AR = reinterpret_cast<uint32_t>(m_uartrx);
 		__HAL_DMA_SET_COUNTER(huart.hdmarx, UART_MAX_LEN);
 		__HAL_DMA_ENABLE(huart.hdmarx);
 	}
@@ -519,18 +534,44 @@ extern "C" void USART6_IRQHandler(void)
 extern "C" void DMA1_Stream2_IRQHandler(void)
 {
 }
-extern "C" void DMA1_Stream4_IRQHandler(void)//�����ж�
+extern "C" void DMA1_Stream4_IRQHandler(void)//发送中断
 {
 	uart4.OnDMAITHandler();
 }
 
-void UART::DMATransmit(uint8_t* const pData, const uint32_t Size)
+/* ==========================================================================
+ * DMA 发送
+ *
+ * 🔴 原实现是「无条件 DISABLE → 重装 NDTR/M0AR → ENABLE」，完全不问上一帧
+ *    发完没有。若在途时重装 M0AR/NDTR，会把「上一帧的后半段」和「本次的前半段」
+ *    拼成一条错乱的帧流 —— 上位机 CRC 必挂，且现象是"偶发丢包"，极难查。
+ *
+ *    判据用 NDTR：DMA 传输完成时 NDTR 归 0，所以 `NDTR != 0` 就是"还有在途数据"。
+ *    ⚠️ 这里不依赖 DMA TC 中断，只读寄存器 ⇒ 即使中断没使能也准确。
+ *       （OnDMAITHandler 只在 DMA1_Stream4_IRQHandler 里被调，也就是只有 uart4 的
+ *        TX 有完成回调；其余 UART 的 TX 中断并没有接上，不能靠标志位判断。）
+ *
+ *    时序参考：921600 baud 下 1 字节 ≈ 10.85 µs
+ *      · 46 B  ≈ 0.50 ms   ← xuc 三帧合计，20 Hz 上报绰绰有余
+ *      · 64 B  ≈ 0.69 ms
+ *    所以正常周期（50~100 ms）远大于发包时间，reject 计数应恒为 0；
+ *    一旦非 0，说明有人在极高频调用 Encode()。
+ * ========================================================================== */
+bool UART::DMATransmit(uint8_t* const pData, const uint32_t Size)
 {
+	if (huart.hdmatx->Instance->NDTR != 0u)   // 上一帧还没发完
+	{
+		++tx_busy_reject;
+		return false;                          // 丢弃本次，绝不拼帧
+	}
+
 	__HAL_DMA_DISABLE(huart.hdmatx);
 	huart.hdmatx->Instance->NDTR = Size;
 	huart.hdmatx->Instance->M0AR = reinterpret_cast<uint32_t>(pData);
 	DMAClearAllFlags(huart.hdmatx);
 	__HAL_DMA_ENABLE(huart.hdmatx);
+	++tx_cnt;
+	return true;
 }
 
 

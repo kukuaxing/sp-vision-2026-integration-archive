@@ -1,59 +1,30 @@
 #pragma once
-#include "usart.h."
+#include "usart.h"
 #include "FreeRTOS.h"
 #include <cmath>
 #include <cinttypes>
 
-/*
-×ó²¦Âës[0],ÓÒ²¦Âës[1]
-ÉÏ£º1 ÖĞ£º3 ÏÂ£º2
+#define RC_STATE(s0, s1) ( ((s0) << 8) | (s1) )
+#define TIMEOUT_TICKS 50        // 50 Ã— 5ms = 250ms
+#define RC_LOST_MS 100 
 
-ÓÒÒ¡¸Ë ÉÏÏÂ ch[1]
-ÓÒÒ¡¸Ë ×óÓÒ ch[0]
-×óÒ¡¸Ë ×óÓÒ ch[2]
-×óÒ¡¸Ë ÉÏÏÂ ch[3]
+/*
+å·¦æ‹¨ç s[0],å³æ‹¨ç s[1]
+ä¸Šï¼š1 ä¸­ï¼š3 ä¸‹ï¼š2
+
+å³æ‘‡æ† ä¸Šä¸‹ ch[1]
+å³æ‘‡æ† å·¦å³ ch[0]
+å·¦æ‘‡æ† ä¸Šä¸‹ ch[3]
 
 */
 
 class RC
 {
 public:
-  struct ODOMETRY
-	{
-		float vx_mps = 0.0f;
-		float vy_mps = 0.0f;
-		float wz_rpm = 0.0f;
-		float step_distance_m = 0.0f;
-		float total_distance_m = 0.0f;
-		TickType_t last_tick = 0;
-	} odometry;
-
-	int8_t AUTOmode{};
-	enum AutoMode
-	{
-		Disconnected = 0, // Î´Á¬½Ó
-		Move = 1,
-		Attack = 2,
-		Defense = 3
-	};
-	AutoMode    prev_state       = Disconnected; // ÉÏÒ»¸ö×´Ì¬
-	TickType_t  state_start_tick = 0;            // ½øÈëµ±Ç°×´Ì¬µÄÊ±¿Ì£¨FreeRTOS tick£©
-	uint32_t    state_duration_ms = 0;           // µ±Ç°×´Ì¬ÒÑ³ÖĞøÊ±¼ä£¨ms£©
-
-	// ×ËÌ¬ÇĞ»»¹ÜÀí
-	static constexpr uint32_t POSTURE_COOLDOWN_MS        = 5000;    // 5s ÇĞ»»ÀäÈ´
-	static constexpr uint32_t POSTURE_DECAY_THRESHOLD_MS = 180000;  // ÀÛ¼Æ 3min Ë¥¼õãĞÖµ
-	TickType_t  last_switch_tick      = 0;
-	uint32_t    posture_cd_remain_ms  = 0;
-	uint32_t    cumulative_move_ms    = 0;          // ÒÆ¶¯×ËÌ¬ÀÛ¼Æ£¨ms£©
-	uint32_t    cumulative_attack_ms  = 0;          // ½ø¹¥×ËÌ¬ÀÛ¼Æ£¨ms£©
-	uint32_t    cumulative_defense_ms = 0;          // ·ÀÓù×ËÌ¬ÀÛ¼Æ£¨ms£©
-	bool        posture_decayed       = false;      // µ±Ç°×ËÌ¬ºËĞÄÔöÒæÊÇ·ñÒÑË¥¼õ
-	int8_t      pending_state         = -1;         // ÀäÈ´ÆÚ¼ä»º´æµÄÇĞ»»ÇëÇó£¬-1=ÎŞ
-
 	int gear;
 	bool top_mode = true;
 	bool fix = false;
+
 
 	struct
 	{
@@ -76,42 +47,26 @@ public:
 	bool judement_start = false;
 	void Decode();
 	void OnRC();
-	void OnAuto();
 	void OnPC();
-  void OnRMUL();
 	void Update();
 	void Init(UART* huart, USART_TypeDef* Instance, const uint32_t BaudRate);
 	bool Shift_mode();
-  void UpdateTravelEstimateFromMotor();
-	void ResetTravelEstimate();
- void ResetRMUL();
-	bool HasReceivedValidFrame() const { return has_received_valid_frame; }
+	void RC_CheckState();
+	void RC_Control();
+
+	/* --- ä¸Šä½æœºï¼ˆV2ï¼‰åˆ†æ®µå¤„ç†ï¼Œä¾› watch/è°ƒè¯• --- */
+	void ApplyNav();       // 0x11 NAV_COMMAND â†’ åº•ç›˜ speedx/speedy
+	void ApplyAim();       // 0x10 AIM_COMMAND â†’ äº‘å° mark_pitch / setangle
+	void StopChassis();    // åº•ç›˜é€Ÿåº¦å½’é›¶ + å¹³æ»‘é‡å¤ä½
+
+	uint16_t rc_lost_cnt = 0;    // å¤±è”æ¬¡æ•°ï¼Œä¸Šè½¦ watch ç”¨
 
 private:
- enum RMUL_STAGE
-	{
-		RMUL_IDLE = 0,
-		RMUL_MOVE_POS_X,
-		RMUL_MOVE_POS_Y,
-		RMUL_MOVE_NEG_X,
-		RMUL_GYRO_AIM
-	};
-
-	RMUL_STAGE rmul_stage = RMUL_IDLE;
-	float rmul_accum_m = 0.0f;
-	TickType_t rmul_last_tick = 0;
-	TickType_t rmul_stage_start_tick = 0;
-	bool rmul_yaw_ramp_active = false;
-	float rmul_yaw_start_deg = 0.0f;
-	TickType_t rmul_yaw_ramp_start_tick = 0;
-	float rmul_yaw_target_deg = 0.0f;
-	bool rmul_active = false;
-
 	QueueHandle_t* queueHandler = NULL;
 	BaseType_t pd_Rx, pd_Tx;
 	UART* m_uart;
 	uint8_t m_frame[UART_MAX_LEN]{};
-  bool has_received_valid_frame = false;
+	uint32_t last_rc_tick = 0;   // æœ€åä¸€æ¬¡æ”¶åˆ°ã€æœ‰æ•ˆã€‘DBUS å¸§çš„æ—¶åˆ»
 };
 
 extern RC rc;

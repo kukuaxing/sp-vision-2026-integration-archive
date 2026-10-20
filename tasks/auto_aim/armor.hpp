@@ -3,6 +3,7 @@
 
 #include <Eigen/Dense>
 #include <opencv2/opencv.hpp>
+#include <limits>
 #include <string>
 #include <vector>
 
@@ -176,13 +177,33 @@ struct Armor
   int color_source{0};      // 0=model, 1=current image, 2=short temporal hold
   bool duplicated{false};
 
-  Eigen::Vector3d xyz_in_gimbal;  // 单位：m
-  Eigen::Vector3d xyz_in_world;   // 单位：m
-  Eigen::Vector3d ypr_in_gimbal;  // 单位：rad
-  Eigen::Vector3d ypr_in_world;   // 单位：rad
-  Eigen::Vector3d ypd_in_world;   // 球坐标系
+  // Detection alone does not produce a pose. Only this frame's successful
+  // Solver::solve may make these values eligible for tracking/control.
+  // Retain unrefined keypoints for display, but never silently turn them into
+  // a pose when an enabled physical-light-bar extraction failed this frame.
+  bool pose_observation_valid{true};
+  bool pose_valid{false};
+  double reprojection_error_px{std::numeric_limits<double>::infinity()};
+  double model_reprojection_error_px{std::numeric_limits<double>::infinity()};
+  double pose_quality{0.0};  // [0,1], independent of the network class score
+  Eigen::Vector3d xyz_in_gimbal = Eigen::Vector3d::Constant(std::numeric_limits<double>::quiet_NaN()); // m
+  Eigen::Vector3d xyz_in_world = Eigen::Vector3d::Constant(std::numeric_limits<double>::quiet_NaN());  // m
+  Eigen::Vector3d ypr_in_gimbal = Eigen::Vector3d::Constant(std::numeric_limits<double>::quiet_NaN()); // rad
+  Eigen::Vector3d ypr_in_world = Eigen::Vector3d::Constant(std::numeric_limits<double>::quiet_NaN());  // rad
+  Eigen::Vector3d ypd_in_world = Eigen::Vector3d::Constant(std::numeric_limits<double>::quiet_NaN());  // spherical
 
-  double yaw_raw;  // rad
+  double yaw_raw{std::numeric_limits<double>::quiet_NaN()}; // rad
+
+  void invalidate_pose()
+  {
+    pose_valid = false;
+    reprojection_error_px = std::numeric_limits<double>::infinity();
+    model_reprojection_error_px = std::numeric_limits<double>::infinity();
+    pose_quality = 0.0;
+    xyz_in_gimbal.setConstant(std::numeric_limits<double>::quiet_NaN());
+    xyz_in_world = ypr_in_gimbal = ypr_in_world = ypd_in_world = xyz_in_gimbal;
+    yaw_raw = std::numeric_limits<double>::quiet_NaN();
+  }
 
   Armor(const Lightbar & left, const Lightbar & right);
   // YOLO11/YOLO26 构造函数（不带ROI）

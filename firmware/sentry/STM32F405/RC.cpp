@@ -1,98 +1,373 @@
 #include "label.h"
+#include "HTmotor.h"
+#include "motor.h"
 #include "RC.h"
-#include "pitch_zero.h"
 #include "control.h"
-#include "DMmotor.h"
-#include "nuc.h"
-#include "judgement.h"
-extern DMMOTOR DM_motorYaw;
+#include "xuc.h"
+#include "imu.h"
+#include <algorithm>
 
-namespace {
-  static constexpr float PI_F = 3.14159265358979323846f;
-	static constexpr int32_t GYRO_SPIN_MIN = 300;
-	static constexpr int32_t GYRO_SPIN_MAX = 660;
-	static constexpr float GYRO_SPIN_K = 1.2f; // ±ä»¯ËÙ¶È²ÎÊı£¬µ¥Î» rad/s
+void RC::Init(UART* huart, USART_TypeDef* Instance, const uint32_t BaudRate)
+{
+	huart->Init(Instance, BaudRate).DMARxInit(nullptr);
+	m_uart = huart;
+	queueHandler = &huart->UartQueueHandler;
+}
 
-	struct GyroSpinState
+void RC::OnRC()
+{
+	const bool was_auto = ctrl.mode == CONTROL::AUTO;
+	//RCå¤±è”ä¿æŠ¤ï¼Œå¤±è”æ’¤é”€è¿åŠ¨
+	const bool rc_lost = last_rc_tick == 0 ||
+        (xTaskGetTickCount() - last_rc_tick) > pdMS_TO_TICKS(RC_LOST_MS);
+	if (rc_lost) ctrl.mode = CONTROL::STOP;
+	else RC_CheckState();
+	// Capture before manual increments on AUTO exit; STOP latches each valid axis once.
+	if (ctrl.mode == CONTROL::STOP || (was_auto && ctrl.mode != CONTROL::AUTO))
+		ctrl.pantile.Hold_Pantile();
+	RC_Control();
+
+	if (rc_lost)
 	{
-		TickType_t last_tick = 0;
-		float phase = -PI_F * 0.5f; // ´ÓÏÂÏŞ¿ªÊ¼
-	};
-
-	static GyroSpinState g_gyro_spin_state;
-
-	static inline TickType_t GetTickSafe()
+		if (rc_lost_cnt < 60000) ++rc_lost_cnt;
+		// Physical remote loss also revokes AUTO; OnPC cannot override STOP.
+		ctrl.chassis.speedx = 0;
+		ctrl.chassis.speedy = 0;
+		ctrl.chassis.speedz = 0;
+		ctrl.shooter.trig_raw = 0;
+		ctrl.shooter.openRub = false;
+		ctrl.pantile.yaw_speed_out = 0;    // é˜²è¾¾å¦™ yaw åƒæ®‹å€¼æ¼‚ç§»
+	}
+	else
 	{
-		if (__get_IPSR() != 0U)
-		{
-			return xTaskGetTickCountFromISR();
-		}
-		return xTaskGetTickCount();
+		rc_lost_cnt = 0;
 	}
 
-	static inline float TickDiffToSeconds(TickType_t now, TickType_t last)
+
+	if (Shift_mode())
 	{
-		return (now - last) * portTICK_PERIOD_MS * 0.001f;
+		ctrl.pantile.mark_yaw = (float)ctrl.pantile_motor[CONTROL::PANTILE::YAW]->angle[now];
+
+	}
+}
+
+void RC::OnPC()
+{
+	/* åªåœ¨ AUTO æ¨¡å¼æ¥ç®¡ã€‚RC_Control() å…ˆè·‘å¹¶å†™å…¥æ‘‡æ†å€¼ï¼Œ
+	 * æœ¬å‡½æ•°åè·‘ â‡’ å¤©ç„¶è¦†ç›–é¡ºåºæ­£ç¡®ï¼Œä¸éœ€è¦é¢å¤–æ’æ——æ ‡ã€‚*/
+	if (ctrl.mode != CONTROL::AUTO) {
+        ctrl.shooter.auto_fire_request_level = false;
+        xuc.RevokeAim();
+        xuc.nav_accepted = xuc.nav_enable = false;
+        ctrl.shooter.auto_shoot = false;
+        if (ctrl.mode != CONTROL::FIRE) ctrl.shooter.CancelPendingFeed();
+        return;
+    }
+
+	ApplyNav();     // 0x11 â†’ åº•ç›˜
+	ApplyAim();     // 0x10 â†’ äº‘å° / æ‘©æ“¦è½® / å¼€ç«
+}
+
+/* ==========================================================================
+ * åº•ç›˜ï¼šè§†è§‰å¯¼èˆªé€Ÿåº¦ï¼ˆm/sï¼‰â†’ è½®é€Ÿç»™å®šï¼ˆrpmï¼‰
+ *
+ * å£å¾„ï¼šä¸‰ä¸ªé‡çº§ â€”â€” â‘  é™ç›®æ ‡ â‘¡ é™å¢é‡ â‘¢ ä¸‹å‘ã€‚
+ *   é™å¹…çš„å¯¹è±¡æ˜¯ã€ç›®æ ‡ã€‘è€Œä¸æ˜¯ã€è¾“å‡ºã€‘ï¼Œprespeed å› æ­¤è¢«å¤¹åœ¨ tgt é™„è¿‘ï¼Œ
+ *   å¤©ç„¶ä¸ä¼šç§¯å‹ï¼Œä¹Ÿå°±ä¸éœ€è¦å† clamp ä¸€æ¬¡ã€‚
+ *
+ * å¤±è”è¯­ä¹‰ï¼šNAV ç§Ÿçº¦åˆ°æœŸï¼ˆNavReady()==falseï¼‰æ—¶ï¼Œ
+ *   - é¥æ§åœ¨çº¿ â‡’ ä¿ç•™ RC_Control å†™çš„æ‘‡æ†å€¼ï¼ˆå°æ¶è°ƒè¯•ä»èƒ½æ¨æ†æŒªè½¦ï¼‰
+ *   - é¥æ§ä¹Ÿå¤±è” â‡’ å¼ºåˆ¶åœï¼ˆä¸¤è·¯éƒ½æ²¡æœ‰ä¸»äººæ—¶è½¦å¿…é¡»åœï¼‰
+ * ========================================================================== */
+void RC::ApplyNav()
+{
+	const bool rc_lost = (xTaskGetTickCount() - last_rc_tick) > pdMS_TO_TICKS(RC_LOST_MS);
+
+	if (xuc.NavReady())
+	{
+		// â‘  ç›®æ ‡é’³ä½
+		const float tgt_x = std::max(std::min(xuc.nav_vx * para.K_NAV, para.NAV_MAX), -para.NAV_MAX);
+		const float tgt_y = std::max(std::min(xuc.nav_vy * para.K_NAV, para.NAV_MAX), -para.NAV_MAX);
+
+		// â‘¡ å˜åŒ–ç‡é™è¡Œï¼ˆæ¯å‘¨æœŸæœ€å¤š Â±DV_MAX rpmï¼‰
+		float dvx = tgt_x - xuc.prespeedx;
+		dvx = std::max(std::min(dvx, para.DV_MAX), -para.DV_MAX);
+		float dvy = tgt_y - xuc.prespeedy;
+		dvy = std::max(std::min(dvy, para.DV_MAX), -para.DV_MAX);
+
+		xuc.prespeedx += dvx;
+		xuc.prespeedy += dvy;
+
+		// â‘¢ ä¸‹å‘ï¼ˆint32_t èµ‹å€¼å³éšå¼å–æ•´ï¼›prespeed ä¸è¶Šç•Œï¼Œæ— é¡»å†é’³ï¼‰
+		ctrl.chassis.speedx = (int32_t)xuc.prespeedx;
+		ctrl.chassis.speedy = (int32_t)xuc.prespeedy;
+		ctrl.chassis.speedz = 0;   // nav_wz é¦–ç‰ˆæœªå¯ç”¨ï¼šè½¬å‘ä»ç”±é¥æ§/ç­–ç•¥å†³å®š
+		return;
 	}
 
-	static inline int32_t CalcStageNavCmd(float target_m, float traveled_m, int32_t nav_cmd_min, int32_t nav_cmd_max, float nav_decel_window_m)
-	{
-		float remain_m = target_m - traveled_m;
-		if (remain_m < 0.0f)
-		{
-			remain_m = 0.0f;
-		}
+	/* --- æ— æœ‰æ•ˆå¯¼èˆªè®¸å¯ --- */
+	xuc.prespeedx = 0.f;      // å¤ä½å¹³æ»‘é‡ï¼Œé¿å…è®¸å¯æ¢å¤ç¬é—´ä»æ®‹å€¼æš´å†²
+	xuc.prespeedy = 0.f;
+	if (rc_lost) StopChassis();
+}
 
-		float ratio = remain_m / nav_decel_window_m;
-		if (ratio > 1.0f) ratio = 1.0f;
-		if (ratio < 0.0f) ratio = 0.0f;
+void RC::StopChassis()
+{
+	ctrl.chassis.speedx = 0;
+	ctrl.chassis.speedy = 0;
+	ctrl.chassis.speedz = 0;
+	xuc.prespeedx = 0.f;
+	xuc.prespeedy = 0.f;
+}
 
-		return (int32_t)(nav_cmd_min + (nav_cmd_max - nav_cmd_min) * ratio);
+/* ==========================================================================
+ * äº‘å° / å‘å°„ï¼š0x10 AIM_COMMAND
+ *
+ * âš ï¸ ç›®æ ‡æ¥è‡ª xuc.aim_yaw_target / aim_pitch_target â€”â€” è¿™æ˜¯ã€ç»å¯¹ç›®æ ‡ã€‘ï¼Œ
+ *    ç”± xuc.cpp çš„ HandleAim() ç”¨ã€Œå‚è€ƒæ ·æœ¬å§¿æ€ + ä¸Šä½æœºç»™çš„è¯¯å·®ã€ä¸€æ¬¡æ€§
+ *    é‡å»ºï¼ˆV2 Â§7.3ï¼‰ã€‚æœ¬å‡½æ•°ç”¨å½“å‰IMUè¯¯å·®ç”Ÿæˆå½“å‰ä½ç½®é™„è¿‘çš„æœ‰ç•Œå‚è€ƒï¼Œ
+ *    ä¸æŠŠä¸²å£è¯¯å·®æˆ–IMUè¯¯å·®ç»§ç»­ç´¯åŠ åˆ°æ—§ç”µæœºç›®æ ‡ã€‚
+ *
+ * IMUç»™å‡ºç»å¯¹æ–¹å‘è¯¯å·®ï¼Œç¼–ç å™¨ç»™å‡ºæœ¬å‘¨æœŸä½ç½®åŸºå‡†ï¼›mark_pitch / setangle
+ * æ˜¯ä½ç½®å‚è€ƒï¼Œä¸èƒ½å½“ä½œæ— ç•Œç§¯åˆ†åçš„é€Ÿç‡æŒ‡ä»¤ã€‚
+ * ========================================================================== */
+void RC::ApplyAim()
+{
+	ctrl.shooter.auto_fire_request_level = xuc.aim_fire_req;
+	ctrl.pantile.Synchronize_Feedback_Recovery();
+#if XUC_ALLOW_CONTROL == 0
+	/* åªè¯»è”è°ƒç‰ˆï¼š0x10 ä¼šè¢«å®Œæ•´è§£æã€æ ¡éªŒã€é‡å»ºç›®æ ‡å¹¶è®°å…¥ last_rejectï¼Œ
+	 * ä½†æœ¬åœ°ä¸æ”¾è¡Œ â‡’ ä¸é©±åŠ¨ä»»ä½•æ‰§è¡Œå™¨ï¼ˆè¿æ‘©æ“¦è½®éƒ½ä¸è½¬ï¼‰ã€‚
+	 * æ”¹è¿™ä¸ªå®ä¹‹å‰å¿…é¡»å…ˆå®Œæˆï¼š
+	 *   A å®éªŒ â€”â€” sample_time_us è¯¯å·®ç•Œ â‰¤ 2 msï¼ˆSAMPLE_TIME_VALIDï¼‰
+	 *   B å®éªŒ â€”â€” å•è½´ / å‚è€ƒç³» / gyro ç¬¦å·ï¼ˆAXES_VERIFIEDï¼‰
+	 * å¦åˆ™å§¿æ€ä¸è§’é€Ÿåº¦ä¸åœ¨åŒä¸€å¯ä¿¡å‚è€ƒç³»é‡Œï¼Œæ‹¿æ¥é—­ç¯ä¼šç³»ç»Ÿæ€§æ‰“åã€‚*/
+	ctrl.shooter.openRub = false;
+	ctrl.shooter.auto_shoot = false;
+#else
+	// Host sends an independently renewed wheel lease during the five-second
+	// detection-loss hold. Missing/stale host data stops wheels in <=100ms.
+	ctrl.shooter.openRub = xuc.FrictionReady();
+	if (!xuc.AimReady()) {
+		ctrl.pantile.Hold_Pantile();
+        ctrl.shooter.auto_shoot = false;
+        ctrl.shooter.CancelPendingFeed();
+        return;
+    }   // No visual/lease permission: discard queued motion and hold decoded pose.
+	const float DB      = 0.3f * PI / 180.f;   // æ­»åŒºï¼Œrad
+	const float DEG2RAD = PI / 180.f;
+	const float RAD2CNT = 8192.f / (2.f * PI);
+
+	// Both position servos must have usable feedback before AUTO moves either
+	// axis. DriveReady includes real CAN freshness, enabled status and the
+	// latched-fault/startup handshake; status=0 alone never grants AUTO.
+	Motor* y = ctrl.pantile_motor[CONTROL::PANTILE::YAW];
+	const bool yaw_feedback_valid = y && y->FeedbackFresh() && y->has_feedback && y->angle_latched &&
+		std::isfinite(y->angle[now]) && y->angle[now] >= 0.f && y->angle[now] < 8192.f;
+	const bool pitch_feedback_valid = DMmotor[0].DriveReady() &&
+		std::isfinite(DMmotor[0].pos);
+	// An out-of-range measured pose is held, not pulled to a soft-limit edge on
+	// takeover. Manual operation retains its existing limit/recovery semantics.
+	const bool within_limits = yaw_feedback_valid && pitch_feedback_valid &&
+		fabsf((float)Motor::getdeltaa((int16_t)(y->angle[now] - para.yaw_center))) <= para.yaw_span &&
+		DMmotor[0].pos >= para.dm_pitch_min && DMmotor[0].pos <= para.dm_pitch_max;
+	const float perr = xuc.aim_pitch_target - imu_pantile.GetAnglePitch() * DEG2RAD;
+	const float yerr = XUC::WrapPi(xuc.aim_yaw_target - imu_pantile.GetAngleYaw() * DEG2RAD);
+	if (!within_limits || !std::isfinite(perr) || !std::isfinite(yerr)) {
+		ctrl.pantile.Hold_Pantile();
+		ctrl.shooter.auto_shoot = false;
+		ctrl.shooter.CancelPendingFeed();
+		return;
 	}
 
-	static inline int32_t CalcVariableGyroSpin(bool reset)
+	// This is a proportional position correction, not an error integral. Reuse
+	// of the same packet or frozen encoder can never accumulate an old goal.
+	// The lead caps constrain references; they do not certify motor speed or stability.
+	const float KP = 0.25f, KY = 0.25f;
+	// ClampAngle quantizes to whole counts; 22 counts stays below 1 degree.
+	const float YAW_LEAD_MAX = 22.f;
+	const float PITCH_LEAD_MAX = 0.5f * DEG2RAD; // 0.5 degree, radians
+	float yaw_reference, pitch_reference;
+	const bool yaw_ready = ctrl.pantile.aim_yaw_reference.Update(
+		y->angle[now], fabsf(yerr) > DB ? KY * yerr * RAD2CNT : 0.f,
+		YAW_LEAD_MAX, yaw_reference);
+	const bool pitch_ready = ctrl.pantile.aim_pitch_reference.Update(
+		DMmotor[0].pos, fabsf(perr) > DB ? KP * perr : 0.f,
+		PITCH_LEAD_MAX, pitch_reference);
+	if (!yaw_ready || !pitch_ready) {
+		ctrl.pantile.Hold_Pantile();
+		ctrl.shooter.auto_shoot = false;
+		ctrl.shooter.CancelPendingFeed();
+		return;
+	}
+	ctrl.pantile.hold_position = false;
+	y->setangle = yaw_reference;
+	ctrl.pantile.mark_pitch = pitch_reference;
+
+	/* Wheel-only heartbeats never enable angle control or feeding. */
+	ctrl.shooter.auto_shoot = xuc.aim_valid && xuc.aim_friction_en && xuc.aim_fire_req;
+#endif
+}
+
+void RC::Update()
+{
+	OnRC();
+	OnPC();
+}
+
+void RC::RC_CheckState() {
+
+	switch (RC_STATE(rc.s[0], rc.s[1]))
 	{
-		TickType_t now = GetTickSafe();
-		if (reset || g_gyro_spin_state.last_tick == 0)
+	case RC_STATE(UP, UP):
+		ctrl.mode = CONTROL::AUTO;
+		break;
+
+	case RC_STATE(UP, MID):
+		ctrl.mode = CONTROL::STOP;
+		break;
+
+	case RC_STATE(UP, DOWN):
+		ctrl.mode = CONTROL::SPINNING;
+		break;
+
+	case RC_STATE(MID, UP):
+		ctrl.mode = CONTROL::FOLLOW;
+		break;
+
+	case RC_STATE(MID, MID):
+		ctrl.mode = CONTROL::RESET;
+		break;
+
+	case RC_STATE(MID, DOWN):
+		ctrl.mode = CONTROL::SEPARATE;
+		break;
+
+	case RC_STATE(DOWN, UP):
+		ctrl.mode = CONTROL::FIRE;
+		break;
+
+	case RC_STATE(DOWN, MID):
+		ctrl.mode = CONTROL::RESET;
+		break;
+
+	case RC_STATE(DOWN, DOWN):
+		ctrl.mode = CONTROL::ROTATION;
+		break;
+
+	default:
+		break;
+	}
+}
+
+void RC::RC_Control() {
+	if (ctrl.mode != CONTROL::RESET)
+	{
+
+		ctrl.shooter.trig_raw = 0;
+		ctrl.chassis.speedz = 0;
+		ctrl.shooter.openRub = false;
+		ctrl.shooter.supply_bullet = false;
+
+		//ctrl.chassis.Keep_Direction();
+
+		switch (ctrl.mode)
 		{
-			g_gyro_spin_state.last_tick = now;
-			g_gyro_spin_state.phase = -PI_F * 0.5f;
+		case CONTROL::ROTATION://å°é™€èº
+			ctrl.chassis.speedx = rc.ch[1] * 4000.f / 660.f;
+			ctrl.chassis.speedy = -1 * rc.ch[0] * 4000.f / 660.f;
+			ctrl.chassis.speedz = rc.ch[2];//para.rota_speed;             // ä¸ç¡¬ç¼–ç  1000
+			ctrl.pantile.Control_Pantile(0, 0, rc.ch[3]);//(0, rc.ch[3],rc.ch[2]);
+			break;
+
+		case CONTROL::FOLLOW://æ­£æ–¹å‘ä¸ºäº‘å°æ–¹å‘ï¼Œè·Ÿéšäº‘å°è§†è§’
+			ctrl.chassis.speedx = 0;
+			ctrl.chassis.speedy = 0;
+			//å…ˆè¦è¯»å–äº‘å°çš„è§’åº¦ï¼Œæ ¹æ®äº‘å°çš„æ–¹å‘è®¡ç®—å‡ºå…·ä½“çš„speedxå’Œspeedy
+			ctrl.chassis.Keep_Direction(rc.ch[1], rc.ch[0]); //é‡ç‚¹æ˜¯å†™è¿™ä¸ªæŒ‰ç…§äº‘å°çš„è§’åº¦æ¥è®¡ç®—å‡ºspeedxå’Œspeedyï¼Œä»¥äº‘å°çš„è§’åº¦ä¸ºå‚è€ƒç³»
+			//å…¶å®å°±æ˜¯é‡æ–°è®¡ç®—speedxå’Œspeedyï¼ŒæŠŠä¹‹å‰çš„è¦†ç›–
+			ctrl.pantile.Control_Pantile(rc.ch[2], rc.ch[3],0);
+			break;
+
+		case CONTROL::SEPARATE://åº•ç›˜ä¸äº‘å°åˆ†ç¦»ï¼Œåº•ç›˜ä¸å—äº‘å°å½±å“
+			ctrl.chassis.speedx = rc.ch[1] * 4000.f / 660.f;
+			ctrl.chassis.speedy = -1 * rc.ch[0] * 4000.f / 660.f;
+			ctrl.pantile.Control_Pantile(rc.ch[2], rc.ch[3],0);
+			break;
+
+		case CONTROL::AUTO://è‡ªåŠ¨ç„å‡†
+			ctrl.chassis.speedx = rc.ch[1] * 4000.f / 660.f;
+			ctrl.chassis.speedy = -1 * rc.ch[0] * 4000.f / 660.f;
+			ctrl.chassis.speedz = rc.ch[2];
+			ctrl.pantile.yaw_speed_out = 0;
+
+			//è¿™é‡Œè¿˜è¦å†™å°„å‡»ï¼Œç»™xucæ¥ç®¡
+			break;
+
+		case CONTROL::FIRE://å°„å‡»
+			//ctrl.chassis.speedx = rc.ch[1] * 4000.f / 660.f;
+			ctrl.chassis.speedx = 0;
+			ctrl.chassis.speedy = 0;//-1 * rc.ch[0] * 4000.f / 660.f;
+			ctrl.chassis.speedz = 0;
+			ctrl.shooter.trig_raw = -rc.ch[1];         // æŠŠ ch[1] çš„æ¨¡æ‹Ÿé‡ä¼ å…¥æ‰³æœº
+			ctrl.pantile.Control_Pantile(rc.ch[2], rc.ch[3],0);
+			ctrl.shooter.openRub = true;                       // æ„å›¾äº¤ç»™ SHOOTER::Update()
+			//è¿™é‡Œè¦é‡æ–°åˆ†é…ch[0]å’Œch[1]çš„å€¼ï¼Œä½œä¸ºå°„å‡»çš„æ§åˆ¶ï¼Œå°„å‡»çš„æ—¶å€™åº•ç›˜å¯ä»¥ä¸åŠ¨
+			break;
+
+		case CONTROL::STOP://åœæ­¢
+			ctrl.chassis.speedx = 0;
+			ctrl.chassis.speedy = 0;
+			ctrl.chassis.speedz = 0;
+			// OnRC captured the measured pose; do not restore a queued position goal.
+			ctrl.shooter.trig_raw = 0;
+			break;
+
+		case CONTROL::SPINNING://è¶…çº§é›·éœ†å¤§è½¬ç›˜
+			ctrl.chassis.speedx = 0;
+			ctrl.chassis.speedy = 0;
+			ctrl.chassis.speedz = rc.ch[0] * para.max_speed / 660.f; //åº•ç›˜æ—‹è½¬
+			ctrl.pantile.Control_Pantile(rc.ch[2], rc.ch[3], rc.ch[1]);         // å°yawï¼Œpitchï¼Œå¤§yaw
+			break;
+
+		default:
+			ctrl.chassis.speedx = 0;
+			ctrl.chassis.speedy = 0;
+			ctrl.chassis.speedz = 0;
+			break;
 		}
+	}
+	else {
+		ctrl.chassis.speedx = 0;
+		ctrl.chassis.speedy = 0;
+		ctrl.chassis.speedz = 0;//è¿™é‡Œä¸èƒ½å†™setspeed,é‚£ä¸ªåªèƒ½åœ¨ç”µæœºçš„updateé‡Œå†™
+		ctrl.shooter.trig_raw = 0;
 
-		float dt_s = TickDiffToSeconds(now, g_gyro_spin_state.last_tick);
-		if (dt_s < 0.0f) dt_s = 0.0f;
-		if (dt_s > 0.05f) dt_s = 0.05f;
+		if (ctrl.pantile_motor[CONTROL::PANTILE::TYPE::YAW])
+			ctrl.pantile_motor[CONTROL::PANTILE::TYPE::YAW]->setangle =
+			ctrl.pantile_motor[CONTROL::PANTILE::TYPE::YAW]->angle[now];
 
-		g_gyro_spin_state.phase += GYRO_SPIN_K * dt_s;
-		if (g_gyro_spin_state.phase > PI_F)
-		{
-			g_gyro_spin_state.phase -= 2.0f * PI_F;
-		}
+		ctrl.shooter.openRub = false;
+		ctrl.shooter.trig_raw = 0;                // ç¡®ä¿é€€å‡ºå¼€ç«æ—¶ç»ä¸ç•™æ®‹ä½™ä¿¡å·
+		ctrl.shooter.supply_bullet = false;
 
-		g_gyro_spin_state.last_tick = now;
-
-		const float center = (GYRO_SPIN_MAX + GYRO_SPIN_MIN) * 0.5f;
-		const float amplitude = (GYRO_SPIN_MAX - GYRO_SPIN_MIN) * 0.5f;
-		float spin_f = center + amplitude * sinf(g_gyro_spin_state.phase);
-		if (spin_f < (float)GYRO_SPIN_MIN) spin_f = (float)GYRO_SPIN_MIN;
-		if (spin_f > (float)GYRO_SPIN_MAX) spin_f = (float)GYRO_SPIN_MAX;
-
-		return (int32_t)spin_f;
+		ctrl.pantile.Control_Pantile(0, 0, 0);
 	}
 }
 
 void RC::Decode()
 {
 	if (queueHandler == NULL || *queueHandler == NULL) {
-		return;  // »òÕß±¨´í
+		return;  // æˆ–è€…æŠ¥é”™
 	}
 	else {
 		pd_Rx = xQueueReceive(*queueHandler, m_frame, NULL);
 	}
-
 	if (pd_Rx != pdTRUE) return;
-	GimbalRemoteFrame(m_frame);  // ¼ì²éÊÇ·ñ³É¹¦½ÓÊÕÊı¾İ
+	if (sizeof(m_frame) < 18) return;
 	if ((m_frame[0] | m_frame[1] | m_frame[2] | m_frame[3] | m_frame[4] | m_frame[5]) == 0)return;
+
+	last_rc_tick = xTaskGetTickCount();//æ”¶åˆ°æœ‰æ•ˆå¸§
 
 	rc.ch[0] = ((m_frame[0] | m_frame[1] << 8) & 0x07FF) - 1024;
 	rc.ch[1] = ((m_frame[1] >> 3 | m_frame[2] << 5) & 0x07FF) - 1024;
@@ -115,356 +390,8 @@ void RC::Decode()
 	pc.press_l = m_frame[12];
 	pc.press_r = m_frame[13];
 
-	pc.key_h = m_frame[15];//°´¼üµÄ¸ßÎ»²¿·ÖR F G Z X C 
-	pc.key_l = m_frame[14];//°´¼üµÄµÍ8Î» W S A D SHIFT CTRL Q E
-	has_received_valid_frame = true;
-
-
-}
-
-void RC::OnRC()
-{
-
-
-	// ================================================================
-	// Í¨ÓÃ¹ı¶É£º´ÓÈÎÒâĞı×ªµµ£¨s[0]==DOWN£©ÇĞ³öÊ±£¬µ×ÅÌÈÔÓĞ¹ßĞÔ
-	// ¼ÌĞøµ÷ÓÃ Keep_Pantile£¬Ö±µ½µ×ÅÌÕæÕıÍ£ÎÈºóÔÙÖØÖÃ»ı·Ö
-	// ================================================================
-	if (Shift_mode() && pre_rc.s[0] == DOWN && rc.s[0] != DOWN)
-	{
-		ctrl.chassis.transition_from_rotation = true;
-		ctrl.chassis.transition_timer = 0;
-		ctrl.pantile.angle2Keep = imu_pantile.GetAngleYaw();
-		// ²»ÔÚ´Ë´¦ ResetIntegral£¬±£Áô»ı·Ö²¹³¥µ×ÅÌ¹ßĞÔ
-	}
-
-	if (ctrl.chassis.transition_from_rotation)
-	{
-		ctrl.pantile.Keep_Pantile(ctrl.pantile.angle2Keep, ctrl.pantile.L_YAW, imu_pantile);
-		ctrl.chassis.transition_timer++;
-
-		bool chassis_stopped = true;
-		for (int i = 0; i < 4; i++) {
-			if (ctrl.chassis_motor[i] != nullptr &&
-				fabs(ctrl.chassis_motor[i]->curspeed) > 30) {
-				chassis_stopped = false;
-				break;
-			}
-		}
-		if (chassis_stopped || ctrl.chassis.transition_timer > 500)
-		{
-			ctrl.chassis.transition_from_rotation = false;
-			ctrl.pantile.keep_PID.ResetIntegral();   // µ×ÅÌÍ£ÎÈºóÔÙÇåÁã
-			DM_motorYaw.set_yaw_pos = imu_pantile.GetAngleYaw();
-		}
-	}
-
-	// ================================================================
-	// ¢Ù RESET (UP-UP) - °²È«×´Ì¬
-	// ================================================================
-	if (rc.s[0] == UP && rc.s[1] == UP)
-	{
-		ctrl.mode = CONTROL::RESET;
-		judgement.SendSentryPosture(1);
-		if (Shift_mode())
-		{
-			//DM_motorYaw.MotorStart(0x206);
-			//DM_motorPitch.MotorStart(0x109);
-			DM_motorYaw.DM_pid.ResetIntegral();
-			ctrl.pantile.keep_PID.ResetIntegral();
-			ctrl.chassis.chassis_reset.ResetIntegral();
-			ctrl.pantile.angle2Keep = imu_pantile.GetAngleYaw();  // ÇĞÈëÊ±Ëø¶¨ÊÀ½ç³¯Ïò
-			DM_motorPitch.set_pitch_pos = DM_motorPitch.initial_pos_pitch;
-		}
-
-		while (!imu_pantile.GetAngleYaw())
-		{
-			ctrl.pantile.angle2Keep = imu_pantile.GetAngleYaw();
-		}
-
-		// Ã¿Ö¡Ö÷¶¯ÎÈ¶¨´óYaw£¬µÖÏûµ×ÅÌĞı×ª£¨ÓëROTATIONÄ£Ê½ÏàÍ¬Â·¾¶£©
-		ctrl.pantile.Keep_Pantile(ctrl.pantile.angle2Keep, ctrl.pantile.L_YAW, imu_pantile);
-		ctrl.chassis.setChassisspeed(0, 0, 0);
-		ctrl.shooter.openRub = false;
-		ctrl.shooter.supply_bullet = false;
-	}
-
- // ================================================================
-	// ¢Ú ½ö¶¯µ×ÅÌ (UP-MID)
-	// ×ó¸Ë: µ×ÅÌXY£¬ÔÆÌ¨Ëø¶¨
-	// ================================================================
-	else if (rc.s[0] == UP && rc.s[1] == MID)
-	{
-		//ctrl.mode = CONTROL::FOLLOW;
-		ctrl.mode = CONTROL::NORMAL;
-		if (Shift_mode())
-		{
-			ctrl.pantile.keep_PID.ResetIntegral();
-			ctrl.pantile.angle2Keep = imu_pantile.GetAngleYaw();
-			DM_motorYaw.set_yaw_pos = imu_pantile.GetAngleYaw();
-		}
-		ctrl.pantile.angle2Keep -= rc.ch[0] * 0.002f;
-        ctrl.pantile.angle2Keep = ctrl.GetDelta(ctrl.pantile.angle2Keep);
-		ctrl.pantile.Keep_Pantile(ctrl.pantile.angle2Keep, ctrl.pantile.L_YAW, imu_pantile);
-		ctrl.chassis.setChassisspeed(rc.ch[3], rc.ch[2], 0);
-		
-		ctrl.shooter.openRub = false;
-		ctrl.shooter.supply_bullet = false;
-	}
-
- // ================================================================
-	// ¢Û ½ö¶¯ÔÆÌ¨ (UP-DOWN)
-	// µ×ÅÌËø¶¨£¬½öÔÊĞíÔÆÌ¨¿ØÖÆ
-	// ================================================================
-	else if (rc.s[0] == UP && rc.s[1] == DOWN)
-	{
-		ctrl.mode = CONTROL::NORMAL;
-
-		if (Shift_mode())
-		{
-			DM_motorYaw.DM_pid.ResetIntegral();
-		}
-
-		ctrl.chassis.setChassisspeed(0, 0, 0);
-
-		// ¡¾ĞŞ¸Ä¡¿´óYawÓÃ¶ÈÎªµ¥Î»£¬ÁéÃô¶Èµ÷Õû
-		DM_motorYaw.set_yaw_pos -= rc.ch[0] * 0.001f;  // ¶È/Ö¡
-		DM_motorPitch.set_pitch_pos += rc.ch[3] * (-0.0001f);
-		ctrl.pantile.mark_yaw += ctrl.pantile.sensitivity[0] * rc.ch[2] / 660.f * (-1.f);
-
-		ctrl.shooter.openRub = false;
-		ctrl.shooter.supply_bullet = false;
-	}
-
- // ================================================================
-	// ¢Ü autoMove µ¼º½²âÊÔ (MID-UP)
-	// ================================================================
-	else if (rc.s[0] == MID && rc.s[1] == UP)
-	{
-		ctrl.mode = CONTROL::RC_SHOOT_TEST;
-		ctrl.chassis.setChassisspeed(0, 0, 0);
-		ctrl.shooter.rc_supply_speed = abs(rc.ch[0]);
-		ctrl.pantile.mark_yaw += ctrl.pantile.sensitivity[0] * rc.ch[2] / 660.f * (-1.f);
-		DM_motorPitch.set_pitch_pos += rc.ch[3] * (-0.0001f);
-		ctrl.shooter.openRub = true;
-
-	}
-
- // ================================================================
-	// ¢İ Æ½ÒÆ×ÔÃé (MID-MID)
-	// µ×ÅÌ¿ÉÆ½ÒÆ + ×ÔÃé
-	// ================================================================
-	else if (rc.s[0] == MID && rc.s[1] == MID)
-	{
-		
-			ctrl.mode = CONTROL::SHOOT;  // ÆôÓÃ×ÔÃéÄ£Ê½
-
-			if (Shift_mode())
-			{
-				DM_motorYaw.DM_pid.ResetIntegral();
-				ctrl.automation.aim_state = CONTROL::AUTOMATION::IDLE;
-			}
-
-			ctrl.chassis.setChassisspeed(rc.ch[3], rc.ch[2], 0);
-
-			// µ÷ÓÃ×ÔÃé×´Ì¬»ú
-			ctrl.automation.autoAim();
-
-			// Ö»ÔÚÎŞÄ¿±êÊ±£¬ÔÊĞíÊÖ¶¯¿ØÖÆĞ¡ÔÆÌ¨
-			if (!ctrl.automation.target_detected) {
-				ctrl.pantile.mark_yaw += ctrl.pantile.sensitivity[0] * rc.ch[0] / 660.f * (-1.f);
-				DM_motorPitch.set_pitch_pos += ctrl.pantile.sensitivity[2] * rc.ch[1] / 660.f * (-1.f);
-			}
-
-			ctrl.shooter.openRub = true;
-			ctrl.shooter.supply_bullet = ctrl.automation.target_detected;
-		
-	}
-
- // ================================================================
-	// ¢Ş AUTO Ä£Ê½ÇĞ»»µ² (MID-DOWN)
-	// Update() ÖĞ»áÔÚ¸Ãµ²Î»ÇĞµ½ OnAuto()
-	// ================================================================
-	else if (rc.s[0] == MID && rc.s[1] == DOWN)
-	{
-        ctrl.mode = CONTROL::NAVI;
-
-	    ctrl.automation.autoMove();
-		ctrl.shooter.openRub = false;
-		ctrl.shooter.supply_bullet = false;
-	}
-
-	// ================================================================
-	// ¢ß ÍÓÂİ´ı»ú (DOWN-UP)
-	// Ğ¡ÍÓÂİ + ÊÖ¶¯¿ØÖÆÔÆÌ¨
-	// ================================================================
-	else if (rc.s[0] == DOWN && rc.s[1] == UP)
-	{
-		ctrl.mode = CONTROL::ROTATION;
-		int32_t spin_input = CalcVariableGyroSpin(Shift_mode());
-
-		if (Shift_mode())
-		{
-			ctrl.pantile.angle2Keep = imu_pantile.GetAngleYaw();
-			ctrl.pantile.keep_PID.ResetIntegral();
-		}
-
-       // ±äËÙĞ¡ÍÓÂİ£ºÔÚÉÏÏÂÏŞÖ®¼äÁ¬Ğø±ä»¯£¬±ä»¯ËÙ¶ÈÓÉ k ¾ö¶¨
-		ctrl.pantile.Keep_Pantile(ctrl.pantile.angle2Keep, ctrl.pantile.L_YAW, imu_pantile);
-		ctrl.chassis.setChassisspeed(rc.ch[2], -rc.ch[3], spin_input);
-
-		// ÊÖ¶¯¿ØÖÆ£º´óYawÍ¨¹ıµ÷Õûangle2Keep
-		ctrl.pantile.angle2Keep -= rc.ch[0] * 0.005f;
-     ctrl.pantile.angle2Keep = ctrl.GetDelta(ctrl.pantile.angle2Keep);
-		// Ğ¡Yaw
-		//ctrl.pantile.mark_yaw += ctrl.pantile.sensitivity[0] * rc.ch[2] / 660.f * (-1.f);
-		// Ğ¡Pitch
-		//DM_motorPitch.set_pitch_pos += ctrl.pantile.sensitivity[2] * rc.ch[3] / 660.f * (-1.f);
-
-		ctrl.shooter.openRub = false;
-		ctrl.shooter.supply_bullet = false;
-	}
-
- // ================================================================
-	// ¢à Ğ¡ÍÓÂİ×ÔÃé (DOWN-MID)
-	// ================================================================
-	else if (rc.s[0] == DOWN && rc.s[1] == MID)
-	{
-		if (Shift_mode())
-		{
-			ctrl.pantile.angle2Keep = imu_pantile.GetAngleYaw();
-			ctrl.pantile.keep_PID.ResetIntegral();
-			ctrl.automation.aim_state = CONTROL::AUTOMATION::IDLE;
-		}
-
-		if(judgement.data.game_status_t.game_progress == 4)
-		{
-			ctrl.mode = CONTROL::SHOOT;  // ÆôÓÃ×ÔÃéÄ£Ê½
-			judgement.SendSentryPosture(1);
-			
-			if (xuc.RxNav.isReached)
-			{
-				ctrl.chassis.setChassisspeed(0, 0, 660);
-				ctrl.automation.autoAim();
-				ctrl.shooter.openRub = true;
-				ctrl.shooter.supply_bullet = ctrl.automation.target_detected;
-				
-			}
-			else
-			{
-				
-				ctrl.shooter.openRub = false;
-				ctrl.shooter.supply_bullet = false;
-				ctrl.automation.autoMove();
-			}
-
-			
-
-			// ¡¾¹Ø¼ü¡¿Keep_Pantile ÎÈ¶¨´óÔÆÌ¨£¬µÖÏûµ×ÅÌĞı×ª
-			ctrl.pantile.Keep_Pantile(ctrl.pantile.angle2Keep, ctrl.pantile.L_YAW, imu_pantile);
-
-		}
-		else
-		{
-			ctrl.mode = CONTROL::RESET;
-			judgement.SendSentryPosture(1);
-			if (Shift_mode())
-			{
-				DM_motorYaw.MotorStart(0x206);
-				DM_motorPitch.MotorStart(0x109);
-				DM_motorYaw.DM_pid.ResetIntegral();
-				ctrl.pantile.keep_PID.ResetIntegral();
-				ctrl.chassis.chassis_reset.ResetIntegral();
-				ctrl.pantile.angle2Keep = imu_pantile.GetAngleYaw();  // ÇĞÈëÊ±Ëø¶¨ÊÀ½ç³¯Ïò
-				DM_motorPitch.set_pitch_pos = DM_motorPitch.initial_pos_pitch;
-			}
-
-			while (!imu_pantile.GetAngleYaw())
-			{
-				ctrl.pantile.angle2Keep = imu_pantile.GetAngleYaw();
-			}
-
-			// Ã¿Ö¡Ö÷¶¯ÎÈ¶¨´óYaw£¬µÖÏûµ×ÅÌĞı×ª£¨ÓëROTATIONÄ£Ê½ÏàÍ¬Â·¾¶£©
-			ctrl.pantile.Keep_Pantile(ctrl.pantile.angle2Keep, ctrl.pantile.L_YAW, imu_pantile);
-			ctrl.chassis.setChassisspeed(0, 0, 0);
-			ctrl.shooter.openRub = false;
-			ctrl.shooter.supply_bullet = false;
-		}
-	}
-
- // ================================================================
-	// ¢á ÍËµ¯Ä£Ê½ (DOWN-DOWN)
-	// ¿ªÄ¦²ÁÂÖ + Ç¿ÖÆ¹©µ¯£¬µ×ÅÌËø¶¨
-	// ================================================================
-	else if (rc.s[0] == DOWN && rc.s[1] == DOWN)
-	{
-      ctrl.mode = CONTROL::TD;
-
-		if (Shift_mode())
-		{
-			ctrl.pantile.angle2Keep = imu_pantile.GetAngleYaw();
-			ctrl.pantile.keep_PID.ResetIntegral();
-          DM_motorYaw.DM_pid.ResetIntegral();
-		}
-
-		ctrl.pantile.Keep_Pantile(ctrl.pantile.angle2Keep, ctrl.pantile.L_YAW, imu_pantile);
-		ctrl.chassis.setChassisspeed(0, 0, 0);
-		ctrl.shooter.openRub = true;
-       ctrl.shooter.supply_bullet = true;
-		//ctrl.shooter.supply_speed = 600;
-	}
-
-
-	// ================================================================
-	// Ä£Ê½ÇĞ»»Ê±ÖØÖÃ
-	// ================================================================
-	if (Shift_mode()) {
-		ctrl.automation.scan_finish = false;
-		ctrl.automation.aim_state = CONTROL::AUTOMATION::IDLE;
-	}
-	
-}
-
-
-
-
-
-
-void RC::Update()
-{
-   
-    const uint8_t game_progress = judgement.data.game_status_t.game_progress;
-	const bool match_running = (game_progress == 4);
-
-#if ROBOT_CONTROL_MODE == ROBOT_AUTO_MODE
-   if (match_running)
-	{
-		OnAuto();
-	}
-	else
-	{
-		OnRC();
-	}
-#else
-	
-		OnRC();
-	
-#endif
-	//OnPC();
-}
-
-
-void RC::Init(UART* huart, USART_TypeDef* Instance, const uint32_t BaudRate)
-{
-	huart->Init(Instance, BaudRate).DMARxInit(nullptr);
-	m_uart = huart;
-	queueHandler = &huart->UartQueueHandler;
-
-	ctrl.mode = CONTROL::RESET;
-	rc.s[0] = UP;
-	rc.s[1] = UP;
-	pre_rc.s[0] = UP;
-	pre_rc.s[1] = UP;
+	pc.key_h = m_frame[15];//æŒ‰é”®çš„é«˜ä½éƒ¨åˆ†R F G Z X C
+	pc.key_l = m_frame[14];//æŒ‰é”®çš„ä½8ä½ W S A D SHIFT CTRL Q E
 
 }
 

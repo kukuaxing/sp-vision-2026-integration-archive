@@ -1,5 +1,6 @@
-# RMV 临时调试：--rmv-follow 使用大 Y + P；小 Y 保持，取消相对角度限幅。
-# 不发送发射命令，不使用历史 SP 弹道和发射参数；标定配置保持独立。
+# 当前参数基线：2026-10-18 从 /home/rcsdart/rm27 继承，数值未改变。
+# 唯一正式参数源；适用分支、单位和测量状态见 docs/current_parameters.md。
+# 当前后端为 SENTINEL V2；RMV 字段仅用于对应旧后端，不作为本后端生效值。
 #####-----基础配置-----#####
 # 敌方颜色：red | blue
 enemy_color: "blue"
@@ -80,7 +81,15 @@ roi:
   width: 600
   height: 600
 
-use_roi: false
+use_roi: true
+# Begin full-image search; crop only after a fresh tracked armor is safely inside.
+# Three association misses automatically restore full-image reacquisition.
+vision_diagnostics_enabled: true
+vision_diagnostics_max_frames: 12000 # keep multi-minute field tests within one bounded capture
+center_process_adaptive_enabled: true
+center_process_acceleration_variance: 100.0
+center_process_rotation_acceleration_variance: 10.0
+center_process_rotation_rate_rad_s: 0.8
 
 #####-----传统检测方法参数-----#####
 threshold: 100
@@ -127,8 +136,8 @@ leaving_angle: 20
 decision_speed: 0.8
 # Field feedback explicitly selected an 85 ms command-to-impact prediction.
 # Keep high- and low-speed prediction on the same physical calibration.
-high_speed_delay_time: 0.085
-low_speed_delay_time: 0.085
+high_speed_delay_time: 0.330 # current field baseline; tune only after fixed fire geometry is verified
+low_speed_delay_time: 0.330 # preserve the current field value; branch selected by decision_speed
 
 actuation_delay_ms: 0
 
@@ -140,8 +149,8 @@ yaw_ramp_t0_neg: 0.10
 first_tolerance: 3
 second_tolerance: 2
 judge_distance: 2
-# Phase 2D.5 fire dry-run: calculate/log eligibility, but XUC transmission stays blocked.
-auto_fire: false
+# 当前配置允许自动开火；仍须满足生产代码中现有的许可和开火门槛。
+auto_fire: true
 
 #####-----相机配置（海康 HikRobot）-----#####
 camera_name: "hikrobot"
@@ -195,26 +204,27 @@ max_pitch_acc: 100
 Q_pitch: [9e6, 0]
 R_pitch: [1]
 
-#####-----Sentinel 固定帧双向串口（UART4 @921600）-----#####
+#####-----当前 Sentinel V2 A6/6A 双向串口（UART4 @921600）-----#####
 xuc_enable: true                 # 接收IMU，发送云台目标角
 xuc_serial_port: "/dev/serial/by-id/usb-1a86_USB_Serial-if00-port0"
 xuc_serial_baud: 921600          # 与下位机 UART4 一致
 xuc_yaw_sign: 1                  # legacy SP only; Sentinel uses inverse IMU transform
 xuc_pitch_sign: 1                # legacy SP only; Sentinel uses inverse IMU transform
-xuc_imu_yaw_sign: 1 # SENTINEL degree-to-radian conversion; mounting sign not field-verified
+xuc_imu_yaw_sign: 1 # SENTINEL V2 radians; mounting sign not field-verified
 xuc_imu_pitch_sign: 1 # SENTINEL normalized pitch; mounting sign not field-verified
 xuc_imu_yaw_offset_rad: 0.0
 xuc_imu_pitch_offset_rad: 0.0
 xuc_require_feedback_for_control: true
-xuc_require_auto_mode_for_control: true # SENTINEL infer AUTO from fresh upstream, not a wire mode bit
+xuc_require_auto_mode_for_control: true # SENTINEL V2 paired status.bit7 reports physical AUTO
 xuc_max_yaw_excursion_rad: 0.0          # legacy SP only; Sentinel motor limits are owned by its firmware
 xuc_lock_pitch_for_control: false       # legacy SP only; Sentinel uses current-to-target error
-xuc_allow_control: false
-xuc_allow_shoot: false
+xuc_allow_control: true
+xuc_allow_shoot: true
+sentinel_fire_min_interval_ms: 1000 # maximum 1 fire request/s; cooldown clears fire, never queues shots
 xuc_fire_guard_enabled: true       # require fresh measured armor in both axes
-xuc_fire_stable_ms: 120.0          # stable qualification; Sentinel MCU owns held-level repeat cadence
-xuc_fire_yaw_tolerance_deg: 3.0    # 0.91m约±4.8cm，仍在小装甲板水平范围内
-xuc_fire_pitch_tolerance_deg: 1.1  # 介于无射击的0.8°与明显低弹的2.0°之间；配合更强Pitch闭环
+xuc_fire_stable_ms: 120.0 # [当前调参值] field request: require 120 ms continuous alignment
+xuc_fire_yaw_tolerance_deg: 0.8 # 2026-10-20: further tighten angular tolerance by 20 percent
+xuc_fire_pitch_tolerance_deg: 0.4 # 2026-10-20: further tighten angular tolerance by 20 percent
 xuc_gyro_center_follow_enabled: true
 xuc_gyro_omega_threshold_rad_s: 0.8
 # Trust-aware armor -> vehicle -> phase-clock model selection.
@@ -239,7 +249,7 @@ xuc_one_face_once_fire: true
 xuc_one_face_limit_deg: 15.0
 xuc_one_face_rearm_deg: 34.0
 xuc_gyro_fire_stable_ms: 30.0
-# Fixed targets keep xuc_fire_yaw_tolerance_deg and the 350 ms stable gate.
+# Fixed targets use the configured xuc_fire_stable_ms alignment window.
 # Gyro mode keeps the current-frame pixel error only as a broad visibility
 # guard; the exact shot instant is selected by the physical phase event clock.
 xuc_gyro_predicted_fire_enabled: true
@@ -247,7 +257,7 @@ xuc_gyro_predicted_fire_enabled: true
 # while the physical phase event clock is unlocked.  This prevents event=0,
 # cycle=-1 rounds such as shots 1-20 in the 2026-09-11 23:34 field log.
 xuc_gyro_require_event_lock_for_fire: true
-xuc_gyro_predicted_yaw_tolerance_deg: 3.0
+xuc_gyro_predicted_yaw_tolerance_deg: 1.2 # 2026-10-20: further tighten rotating-target tolerance by 20 percent
 xuc_gyro_predicted_yaw_trim_deg: 0.0
 xuc_gyro_visibility_yaw_tolerance_deg: 8.0
 xuc_gyro_fire_min_consecutive_frames: 2
@@ -261,8 +271,8 @@ xuc_gyro_post_feed_recovery_ms: 550.0
 xuc_gyro_candidate_max_phase_step_deg: 20.0
 xuc_direct_yaw_guard: true              # 当前以稳定测量为主；保留预测接口供 EKF 调稳后启用
 xuc_direct_yaw_boresight_correction_deg: -1.30  # measured camera/gimbal zero, 2026-09-05
-xuc_direct_yaw_impact_correction_deg: -2.12  # persistent same-side left miss: another 0.62 deg / about 5.0 cm right at 4.6 m
-xuc_yaw_tracking_pi_enabled: false      # disabled: field jitter was model/lead switching; keep one dynamic controller
+xuc_direct_yaw_impact_correction_deg: -0.727668  # 2026-10-20: additional 7 cm left at 2.88 m (+1.392332 deg)
+xuc_yaw_tracking_pi_enabled: true      # re-enabled: close sentinel yaw static bias; integral bounded +/-0.8 deg
 xuc_yaw_tracking_kp: 0.0                # disable fast outer proportional loop; lower board already owns position P
 xuc_yaw_tracking_ki_per_s: 0.18         # slow static-bias learner; about 0.2 deg/s at the observed residual
 xuc_yaw_tracking_integral_limit_deg: 0.8
@@ -279,7 +289,7 @@ xuc_direct_pitch_filter_tau_ms: 60.0     # retain post-shot noise damping withou
 xuc_direct_pitch_hold_ms: 180.0          # 已保存双轴验收值：短丢帧保持
 xuc_direct_pitch_max_rate_dps: 45.0      # midpoint between the stable-but-slow 25 and previously validated 80 deg/s
 xuc_direct_pitch_error_gain: 1.35        # recover steady-state authority; below the previously validated 1.65 gain
-xuc_projectile_speed_mps: 19.36          # 6500rpm初值：9.53m/s * 6500/3200；必须以测速/落点复核
+xuc_projectile_speed_mps: 19.36 # [当前调参值] 6500rpm初值：9.53m/s * 6500/3200；必须以测速/落点复核
 xuc_ballistic_reference_projectile_speed_mps: 10.0  # 0.91m/17cm实弹基准采集于2500rpm，禁止随当前转速重算
 xuc_ballistic_pitch_enabled: true
 xuc_camera_forward_of_muzzle_m: 0.06     # 实测：相机中心在炮口前方 6 cm
@@ -287,7 +297,7 @@ xuc_camera_above_muzzle_m: 0.04          # 实测：相机中心在炮口上方 
 xuc_ballistic_reference_camera_range_m: 0.91
 xuc_ballistic_reference_total_drop_m: 0.08639  # physical 10m/s reference; zero fixed boresight bias
 xuc_ballistic_max_compensation_deg: 20.0    # 低弹速远距离补偿上限；下位机另保留25°/28°双层保护
-xuc_ballistic_pitch_trim_deg: -1.42    # same-side high miss: lower impact about 2.5 cm at 4.6 m
+xuc_ballistic_pitch_trim_deg: -2.394618 # 2026-10-20: additional 5 cm down at 2.88 m (-0.994618 deg)
 # Robust shared range for ballistic elevation and gyro time-of-flight.  The
 # rigid-body near-face range is authoritative; raw PnP depth contributes only a
 # bounded 5% correction so oblique plates cannot move the aim by metres.
@@ -298,7 +308,7 @@ xuc_range_filter_max_raw_residual_m: 0.40
 # Commands are now issued only near the lower board's physical ready time.  Use
 # the resulting short, repeatable launch path instead of predicting against the
 # 20--746 ms queue delay observed when recovery was disabled.
-xuc_event_fire_delay_s: 0.085
+xuc_event_fire_delay_s: 0.085 # [当前调参值]
 xuc_event_fire_delay_min_ms: 65
 xuc_event_fire_delay_max_ms: 105
 # Observe the feeder threshold in the serial RX thread, learn a fresh session
@@ -363,18 +373,21 @@ xuc_event_require_face_consistency: false
 # Commit the future physical armor face for each event cycle, then hand over to
 # the next face. A shot also requires the gimbal to be following its command.
 xuc_event_face_max_alignment_deg: 15.0
-xuc_event_gimbal_tracking_tolerance_deg: 4.0
+xuc_event_gimbal_tracking_tolerance_deg: 1.6 # 2026-10-20: further tighten event tracking tolerance by 20 percent
 xuc_shot_feedback_timeout_ms: 800
 
-# Current firmware source: Hohokamk/Sentinel_robot b6f4697 (2026-10-14).
-# UART4 PA0(TX)/PA1(RX); RX=64 bytes, TX=40 bytes, CRC16/MCRF4XX.
+# Current firmware: supplied Sentinel_robot-main (2).zip, V2, 2026-10-15.
+# UART4 PA0(TX)/PA1(RX); A6 6A / version 2; RX=46+34+26, AIM TX=38 bytes.
 board_protocol: "SENTINEL"
-sentinel_tx_hz: 100
-sentinel_swap_roll_pitch: true # undo firmware HI91 roll/pitch and gx/gy exchange
-sentinel_use_detect_color: true # bit0: 0 red, 1 blue; manual launcher color overrides
-# New MCU has no motor/RPM/feeder/fire-permission feedback. Control remains
-# disabled for receive-only commissioning; existing RMV calibration is retained.
-# Verify physical signs/mounting before enabling xuc_allow_control; no auto fire.
+sentinel_tx_hz: 50
+sentinel_valid_for_ms: 100 # measured from the referenced MCU IMU arrival time
+sentinel_allow_friction: true # detection-driven 6500rpm; AUTO and fresh reference/command lease required
+sentinel_friction_lost_timeout_ms: 5000 # continuous loss of real armor detections, independent of track prediction
+sentinel_require_verified_pose: false # user-authorized reuse of prior calibration; measured flags stay truthful
+sentinel_swap_roll_pitch: false # V2 CH010 parser already uses correct roll/pitch ordering
+sentinel_use_detect_color: false # legacy key ignored by V2, which has no color field
+# V2 LINK_STATUS reports physical AUTO and permissions, but no measured motor/RPM/feeder events.
+# Existing tuning is retained. STOP/remote loss, stale IMU/reference and command expiry revoke control/fire.
 
 rmv_port: "/dev/serial/by-id/usb-1a86_USB_Serial-if00-port0"
 

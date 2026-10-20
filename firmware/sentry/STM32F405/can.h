@@ -1,4 +1,7 @@
 #pragma once
+#ifdef SENTINEL_ACTUATOR_HOST_TEST
+#include "tests/sentinel/actuator_hal_stubs.hpp"
+#endif
 /* USER CODE BEGIN Header */
 /**
   ******************************************************************************
@@ -27,9 +30,13 @@ extern "C" {
 #endif
 
 	/* Includes ------------------------------------------------------------------*/
+#ifdef SENTINEL_ACTUATOR_HOST_TEST
+#include "tests/sentinel/actuator_hal_stubs.hpp"
+#else
 #include "stm32f4xx_hal_can.h"
 #include "stm32f4xx_hal.h"
 #include "FreeRTOS.h"
+#endif
 
 class CAN
 {
@@ -38,20 +45,20 @@ public:
 	void Init(CAN_TypeDef *instance);
 	void InitFilter();
 	HAL_StatusTypeDef Transmit(const uint32_t ID, const uint8_t* const pData, const uint8_t len = 8);
-	uint8_t data[12][8];//½ÓÊÕÊı¾İ»º³åÇø£¬½áºÏ£¬motor.hÖĞontimerº¯Êı£¬12ÊÇ·ÀÖ¹3508ºÍ6020½ÓÊÕÊı¾İÊ±´æ·ÅÎ»ÖÃ³åÍ»
+	// Returns true only for an accepted, complete standard data feedback frame.
+	bool ReceiveFeedback(uint32_t id, const uint8_t* bytes, uint8_t length,
+	                     bool standard_data_frame = true);
+	uint8_t data[12][8];//æ¥æ”¶æ•°æ®ç¼“å†²åŒºï¼Œç»“åˆï¼Œmotor.hä¸­ontimerå‡½æ•°ï¼Œ12æ˜¯é˜²æ­¢3508å’Œ6020æ¥æ”¶æ•°æ®æ—¶å­˜æ”¾ä½ç½®å†²çª
 	uint8_t joint_data[6][6];
 	uint8_t temp_data[16];
 	uint8_t jointpdata[6][8]{};
 	uint8_t jointidata[6][8];
 	CAN_HandleTypeDef hcan;
 	BaseType_t pd_Rx = false, pd_Tx = false;
-	uint8_t DMmotor_data[2][8];//DMµç»ú½ÓÊÕÊı¾İ»º³åÇø
-	uint8_t DMmotor_temp_data_yaw[8];//DMµç»ú·¢ËÍÊı¾İ»º³åÇø
-	uint8_t DMmotor_temp_data_pitch[8];
 
 private:
-	CanTxMsgTypeDef	TxMessage;//·¢ËÍ½á¹¹Ìå
-	CanRxMsgTypeDef RxMessage;//½ÓÊÕ½á¹¹Ìå
+	CanTxMsgTypeDef	TxMessage;//å‘é€ç»“æ„ä½“
+	CanRxMsgTypeDef RxMessage;//æ¥æ”¶ç»“æ„ä½“
 };
 
 #ifdef __cplusplus

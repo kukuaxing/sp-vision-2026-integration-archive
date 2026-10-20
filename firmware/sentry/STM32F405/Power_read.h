@@ -13,7 +13,7 @@ class POWER
 public:
     void Receive();
     void Init(UART* huart, USART_TypeDef* uart_base, uint32_t baud);
-    void Send();  // DMA·Ç×èÈû·¢ËÍ
+    void Send();  // DMAéé˜»å¡å‘é€
     void Decode();
     uint8_t m_uartrx[BUFF_SIZE] = { 0 };
     uint8_t m_uarttx[TX_SIZE] = { 0 };

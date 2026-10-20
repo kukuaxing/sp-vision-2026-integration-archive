@@ -129,7 +129,8 @@ def main():
                ("rmv_session_peer", "tests/rmv/session_peer.cpp")]
     # These are existing header-only estimator regressions, not replacement implementations.
     for name in ("measurement_noise", "yaw_eskf", "armor_motion_filter", "robust_range_filter",
-                 "shot_delay_adapter", "rotation_model_manager", "gyro_phase_scheduler", "gyro_face_selector"):
+                 "shot_delay_adapter", "rotation_model_manager", "gyro_phase_scheduler", "gyro_face_selector",
+                 "final_yaw_limiter"):
         targets.append((name + "_test", "tasks/auto_aim/" + name + "_test.cpp"))
     for name, source in targets:
         binary = build / (name + (".exe" if os.name == "nt" else ""))

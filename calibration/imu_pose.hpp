@@ -6,7 +6,7 @@
 #include <vector>
 #include <Eigen/Geometry>
 #include <serial/serial.h>
-#include "firmware/sentry/STM32F405/imu_packet.h"
+#include "calibration/raw_imu_packet.hpp"
 
 // Receive only. The MCU forwards checked small-gimbal HI91 frames unchanged.
 // Pose is sensor-body to its navigation frame, not an assumed gimbal frame.

@@ -1,18 +1,6 @@
 #include "motor.h"
-#include "gpio.h"
-#include "DMmotor.h"
-#include "imu.h"
-#include "control.h"
-#include "nuc.h"
-#include "slidingmodec.h"
-#include "LowPassFilter.h"
-#include "Algorithm.h"
-
-AngleUnwrapper gimbal_unwrapper;  // Ğ¡ÔÆÌ¨ÍÓÂİÒÇ
-AngleUnwrapper pantile_unwrapper; // ´óÔÆÌ¨ÍÓÂİÒÇ
-LowPassFilter yaw_ref_filter(0.999f);
-const float YAW_SAFE_HALF_RANGE = 70.0f;  // Ğ¡yawÏŞÎ»°ë¿í£¬Êµ¼ÊÏŞÎ»ÒÔRESET¼ÇÂ¼ÖĞĞÄÕ¹¿ª
-#define DEG_TO_RAD 0.017453292f  // ¦Ğ / 180
+#include "HTmotor.h"
+#define DEG_TO_RAD 0.017453292f  // Ï€ / 180
 Motor::Motor(const motor_type type, const motor_mode mode, const function_type function, const uint32_t id, PID _speed, PID _position, PID _speed2)
 	: ID(id)
 	, type(type)
@@ -57,13 +45,13 @@ void Motor::StatusIdentifier(int32_t torque_current)
 	if (disconnectCount >= disconnectMax)
 	{
 		disconnectCount = disconnectMax;
-if (old_torque_current == 0)
-m_status = UNCONNECTED;
-else
-m_status = DISCONNECTED;
+		if (old_torque_current == 0)
+			m_status = UNCONNECTED;
+		else
+			m_status = DISCONNECTED;
 	}
 	else
-	m_status = FINE;
+		m_status = FINE;
 
 	old_torque_current = torque_current;
 }
@@ -71,20 +59,60 @@ uint8_t Motor::getStatus()const
 {
 	return (uint8_t)m_status;
 }
+bool Motor::OnFeedbackFrame(const uint8_t* bytes)
+{
+	if (!bytes || ((uint16_t(bytes[0]) << 8) | bytes[1]) >= 8192u) return false;
+	const uint32_t now_ms = HAL_GetTick();
+	if (!feedback_watchdog_.Fresh(now_ms)) ++feedback_generation_;
+	memcpy(feedback_bytes_, bytes, sizeof(feedback_bytes_));
+	feedback_watchdog_.Received(now_ms);
+	return true;
+}
+void Motor::CancelPositionTarget()
+{
+	taskENTER_CRITICAL();
+	setangle = use_sum_angle ? float(sum_angle) : angle[now];
+	setspeed = 0; current = 0;
+	for (auto& controller : pid) controller.Reset();
+	taskEXIT_CRITICAL();
+}
 void Motor::Ontimer(uint8_t idata[][8], uint8_t* odata)//idate: receive;odate: trainsmit;RC
 {
 	uint32_t trainsmit_or_receive_ID = this->ID - ID1;
+	(void)idata; // A cached public CAN buffer is never evidence of a new arrival.
+	uint8_t frame[8];
+	taskENTER_CRITICAL();
+	const bool fresh = feedback_watchdog_.Fresh(HAL_GetTick());
+	const uint32_t generation = feedback_generation_;
+	if (fresh) memcpy(frame, feedback_bytes_, sizeof(frame));
+	// Keep controller state and the output pair coherent with cancellation in
+	// ControlTask. No blocking operations occur in this bounded critical section.
+	if (!fresh) {
+		CancelPositionTarget();
+		has_feedback = angle_latched = false;
+		curspeed = 0; m_status = DISCONNECTED;
+		odata[trainsmit_or_receive_ID * 2] = 0;
+		odata[trainsmit_or_receive_ID * 2 + 1] = 0;
+		taskEXIT_CRITICAL();
+		return;
+	}
+	const bool recovering = !has_feedback || decoded_generation_ != generation;
+	decoded_generation_ = generation;
+	has_feedback = true; m_status = FINE;
 
 	//----------------------------------------------------------------
 	/*if (this->type == M6020)
 	{
-		trainsmit_or_receive_ID += 4;
+		trainsmit_or_receive_ID += 4;//ç¥ç§˜æ³¨é‡Šï¼Œå¥½åƒæ˜¯å¦å¤–ä¸€å¥—åç§»idçš„æ–¹æ¡ˆ
 	}*/
 	//----------------------------------------------------------------
-	this->torque_current = getword(idata[trainsmit_or_receive_ID][4], idata[trainsmit_or_receive_ID][5]);
-	this->StatusIdentifier(this->torque_current);
-	this->angle[now] = getword(idata[trainsmit_or_receive_ID][0], idata[trainsmit_or_receive_ID][1]);
-	this->temperature = idata[trainsmit_or_receive_ID][6];
+	this->torque_current = getword(frame[4], frame[5]);
+	this->angle[now] = getword(frame[0], frame[1]);
+	this->temperature = frame[6];
+	if (recovering) {
+		angle[pre] = angle[now];
+		CancelPositionTarget();
+	}
 	//Get currrent speed
 
 	motor_status = 0;
@@ -97,295 +125,79 @@ void Motor::Ontimer(uint8_t idata[][8], uint8_t* odata)//idate: receive;odate: t
 		curspeed = static_cast<float>(getdeltaa(angle[now] - angle[pre])) / T / 8192.f * 60.f;
 	}
 	else {
-		curspeed = getword(idata[trainsmit_or_receive_ID][2], idata[trainsmit_or_receive_ID][3]);
+		curspeed = getword(frame[2], frame[3]);
 	}
-	inv_curspeed = -curspeed;
 	//----------------------------------------------------------------
 	/*if (this->type == M6020)
 	{
 		trainsmit_or_receive_ID -= 4;
 	}*/
 	//----------------------------------------------------------------
+	// A wheel OFF/thermal stop is an output revocation, not a zero-speed
+	// regulation request. The incremental speed loop can retain nonzero current
+	// even at zero measured speed (observed on the stopped hot right wheel).
+	// Clear both PID debt and the actual CAN pair; keep decoding encoder history.
+	if (function == function_type::shooter && (setspeed == 0 || temperature > 70)) {
+		CancelPositionTarget();
+		recorded_the_Laps();
+		GetDistanceFromMechanicalAngle();
+		angle[pre] = angle[now];
+		odata[trainsmit_or_receive_ID * 2] = 0;
+		odata[trainsmit_or_receive_ID * 2 + 1] = 0;
+		taskEXIT_CRITICAL();
+		return;
+	}
 	//20220121--hz
 	if (mode == ACE)
 	{
 
-		//if (spinning)
-		//{
-		//	//1Ãë8·¢ 36/1¼õËÙ±È Ò»È¦°Ë¸ñ
-		//	current += pid[speed].Delta(setspeed - curspeed);
-		//	current = setrange(current, maxcurrent);
-		//}
-		//else {
-		//	if (need_curcircle > 0)
-		//	{
-		//		current += pid[speed].Delta(setspeed - curspeed);
-		//		current = setrange(current, maxcurrent);
-		//		uint8_t deviation = 200;
-		//		if (angle[now] >= stopAngle - deviation && angle[now] <= stopAngle + deviation)
-		//			need_curcircle--;
-		//		if (need_curcircle <= 0)
-		//		{
-		//			need_curcircle = 0;
-		//			stopAngle = angle[now];
-		//			pd = 0;
-		//			setspeed = 0;
-		//			current = 0;
-		//		}
-		//	}
-		//	else if (need_curcircle <= 0)
-		//	{
-		//		setspeed = 0;
-		//		current += pid[speed].Delta(setspeed - curspeed);
-		//		current = setrange(current, maxcurrent);
-		//	}
-		//}
-		//if (setspeed == 0 && curspeed == 0)
-		//{
-		//	motor_status = 1;
-		//	motor_angle_status = angle[0];
-		//}
-		//if (motor_status == 1 && fabs(motor_angle_status - angle[0]) < 50)
-		//{
-		//	current = 0;
-		//}
 	}
-	// (¼ÙÉè AngleUnwrapper ÊµÀı ºÍ YAW_SAFE_... ³£Á¿ÒÑ¶¨Òå)
-
 	else if (mode == POS)
 	{
-		// 1. »ñÈ¡»ù´¡Êı¾İ (±£³Ö²»±ä)
-		continuous_gimbal_yaw = gimbal_unwrapper.unwrap(imu_gimbal.angle.yaw);
-		float continuous_pantile_yaw = pantile_unwrapper.unwrap(imu_pantile.angle.yaw);
-
-		// ¼ÆËãÏà¶Ô½Ç¶È (ËùÓĞÄ£Ê½¶¼ĞèÒªÓÃËüÀ´×ö P Ïî/Î»ÖÃ±Õ»·)
-		ctrl.m_current_relative_angle = continuous_gimbal_yaw - continuous_pantile_yaw;
-
-		static bool last_in_reset = false;
-		const bool in_reset = (ctrl.mode == CONTROL::RESET);
-		const bool from_reset = (last_in_reset && !in_reset);
-
-		// RESETÄ£Ê½£ºĞ¡Yaw¸ÄÓÃµç»ú½Ç¶È±Õ»·µ½»úĞµ½Ç 8156£¬²¢¼ÇÂ¼µ±Ç°Ïà¶Ô½ÇÓÃÓÚºóĞøÍÓÂİÒÇ¿ØÖÆ
-		if (in_reset)
-		{
-			constexpr float RESET_SMALL_YAW_TARGET = 8156.0f;
-			float mech_err = RESET_SMALL_YAW_TARGET - angle[now];
-			if (mech_err > 4096.0f)  mech_err -= 8192.0f;
-			if (mech_err < -4096.0f) mech_err += 8192.0f;
-
-			current = (int32_t)ctrl.pantile.pantile_reset.Position(mech_err, (float)maxcurrent);
-			current = setrange(current, maxcurrent);
-
-			ctrl.pantile.mark_yaw = ctrl.m_current_relative_angle;
-			setangle = ctrl.pantile.mark_yaw;
-			yaw_limit_center_ref = ctrl.m_current_relative_angle;
-			yaw_limit_center_valid = true;
-		}
+		if (!has_feedback) current = 0;
 		else
 		{
-			if (from_reset)
+			if (!angle_latched)
 			{
-				// ÍË³öRESETÊ×Ö¡£ºÄ¿±êÓëµ±Ç°½Ç¶È¶ÔÆë£¬±ÜÃâÄ¿±êÍ»±ä
-				setangle = ctrl.m_current_relative_angle;
-				ctrl.pantile.mark_yaw = setangle;
-				pid[position].ResetIntegral();
-				pid[speed].ResetIntegral();
-				current = 0;
-			}
-
-			const float yaw_limit_center = yaw_limit_center_valid ? yaw_limit_center_ref : 0.0f;
-			const float yaw_safe_min = yaw_limit_center - YAW_SAFE_HALF_RANGE;
-			const float yaw_safe_max = yaw_limit_center + YAW_SAFE_HALF_RANGE;
-
-			// ¼ÆËãÁ½ÖÖËÙ¶È¹©Ñ¡Ôñ
-			float relative_velocity = imu_gimbal.angularvelocity.yaw - imu_pantile.angularvelocity.yaw; // Ô­Âß¼­£ºÏà¶ÔËÙ¶È
-			float absolute_velocity = imu_gimbal.angularvelocity.yaw;                                   // ĞÂÂß¼­£º¾ø¶ÔËÙ¶È
-
-			// Ä¬ÈÏ¸üĞÂÏà¶ÔËÙ¶Èµ½È«¾Ö±äÁ¿ (ÎªÁË¼æÈİÆäËû¿ÉÄÜÓÃµ½Õâ¸ö±äÁ¿µÄµØ·½)
-			ctrl.m_current_relative_velocity = relative_velocity;
-
-			float raw_target;
-
-			// --- 2. ×´Ì¬»ú (Í¬ÉÏ´Î) ---
-			if (ctrl.mode == ctrl.AUTO || ctrl.mode == ctrl.SHOOT || ctrl.mode == ctrl.NAVI)
-			{
-				if (xuc.mode_TJ)
+				if (use_sum_angle)                       // å°yawå’Œæ‹¨å¼¹è½®çš„POSæ¨¡å¼ä¸åŒï¼Œæ‹¨å¼¹è½®ä¸èƒ½å›ç¯ï¼Œè¦å¤šåœˆ
 				{
-					// --- ×´Ì¬ 1: ×ÔÃé ---
-					ctrl.g_start_scan = false;
-					absolute_target_auto = radianToDegree(xuc.yaw_TJ);
-					raw_target = absolute_target_auto - continuous_pantile_yaw;
-
-					// ¡¾¹Ø¼üĞŞ¸´¡¿½Ç¶È¹éÒ»»¯µ½ [-180, 180]
-					while (raw_target > 180.0f) raw_target -= 360.0f;
-					while (raw_target < -180.0f) raw_target += 360.0f;
-
-					//// ============================================
-					//// ¡¾360¶È×ÔÃé¡¿´óYawÅäºÏĞ¡Yaw£¨ÒÔRESET¼ÇÂ¼ÖĞĞÄÎª»ù×¼£©
-					//// ============================================
-					//const float SMALL_YAW_SOFT_LIMIT = 50.0f;  // Ïà¶ÔÖĞĞÄµÄÈíÏŞÎ»ãĞÖµ
-					//const float SMALL_YAW_RECENTER = 30.0f;    // Ïà¶ÔÖĞĞÄµÄ»ØÖĞÄ¿±ê
-					//const float soft_limit_right = yaw_limit_center + SMALL_YAW_SOFT_LIMIT;
-					//const float soft_limit_left = yaw_limit_center - SMALL_YAW_SOFT_LIMIT;
-					//const float recenter_right = yaw_limit_center + SMALL_YAW_RECENTER;
-					//const float recenter_left = yaw_limit_center - SMALL_YAW_RECENTER;
-
-					//// Èç¹ûÄ¿±ê³¬³öĞ¡YawÈíÏŞÎ»£¬ÈÃ´óYawÅäºÏ
-					//if (raw_target > soft_limit_right)
-					//{
-					//	// Ä¿±êÔÚÓÒ±ßÌ«Ô¶£¬´óYawÏòÓÒ×ª
-					//	float excess = raw_target - recenter_right;
-					//	float adjust = fmin(excess * 0.01f, 0.1f);  // ´ó·ù½µµÍ£º×î´óÃ¿Ö¡0.05¶È
-					//	ctrl.pantile.angle2Keep += adjust;
-					//}
-					//else if (raw_target < soft_limit_left)
-					//{
-					//	// Ä¿±êÔÚ×ó±ßÌ«Ô¶£¬´óYawÏò×ó×ª
-					//	float excess = recenter_left - raw_target;
-					//	float adjust = fmin(excess * 0.01f, 0.1f);  // ´ó·ù½µµÍ£º×î´óÃ¿Ö¡0.05¶È
-					//	ctrl.pantile.angle2Keep -= adjust;
-					//}
-
-					// ¶ÔÓÚ·ÇĞ¡ÍÓÂİÄ£Ê½£¬Í¬²½¸üĞÂ DM_motorYaw.set_yaw_pos
-					if (ctrl.mode != CONTROL::ROTATION && fabs(ctrl.chassis.speedz) < 100)
-					{
-						DM_motorYaw.set_yaw_pos = ctrl.pantile.angle2Keep;
-					}
-
-					raw_target = yaw_ref_filter.update(raw_target);
+					sum_angle = 0;
+					angle[pre] = angle[now];             // â† å…³é”®ï¼Œè§ä¸‹
+					setangle = 0.f;
 				}
-				else
-				{
-                 // --- ÎŞÄ¿±ê ---
-					if (ctrl.mode == CONTROL::NAVI)
-					{
-						// NAVI Ä£Ê½½ûÓÃÉ¨Ãè£¬±ÜÃâ Pitch ÉÏÏÂ°Ú¶¯
-						ctrl.g_start_scan = false;
-						raw_target = yaw_limit_center;
-					}
-					else
-					{
-						// ·Ç NAVI Ä£Ê½±£³ÖÔ­É¨ÃèÂß¼­
-						ctrl.g_start_scan = true;
-						ctrl.automation.autoScan();
-						raw_target = yaw_limit_center;
-					}
-				}
-			}
-			else // ÊÖ¶¯Ä£Ê½
-			{
-				// ---  STATE 4: ÊÖ¶¯ ---
-				ctrl.g_start_scan = false;
-				raw_target = setangle;
-			}
-			// --- 3. "·À¿¨ËÀ"ÏŞÎ» (Í¬ÉÏ´Î) ---
-			float final_target;
-			// (Ê¹ÓÃ m_current_relative_angle ½øĞĞÅĞ¶Ï)
-			if (ctrl.m_current_relative_angle >= yaw_safe_min && ctrl.m_current_relative_angle <= yaw_safe_max)
-			{
-				if (raw_target > yaw_safe_max) { final_target = yaw_safe_max; }
-				else if (raw_target < yaw_safe_min) { final_target = yaw_safe_min; }
-				else { final_target = raw_target; }
-			}
-			else
-			{
-				if (ctrl.m_current_relative_angle > yaw_safe_max) { final_target = yaw_safe_max; }
-				else { final_target = yaw_safe_min; }
+				else setangle = angle[now];              // äº‘å°ï¼šå•åœˆç»å¯¹è§’
+				angle_latched = true;
 			}
 
-			// 2. ºËĞÄÇĞ»»Âß¼­
-			float pid_vel_feedback;                 // PIDËÙ¶È»··´À¡Ïî
-			float feedforward_current = 0.0f;      // ¶îÍâµÄÇ°À¡µçÁ÷
+			float raw = use_sum_angle ? (setangle - (float)sum_angle)
+				: (float)getdeltaa((int16_t)(setangle - angle[now]));//åªæœ‰å°yawçš„POSæ¨¡å¼æ‰ä¼šç”¨åˆ°getdeltaaï¼Œæ‹¨å¼¹è½®çš„POSæ¨¡å¼ä¸éœ€è¦å›ç¯
+			float pos_error = mechanicalToDegree(raw);
 
-			// ¡¾ĞŞÕı¡¿Ö»ÓĞÔÚĞ¡ÍÓÂİÄ£Ê½(ROTATION)Ê±²ÅÓÃ¾ø¶ÔËÙ¶È
-			// SHOOTÄ£Ê½ÏÂÒª¸ù¾İµ×ÅÌÊÇ·ñÔÚ×ªÀ´ÅĞ¶Ï
-			if (ctrl.mode == CONTROL::ROTATION ||
-				(ctrl.mode == CONTROL::SHOOT && fabs(ctrl.chassis.speedz) > 100))
-			{
-				// ËÙ¶È»·¿´¾ø¶ÔËÙ¶È (ÏñÕ³ÔÚ¿ÕÆøÖĞÒ»Ñù£¬¸ôÀëµ×ÅÌ¶¶¶¯)
-				pid_vel_feedback = absolute_velocity;
+			if (fabsf(pos_error) < pos_deadband) pos_error = 0.f;// å°æ­»åŒºï¼Œé˜²éœ‡è¡
 
-				// Ìí¼ÓÄ¦²ÁÁ¦Ç°À¡ (µÖÏû´óÔÆÌ¨×ª¶¯´øÀ´µÄÎïÀíÍÏ×§)
-				feedforward_current = 0.25f * imu_pantile.angularvelocity.yaw;
-			}
-			else
-			{
-				// ËÙ¶È»·¿´Ïà¶ÔËÙ¶È (ËÀËÀÒ§×¡´óÔÆÌ¨)
-				pid_vel_feedback = relative_velocity;
-
-				static float prev_pantile_vel = 0.0f;
-				float pantile_acc = (imu_pantile.angularvelocity.yaw - prev_pantile_vel) / T;
-				prev_pantile_vel = imu_pantile.angularvelocity.yaw;
-				feedforward_current = (Kff_vel * imu_pantile.angularvelocity.yaw
-					+ Kff_acc * pantile_acc) * 0.f;
-			}
-
-			// 3. Ö´ĞĞPID¿ØÖÆ£¨½Ç¶È»· -> ËÙ¶È»·£©
-			float angle_err = final_target - ctrl.m_current_relative_angle;
-			float target_velocity = pid[position].Position(angle_err, static_cast<float>(maxspeed));
-			if (target_velocity > maxspeed) target_velocity = static_cast<float>(maxspeed);
-			if (target_velocity < -maxspeed) target_velocity = static_cast<float>(-maxspeed);
-
-			float speed_err = target_velocity - pid_vel_feedback;
-			float pid_current = pid[speed].Position(speed_err, static_cast<float>(maxcurrent));
-
-			// ================= »ı·Ö²¹³¥Âß¼­£¨Ïû³ı¾²²î£© =================
-			static float yaw_err_integral = 0.0f;
-			if (from_reset) yaw_err_integral = 0.0f;
-
-			// Ö»ÓĞÔÚÎó²î½ÏĞ¡Ê±²Å»ı·Ö£¨·ÀÖ¹´ó·ùÔË¶¯Ê±³¬µ÷£©
-			if (fabs(angle_err) < Err_Threshold) {
-				yaw_err_integral += angle_err * Ki_comp;
-			}
-			else {
-				yaw_err_integral = 0.0f; // Îó²î¹ı´óÊ±ÇåÁã»ı·Ö
-			}
-
-			// ´óÔÆÌ¨¸ßËÙĞı×ªÊ±Ö÷¶¯ÇåÁã»ı·Ö£º·ÀÖ¹Ğı×ªÆÚ¼ä»ı·Ö±¥ºÍ£¬Í£×ªºó·´ÏòÊÍ·ÅÔì³É³å»÷Õñµ´
-			// ãĞÖµ30 deg/s ¿É¸ù¾İÊµ¼ÊĞ¡ÍÓÂİ×ªËÙµ÷Õû
-			if (fabs(imu_pantile.angularvelocity.yaw) > 30.0f) {
-				yaw_err_integral = 0.0f;
-			}
-
-			// »ı·ÖÏŞ·ù
-			if (yaw_err_integral > Int_Limit) yaw_err_integral = Int_Limit;
-			if (yaw_err_integral < -Int_Limit) yaw_err_integral = -Int_Limit;
-			// ============================================================
-
-			// 4. ¼ÆËã×îÖÕµçÁ÷£¨PIDÊä³ö - Ä¦²ÁÇ°À¡ + »ı·Ö²¹³¥£©
-			current = pid_current - feedforward_current + yaw_err_integral;
-			current = setrange(current, maxcurrent);
+			float speed_ref = pid[position].Position(pos_error, 1000.f);
+			speed_ref = std::max(std::min(speed_ref, (float)maxspeed), -(float)maxspeed);
+			current += pid[speed].Delta(speed_ref - curspeed);
 		}
-
-		last_in_reset = in_reset;
 	}
 	else if (mode == SPD)
 	{
 		current += pid[speed].Delta(setspeed - curspeed);
-		current = setrange(current, maxcurrent);
-		if (setspeed == 0 && curspeed == 0)
-		{
-			motor_status = 1;
-			motor_angle_status = angle[0];
-		}
-		if (motor_status == 1&&fabs(motor_angle_status-angle[0])<50)
-		{
-			current = 0;
-		}
 	}
 	recorded_the_Laps();
 	GetDistanceFromMechanicalAngle();
 	angle[pre] = angle[now];
 	current = setrange(current, maxcurrent);
-	odata[trainsmit_or_receive_ID * 2] = (current & 0xff00) >> 8;//¸ß°ËÎ»
+	odata[trainsmit_or_receive_ID * 2] = (current & 0xff00) >> 8;//é«˜å…«ä½
 	odata[trainsmit_or_receive_ID * 2 + 1] = current & 0x00ff;
+	taskEXIT_CRITICAL();
 }
 void Motor::recorded_the_Laps() {
 	int16_t delta = angle[now] - angle[pre];
-	// ´¦Àí»ØÈÆ£ºË³Ê±Õë
+	// å¤„ç†å›ç»•ï¼šé¡ºæ—¶é’ˆ
 	if (delta > 8192 / 2)
 		delta -= 8192;
-	// ´¦Àí»ØÈÆ£ºÄæÊ±Õë
+	// å¤„ç†å›ç»•ï¼šé€†æ—¶é’ˆ
 	else if (delta < -8192 / 2)
 		delta += 8192;
 
@@ -397,7 +209,7 @@ uint8_t initial_cnt=0;
 void Motor::GetDistanceFromMechanicalAngle() {
 	if (initial_cnt<5)
 	initial_cnt++;
-	distance=(6.2831853f/ 8192.0f)*sum_angle * (WHEEL_RADIUS_MM / GEAR_RATIO)-initial_x;  // µ¥Î»£ºmm
+	distance=(6.2831853f/ 8192.0f)*sum_angle * (WHEEL_RADIUS_MM / GEAR_RATIO)-initial_x;  // å•ä½ï¼šmm
 
 	if(initial_cnt<3)
 	initial_x = distance;
@@ -409,10 +221,10 @@ void Motor::getmax(const type_t type)
 	switch (type)
 	{
 	case M3508:
-		maxcurrent = 16384;
-		maxspeed = 9000;
-		break;
 	case M3510:
+		maxcurrent = 13000;
+		maxspeed = 6000;
+		break;
 		maxcurrent = 13000;
 		maxspeed = 9000;
 		break;
@@ -430,9 +242,9 @@ void Motor::getmax(const type_t type)
 		maxspeed = 300;
 		break;
 	case M6020:
-		maxcurrent = 30000;
-		maxspeed = 800;
-		adjspeed = 80;
+		maxcurrent = 15000;
+		maxspeed = 80;
+		adjspeed = 10;
 		break;
 	case M2006:
 		maxcurrent = 10000;

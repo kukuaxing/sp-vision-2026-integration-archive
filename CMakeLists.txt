@@ -194,6 +194,8 @@ add_subdirectory(librm)
 
 ####################src###################
 add_executable(standard src/standard.cpp src/rmv_debug.cpp)
+include(cmake/RuntimeIdentity.cmake)
+sp_add_runtime_identity(standard)
 add_executable(daheng_camera_test src/daheng_camera_test.cpp)
 add_executable(uav_debug src/uav_debug.cpp)
 add_executable(standard_mpc src/standard_mpc.cpp)

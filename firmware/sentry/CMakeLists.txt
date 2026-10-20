@@ -1,143 +1,144 @@
-cmake_minimum_required(VERSION 3.20)
+# ============================================================================
+#  RoboMaster Sentinel RCS - STM32F405RG (FreeRTOS + STM32 HAL)
+#  Linux port of the original VisualGDB (Windows) project.
+#
+#  Compile/link flags mirror the original VisualGDB-generated flags exactly
+#  (see the old STM32F405/VisualGDB/Debug/*.gcc.rsp and *.link.rsp files).
+#
+#  Usage:
+#    cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug
+#    cmake --build build
+# ============================================================================
+cmake_minimum_required(VERSION 3.16)
+project(RCS_STM32F405 C CXX ASM)
 
-set(CMAKE_SYSTEM_NAME Generic)
-set(CMAKE_SYSTEM_PROCESSOR arm)
-set(CMAKE_TRY_COMPILE_TARGET_TYPE STATIC_LIBRARY)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)   # for VS Code IntelliSense
 
-set(ARM_TOOLCHAIN_ROOT "C:/Program Files (x86)/GNU Arm Embedded Toolchain/10 2021.10/bin" CACHE PATH "GNU Arm toolchain bin directory")
-set(CMAKE_C_COMPILER "${ARM_TOOLCHAIN_ROOT}/arm-none-eabi-gcc.exe")
-set(CMAKE_CXX_COMPILER "${ARM_TOOLCHAIN_ROOT}/arm-none-eabi-g++.exe")
-set(CMAKE_ASM_COMPILER "${ARM_TOOLCHAIN_ROOT}/arm-none-eabi-gcc.exe")
-set(CMAKE_OBJCOPY "${ARM_TOOLCHAIN_ROOT}/arm-none-eabi-objcopy.exe")
-set(CMAKE_SIZE "${ARM_TOOLCHAIN_ROOT}/arm-none-eabi-size.exe")
+# Toolchain: see cmake/arm-none-eabi-toolchain.cmake (pass -DCMAKE_TOOLCHAIN_FILE=cmake/arm-none-eabi-toolchain.cmake)
+# ---------------------------------------------------------------------------
+# Paths
+# ---------------------------------------------------------------------------
+set(PROJ_SRC_DIR  ${CMAKE_CURRENT_SOURCE_DIR}/STM32F405)
+set(BSP_DIR       ${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty)
 
-project(SentryUC LANGUAGES C CXX ASM)
+set(HAL_INC       ${BSP_DIR}/STM32F4xx_HAL/Inc)
+set(HAL_SRC       ${BSP_DIR}/STM32F4xx_HAL/Src)
+set(CMSIS_CORE    ${BSP_DIR}/CMSIS/Include)
+set(CMSIS_DEV     ${BSP_DIR}/CMSIS/Device/ST/STM32F4xx/Include)
+set(FREERTOS      ${BSP_DIR}/FreeRTOS/Source)
 
-set(CMAKE_C_STANDARD 11)
-set(CMAKE_CXX_STANDARD 14)
+set(LINKER_SCRIPT ${CMAKE_CURRENT_SOURCE_DIR}/linker/STM32F405RGTx_FLASH.ld)
 
-set(CUBE_ROOT "" CACHE PATH "Path to STM32CubeF4 SDK")
-if(NOT EXISTS "${CUBE_ROOT}/Drivers/CMSIS")
-  message(FATAL_ERROR "Set -DCUBE_ROOT to an existing STM32CubeF4 SDK")
+# ---------------------------------------------------------------------------
+# Flags (mirror VisualGDB .gcc.rsp / .link.rsp)
+# ---------------------------------------------------------------------------
+set(MCU_FLAGS -mcpu=cortex-m4 -mthumb -mfloat-abi=soft -mfpu=fpv4-sp-d16)
+
+if(CMAKE_BUILD_TYPE STREQUAL "Release")
+  set(OPT_FLAGS -O2 -g)
+else()
+  set(OPT_FLAGS -O0 -ggdb)
 endif()
-set(APP_DIR "${CMAKE_CURRENT_LIST_DIR}/STM32F405")
-set(CMSIS_DIR "${CUBE_ROOT}/Drivers/CMSIS")
-set(HAL_DIR "${CUBE_ROOT}/Drivers/STM32F4xx_HAL_Driver")
-set(FREERTOS_DIR "${CUBE_ROOT}/Middlewares/Third_Party/FreeRTOS/Source")
 
-set(APP_SOURCES
-  ${APP_DIR}/can.cpp
-  ${APP_DIR}/pitch_zero.cpp
-  ${APP_DIR}/control.cpp
-  ${APP_DIR}/CRC.cpp
-  ${APP_DIR}/DMmotor.cpp
-  ${APP_DIR}/gpio.cpp
-  ${APP_DIR}/imu.cpp
-  ${APP_DIR}/judgement.cpp
-  ${APP_DIR}/label.cpp
-  ${APP_DIR}/motor.cpp
-  ${APP_DIR}/PowerLimiter.cpp
-  ${APP_DIR}/Power_read.cpp
-  ${APP_DIR}/RC.cpp
-  ${APP_DIR}/slidingmodec.cpp
-  ${APP_DIR}/STM32F405.cpp
-  ${APP_DIR}/supercap.cpp
-  ${APP_DIR}/system_stm32f4xx.c
-  ${APP_DIR}/taskslist.cpp
-  ${APP_DIR}/tim.cpp
-  ${APP_DIR}/usart.cpp
-  ${APP_DIR}/nuc.cpp
+add_compile_definitions(
+  ARM_MATH_CM4
+  STM32F405RG
+  stm32_flash_layout
+  STM32F405xx
 )
+if(CMAKE_BUILD_TYPE STREQUAL "Release")
+  add_compile_definitions(NDEBUG=1)
+else()
+  add_compile_definitions(DEBUG=1)
+endif()
 
-file(GLOB HAL_SOURCES CONFIGURE_DEPENDS "${HAL_DIR}/Src/*.c")
-list(FILTER HAL_SOURCES EXCLUDE REGEX ".*_template\\.c$")
-
-# Upstream uses the pre-2018 CAN API. Select ST's bundled legacy driver
-# without modifying the upstream application sources.
-list(FILTER HAL_SOURCES EXCLUDE REGEX "/stm32f4xx_hal_can\\.c$")
-list(APPEND HAL_SOURCES "${HAL_DIR}/Src/Legacy/stm32f4xx_hal_can.c")
-file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/hal_compat")
-file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/hal_compat/stm32f4xx_hal_can.h"
-  "#undef HAL_CAN_MODULE_ENABLED\n#include \"Legacy/stm32f4xx_hal_can_legacy.h\"\n")
-# Newer HAL RCC expects this table; upstream's older system file lacks it.
-# Values match ST's CMSIS system_stm32f4xx.c template.
-file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/hal_compat/clock_tables.c"
-  "#include <stdint.h>\nconst uint8_t APBPrescTable[8] = {0, 0, 0, 0, 1, 2, 3, 4};\n")
+# ---------------------------------------------------------------------------
+# Sources
+# ---------------------------------------------------------------------------
+set(USER_SOURCES
+  ${PROJ_SRC_DIR}/CRC.cpp
+  ${PROJ_SRC_DIR}/HTmotor.cpp
+  ${PROJ_SRC_DIR}/Power_read.cpp
+  ${PROJ_SRC_DIR}/RC.cpp
+  ${PROJ_SRC_DIR}/STM32F405.cpp
+  ${PROJ_SRC_DIR}/can.cpp
+  ${PROJ_SRC_DIR}/control.cpp
+  ${PROJ_SRC_DIR}/gpio.cpp
+  ${PROJ_SRC_DIR}/imu.cpp
+  ${PROJ_SRC_DIR}/judgement.cpp
+  ${PROJ_SRC_DIR}/label.cpp
+  ${PROJ_SRC_DIR}/motor.cpp
+  ${PROJ_SRC_DIR}/supercap.cpp
+  ${PROJ_SRC_DIR}/system_stm32f4xx.c
+  ${PROJ_SRC_DIR}/taskslist.cpp
+  ${PROJ_SRC_DIR}/tim.cpp
+  ${PROJ_SRC_DIR}/usart.cpp
+  ${PROJ_SRC_DIR}/xuc.cpp
+)
 
 set(FREERTOS_SOURCES
-  ${FREERTOS_DIR}/croutine.c
-  ${FREERTOS_DIR}/event_groups.c
-  ${FREERTOS_DIR}/list.c
-  ${FREERTOS_DIR}/queue.c
-  ${FREERTOS_DIR}/stream_buffer.c
-  ${FREERTOS_DIR}/tasks.c
-  ${FREERTOS_DIR}/timers.c
-  ${FREERTOS_DIR}/CMSIS_RTOS/cmsis_os.c
-  ${FREERTOS_DIR}/portable/GCC/ARM_CM3/port.c
-  ${FREERTOS_DIR}/portable/MemMang/heap_4.c
+  ${FREERTOS}/croutine.c
+  ${FREERTOS}/event_groups.c
+  ${FREERTOS}/list.c
+  ${FREERTOS}/queue.c
+  ${FREERTOS}/tasks.c
+  ${FREERTOS}/timers.c
+  ${FREERTOS}/CMSIS_RTOS/cmsis_os.c
+  ${FREERTOS}/portable/GCC/ARM_CM3/port.c
+  ${FREERTOS}/portable/MemMang/heap_4.c
 )
 
-add_executable(sentry_uc.elf
-  ${APP_SOURCES}
-  ${CMAKE_CURRENT_BINARY_DIR}/hal_compat/clock_tables.c
-  ${HAL_SOURCES}
+file(GLOB HAL_SOURCES ${HAL_SRC}/*.c)          # all HAL Src (same as original)
+list(FILTER HAL_SOURCES EXCLUDE REGEX ".*template\\.c$")  # drop *_template.c
+
+set(STARTUP_SOURCE
+  ${BSP_DIR}/startup/startup_stm32f405xx.s
+)
+
+# ---------------------------------------------------------------------------
+# Target
+# ---------------------------------------------------------------------------
+add_executable(STM32F405.elf
+  ${USER_SOURCES}
   ${FREERTOS_SOURCES}
-  ${CMSIS_DIR}/Device/ST/STM32F4xx/Source/Templates/gcc/startup_stm32f405xx.s
+  ${HAL_SOURCES}
+  ${STARTUP_SOURCE}
+)
+set_target_properties(STM32F405.elf PROPERTIES OUTPUT_NAME STM32F405.elf)
+
+target_include_directories(STM32F405.elf PRIVATE
+  ${PROJ_SRC_DIR}                          # user headers, FreeRTOSConfig.h, stm32f4xx_hal_conf.h
+  ${HAL_INC}
+  ${HAL_INC}/Legacy
+  ${CMSIS_DEV}
+  ${CMSIS_CORE}
+  ${FREERTOS}/CMSIS_RTOS                    # so "#include <../CMSIS_RTOS/cmsis_os.h>" resolves
+  ${FREERTOS}/include
+  ${FREERTOS}/portable/GCC/ARM_CM3
 )
 
-target_include_directories(sentry_uc.elf PRIVATE
-  ${APP_DIR}
-  ${CMAKE_CURRENT_BINARY_DIR}/hal_compat
-  ${HAL_DIR}/Inc
-  ${HAL_DIR}/Inc/Legacy
-  ${CMSIS_DIR}/Include
-  ${CMSIS_DIR}/Device/ST/STM32F4xx/Include
-  ${CMSIS_DIR}/RTOS/Template
-  ${FREERTOS_DIR}/include
-  ${FREERTOS_DIR}/CMSIS_RTOS
-  ${FREERTOS_DIR}/portable/GCC/ARM_CM3
+target_compile_options(STM32F405.elf PRIVATE
+  $<$<COMPILE_LANGUAGE:C>:   ${MCU_FLAGS} ${OPT_FLAGS} -ffunction-sections -fdata-sections>
+  $<$<COMPILE_LANGUAGE:CXX>: ${MCU_FLAGS} ${OPT_FLAGS} -ffunction-sections -fdata-sections -fno-exceptions -fno-rtti>
+  $<$<COMPILE_LANGUAGE:ASM>: ${MCU_FLAGS}>
 )
 
-target_compile_definitions(sentry_uc.elf PRIVATE
-  ARM_MATH_CM4
-  HAL_CAN_LEGACY_MODULE_ENABLED
-  STM32F405RG
-  STM32F405xx
-  LSE_STARTUP_TIMEOUT=5000U
-)
-
-target_compile_options(sentry_uc.elf PRIVATE
-  -mcpu=cortex-m4
-  -mthumb
-  -mfloat-abi=soft
-  -ffunction-sections
-  -fdata-sections
-  -fno-common
-  $<$<COMPILE_LANGUAGE:CXX>:-fno-exceptions>
-  $<$<COMPILE_LANGUAGE:CXX>:-fno-rtti>
-  $<$<COMPILE_LANGUAGE:CXX>:-Werror=return-type>
-  $<$<CONFIG:Debug>:-Og>
-  $<$<CONFIG:Release>:-O2>
-  -g3
-)
-
-target_link_options(sentry_uc.elf PRIVATE
-  -mcpu=cortex-m4
-  -mthumb
-  -mfloat-abi=soft
-  -T${CMAKE_CURRENT_LIST_DIR}/STM32F405RG_FLASH.ld
+target_link_options(STM32F405.elf PRIVATE
+  ${MCU_FLAGS}
+  -Wl,--gc-sections
+  -Wl,-Map=${CMAKE_BINARY_DIR}/STM32F405.map
   --specs=nano.specs
   --specs=nosys.specs
-  -Wl,--gc-sections
-  -Wl,-Map=${CMAKE_CURRENT_BINARY_DIR}/sentry_uc.map
-  -Wl,--print-memory-usage
+  -T${LINKER_SCRIPT}
 )
 
-target_link_libraries(sentry_uc.elf PRIVATE m)
-
-add_custom_command(TARGET sentry_uc.elf POST_BUILD
-  COMMAND ${CMAKE_OBJCOPY} -O ihex $<TARGET_FILE:sentry_uc.elf> ${CMAKE_CURRENT_BINARY_DIR}/sentry_uc.hex
-  COMMAND ${CMAKE_OBJCOPY} -O binary $<TARGET_FILE:sentry_uc.elf> ${CMAKE_CURRENT_BINARY_DIR}/sentry_uc.bin
-  COMMAND ${CMAKE_SIZE} $<TARGET_FILE:sentry_uc.elf>
-  VERBATIM
+# ---------------------------------------------------------------------------
+# Post-build: produce .bin + memory usage report
+# ---------------------------------------------------------------------------
+add_custom_command(TARGET STM32F405.elf POST_BUILD
+  COMMAND ${CMAKE_OBJCOPY} -O binary
+          $<TARGET_FILE:STM32F405.elf>
+          ${CMAKE_BINARY_DIR}/STM32F405.bin
+  COMMAND ${CMAKE_SIZE} $<TARGET_FILE:STM32F405.elf>
+  COMMENT "objcopy -> STM32F405.bin / size report"
 )

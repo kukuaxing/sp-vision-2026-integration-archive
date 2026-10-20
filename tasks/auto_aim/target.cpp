@@ -12,6 +12,23 @@
 
 namespace auto_aim
 {
+namespace
+{
+std::array<double, 4> measurement_variances(const Armor & armor, double incidence)
+{
+  if (!armor.pose_valid || armor.points.size() != 4) {
+    return armor_measurement_variances(armor.ypd_in_world[2], incidence, armor.confidence);
+  }
+  const double height = 0.5 * (cv::norm(armor.points[3] - armor.points[0]) +
+    cv::norm(armor.points[2] - armor.points[1]));
+  const double width = 0.5 * (cv::norm(armor.points[1] - armor.points[0]) +
+    cv::norm(armor.points[2] - armor.points[3]));
+  return armor_measurement_variances(
+    armor.ypd_in_world[2], incidence, armor.confidence, height, width,
+    armor.reprojection_error_px, armor.pose_quality);
+}
+}
+
 Target::Target(
   const Armor & armor, std::chrono::steady_clock::time_point t, double radius, int armor_num,
   Eigen::VectorXd P0_dig, const YawESKF::Config & yaw_eskf_config)
@@ -25,6 +42,13 @@ Target::Target(
   const Armor & armor, std::chrono::steady_clock::time_point t, double radius, int armor_num,
   Eigen::VectorXd P0_dig, const YawESKF::Config & yaw_eskf_config,
   const IteratedUpdateConfig & iterated_update_config)
+: Target(armor, t, radius, armor_num, std::move(P0_dig), yaw_eskf_config,
+    iterated_update_config, CenterProcessConfig{}) {}
+
+Target::Target(
+  const Armor & armor, std::chrono::steady_clock::time_point t, double radius, int armor_num,
+  Eigen::VectorXd P0_dig, const YawESKF::Config & yaw_eskf_config,
+  const IteratedUpdateConfig & iterated_update_config, const CenterProcessConfig & center_config)
 : name(armor.name),
   armor_type(armor.type),
   jumped(false),
@@ -36,6 +60,7 @@ Target::Target(
   is_converged_(false),
   yaw_eskf_(yaw_eskf_config),
   iterated_update_config_(iterated_update_config),
+  center_process_config_(center_config),
   t_(t)
 {
   auto r = radius;
@@ -124,9 +149,15 @@ void Target::predict(double dt)
     v1 = 10;   // 前哨站加速度方差
     v2 = 0.1;  // 前哨站角加速度方差
   } else {
-    v1 = 100;  // 加速度方差
+    v1 = center_process_config_.acceleration_variance;
+    // Rotation is observable only after both yaw estimators agree. Pure
+    // prediction or a rate spike must not stiffen the translational model.
+    if (center_process_config_.adaptive_enabled && yaw_eskf_trusted() &&
+        std::abs(yaw_eskf_rate()) >= center_process_config_.rotation_rate_rad_s)
+      v1 = center_process_config_.rotation_acceleration_variance;  // 加速度方差
     v2 = 64;  // 角加速度方差
   }
+  center_acceleration_variance_ = v1;
   auto a = dt * dt * dt * dt / 4;
   auto b = dt * dt * dt / 2;
   auto c = dt * dt;
@@ -166,7 +197,7 @@ void Target::update(const Armor & armor)
   // 装甲板匹配
   int id;
   auto min_angle_error = 1e10;
-  const std::vector<Eigen::Vector4d> & xyza_list = armor_xyza_list();
+  const auto xyza_list = association_armor_xyza_list();
 
   std::vector<std::pair<Eigen::Vector4d, int>> xyza_i_list;
   for (int i = 0; i < armor_num_; i++) {
@@ -256,8 +287,7 @@ void Target::update_batch(
       armor.xyz_in_world[1], armor.xyz_in_world[0]);
     const double delta_angle = tools::limit_rad(
       armor.ypr_in_world[0] - center_yaw);
-    const auto variances = armor_measurement_variances(
-      armor.ypd_in_world[2], delta_angle, armor.confidence);
+    const auto variances = measurement_variances(armor, delta_angle);
     const Eigen::Vector4d R_diag{
       variances[0], variances[1], variances[2], variances[3]};
     R.block<4, 4>(i * 4, i * 4) = R_diag.asDiagonal();
@@ -345,8 +375,7 @@ void Target::update_ypda(const Armor & armor, int id)
   // Eigen::VectorXd R_dig{{4e-3, 4e-3, 1, 9e-2}};
   auto center_yaw = std::atan2(armor.xyz_in_world[1], armor.xyz_in_world[0]);
   auto delta_angle = tools::limit_rad(armor.ypr_in_world[0] - center_yaw);
-  const auto variances = armor_measurement_variances(
-    armor.ypd_in_world[2], delta_angle, armor.confidence);
+  const auto variances = measurement_variances(armor, delta_angle);
   Eigen::VectorXd R_dig{
     {variances[0], variances[1], variances[2], variances[3]}};
 
@@ -402,8 +431,7 @@ void Target::update_yaw_eskf(const Armor & armor, int id)
     armor.xyz_in_world[1], armor.xyz_in_world[0]);
   const double incidence = tools::limit_rad(
     armor.ypr_in_world[0] - center_yaw);
-  const auto variances = armor_measurement_variances(
-    armor.ypd_in_world[2], incidence, armor.confidence);
+  const auto variances = measurement_variances(armor, incidence);
   const double equivalent_face_period = 2.0 * CV_PI / std::max(1, armor_num_);
   yaw_eskf_.update_equivalent(
     body_yaw_measurement, variances[3], equivalent_face_period);
@@ -412,7 +440,7 @@ void Target::update_yaw_eskf(const Armor & armor, int id)
 Eigen::VectorXd Target::ekf_x() const
 {
   Eigen::VectorXd state = ekf_.x;
-  if (yaw_eskf_.trusted() && state.size() >= 8) {
+  if (yaw_eskf_trusted() && state.size() >= 8) {
     state[6] = yaw_eskf_.angle();
     state[7] = yaw_eskf_.rate();
   }
@@ -427,7 +455,7 @@ Eigen::VectorXd Target::ekf_x_at(double relative_time_s) const
   Eigen::VectorXd state = ekf_x();
   if (state.size() < 11) throw std::logic_error("Cannot sample an uninitialized Target");
   for (int position : {0, 2, 4}) state[position] += state[position + 1] * relative_time_s;
-  const double acceleration = yaw_eskf_.trusted() ? yaw_eskf_.acceleration() : 0.0;
+  const double acceleration = yaw_eskf_trusted() ? yaw_eskf_.acceleration() : 0.0;
   state[6] += state[7] * relative_time_s +
     0.5 * acceleration * relative_time_s * relative_time_s;
   state[7] += acceleration * relative_time_s;
@@ -438,7 +466,49 @@ Eigen::VectorXd Target::ekf_x_at(double relative_time_s) const
 
 const tools::ExtendedKalmanFilter & Target::ekf() const { return ekf_; }
 
-bool Target::yaw_eskf_trusted() const { return yaw_eskf_.trusted(); }
+bool Target::federated_phase_consistent() const
+{
+  if (!yaw_eskf_.initialized() || ekf_.x.size() < 8 || ekf_.P.rows() < 8) return false;
+  const double angle_error = tools::limit_rad(yaw_eskf_.angle() - ekf_.x[6]);
+  const double rate_error = yaw_eskf_.rate() - ekf_.x[7];
+  const auto & yaw_covariance = yaw_eskf_.covariance();
+  const double angle_variance = ekf_.P(6, 6) + yaw_covariance(0, 0);
+  const double rate_variance = ekf_.P(7, 7) + yaw_covariance(1, 1);
+  if (!std::isfinite(angle_error) || !std::isfinite(rate_error) ||
+      !std::isfinite(angle_variance) || !std::isfinite(rate_variance) ||
+      angle_variance < 0.0 || rate_variance < 0.0) return false;
+  // A different periodic face branch cannot borrow this model's radius/height
+  // labels. Within that identity interval, require statistical agreement of
+  // both estimates before using the independent yaw for motion prediction.
+  if (std::abs(angle_error) >= M_PI / std::max(1, armor_num_)) return false;
+  constexpr double chi_square_1d_95 = 3.841459;
+  return angle_error * angle_error <= chi_square_1d_95 * std::max(1e-12, angle_variance) &&
+    rate_error * rate_error <= chi_square_1d_95 * std::max(1e-12, rate_variance);
+}
+
+bool Target::whole_rotation_trusted() const
+{
+  // This qualifies only the whole-state geometry. It never licenses inserting
+  // an inconsistent independent yaw into its radii/face labels. A rotating
+  // vehicle needs actual face diversity and a mature, bounded covariance.
+  if (armor_num_ != 4 || !jumped || update_count_ < 20 || ekf_.x.size() != 11 ||
+      ekf_.P.rows() != 11 || ekf_.P.cols() != 11 ||
+      !ekf_.x.allFinite() || !ekf_.P.allFinite() || diverged() ||
+      std::abs(ekf_.x[7]) > 8.0) return false;
+  const auto bounded_variance = [](double variance, double maximum) {
+    return std::isfinite(variance) && variance >= 0.0 && variance <= maximum;
+  };
+  const double second_radius_variance = ekf_.P(8,8) + ekf_.P(9,9) + 2.0 * ekf_.P(8,9);
+  return bounded_variance(ekf_.P(6,6), std::pow(15.0 * M_PI / 180.0, 2)) &&
+    bounded_variance(ekf_.P(7,7), 1.0) &&
+    bounded_variance(ekf_.P(0,0), 0.01) && bounded_variance(ekf_.P(2,2), 0.01) &&
+    bounded_variance(ekf_.P(8,8), 0.0025) && bounded_variance(second_radius_variance, 0.0025);
+}
+
+bool Target::yaw_eskf_trusted() const
+{
+  return yaw_eskf_.trusted() && federated_phase_consistent();
+}
 
 double Target::yaw_eskf_angle() const { return yaw_eskf_.angle(); }
 
@@ -487,6 +557,18 @@ std::vector<Eigen::Vector4d> Target::armor_xyza_list(bool prefer_direct_motion) 
     _armor_xyza_list.push_back({xyz[0], xyz[1], xyz[2], angle});
   }
   return _armor_xyza_list;
+}
+
+std::vector<Eigen::Vector4d> Target::association_armor_xyza_list() const
+{
+  std::vector<Eigen::Vector4d> faces;
+  faces.reserve(armor_num_);
+  for (int id = 0; id < armor_num_; ++id) {
+    const auto xyz = h_armor_xyz(ekf_.x, id);
+    const double angle = tools::limit_rad(ekf_.x[6] + id * 2.0 * CV_PI / armor_num_);
+    faces.push_back({xyz[0], xyz[1], xyz[2], angle});
+  }
+  return faces;
 }
 
 std::vector<Eigen::Vector4d> Target::armor_xyza_list_at(

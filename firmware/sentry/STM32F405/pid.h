@@ -1,5 +1,9 @@
 #pragma once
+#ifdef SENTINEL_ACTUATOR_HOST_TEST
+#include "tests/sentinel/actuator_hal_stubs.hpp"
+#else
 #include "stm32f4xx_hal.h"
+#endif
 #include <algorithm>
 
 enum { INTEGRATE = 0, LLAST = 0, LAST = 1, NOW = 2 };
@@ -7,6 +11,11 @@ enum { INTEGRATE = 0, LLAST = 0, LAST = 1, NOW = 2 };
 class PID
 {
 public:
+	void Reset() {
+		for (auto& value : m_error) value = 0.f;
+		for (auto& value : m_filter) value = 0.f;
+		m_lderivative = 0.f; m_filterindex = 0;
+	}
 	PID(void)
 		: m_Kp(0.f)
 		, m_Ti(0.f)
@@ -15,11 +24,6 @@ public:
 		: m_Kp(Kp)
 		, m_Ti(Ti)
 		, m_Td(Td), m_alpha(alpha) {}
-	PID(float Kp, float Ti, float Td, float i_min, float i_max)
-		: m_Kp(Kp)
-		, m_Ti(Ti)
-		, m_Td(Td)
-		, min_limit(i_min), max_limit(i_max) {}
 
 	void Adjust(float Kp, float Ti, float Td, float alpha)
 	{
@@ -28,9 +32,7 @@ public:
 		m_Td = Td;
 		m_alpha = alpha;
 	}
-
-
-	float Filter(float delta)      //¬À≤®£¨»°∆Ωæ˘÷µ
+	float Filter(float delta)      //Êª§Ê≥¢ÔºåÂèñÂπ≥ÂùáÂÄº
 	{
 		float sum = 0;
 		m_filter[m_filterindex++] = delta;
@@ -39,7 +41,7 @@ public:
 			sum += m_filter[t];
 		return sum / static_cast<float>(FILTER);
 	}
-	float Delta(float error)             //‘ˆ¡ø ΩPID
+	float Delta(float error)             //Â¢ûÈáèÂºèPID
 	{
 		m_error[LLAST] = m_error[LAST] * 0.92f;
 		m_error[LAST] = m_error[NOW] * 0.92f;
@@ -52,7 +54,7 @@ public:
 		m_error[NOW] = error;
 		m_error[INTEGRATE] += m_error[NOW];
 		m_error[INTEGRATE] = std::max(std::min(m_error[INTEGRATE], max_limit), -max_limit);
-		//≤ªÕÍ»´Œ¢∑÷
+		//‰∏çÂÆåÂÖ®ÂæÆÂàÜ
 		this->m_lderivative = m_Td * (1.f - m_alpha) * (m_error[NOW] - m_error[LAST]) + m_alpha * m_lderivative;
 		const float result = this->m_error[NOW] * this->m_Kp + this->m_error[INTEGRATE] * this->m_Ti + this->m_lderivative;
 		m_error[LAST] = m_error[NOW];
@@ -63,7 +65,7 @@ public:
 		m_error[NOW] = error;
 		m_error[INTEGRATE] += m_error[NOW];
 		m_error[INTEGRATE] = std::max(std::min(m_error[INTEGRATE], 1000.f), -1000.f);
-		//≤ªÕÍ»´Œ¢∑÷
+		//‰∏çÂÆåÂÖ®ÂæÆÂàÜ
 		this->m_lderivative = m_Td * (1.f - m_alpha) * (m_error[NOW] - m_error[LAST]) + m_alpha * m_lderivative;
 		const float result = this->m_error[NOW] * this->m_Kp + this->m_error[INTEGRATE] * this->m_Ti + this->m_lderivative;
 		m_error[LAST] = m_error[NOW];
@@ -71,19 +73,7 @@ public:
 	}
 	float m_Kp, m_Ti, m_Td;
 	float max_limit = 1000.0f;
-	float min_limit = 0.f;
 	float m_error[3] = { 0 };
-	
-	// ª˝∑÷«Â¡„∫Ø ˝£¨”√”⁄ƒ£ Ω«–ªª ±∑¿÷πÃ¯±‰
-	void ResetIntegral()
-	{
-		m_error[INTEGRATE] = 0.f;
-		m_error[LLAST] = 0.f;
-		m_error[LAST] = 0.f;
-		m_error[NOW] = 0.f;
-		m_lderivative = 0.f;
-	}
-
 private:
 	float m_alpha = 0.f, m_lderivative = 0.f;
 	float m_filter[FILTER] = { 0 };

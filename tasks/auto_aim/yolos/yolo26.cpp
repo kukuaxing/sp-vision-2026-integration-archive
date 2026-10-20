@@ -1,4 +1,5 @@
 #include "yolo26.hpp"
+#include "tasks/auto_aim/detection_search.hpp"
 
 #include <fmt/chrono.h>
 #include <yaml-cpp/yaml.h>
@@ -93,8 +94,16 @@ bool bind_current_thread_to_cores(const std::vector<int> & cores)
 YOLO26::YOLO26(const std::string & config_path, bool debug)
 : debug_(debug), detector_(config_path, false)
 {
-  auto yaml = YAML::LoadFile(config_path);
+  const auto yaml = YAML::LoadFile(config_path);
+  load_detection_settings(yaml);
+  const auto big_cores = configure_runtime_cpu(yaml);
+  configure_input_area(yaml);
+  const int infer_threads = initialize_model(yaml, big_cores);
+  log_runtime_settings(infer_threads);
+}
 
+void YOLO26::load_detection_settings(const YAML::Node & yaml)
+{
   model_path_ = yaml["yolo26_model_path"].as<std::string>();
   device_ = yaml["device"].as<std::string>();
   binary_threshold_ = yaml["threshold"].as<double>();
@@ -124,24 +133,7 @@ YOLO26::YOLO26(const std::string & config_path, bool debug)
   refine_corners_ = yaml["yolo26_refine_corners"]
     ? yaml["yolo26_refine_corners"].as<bool>()
     : (yaml["use_traditional"] ? yaml["use_traditional"].as<bool>() : false);
-  AdaptiveCornerRefiner::Config corner_config;
-  corner_config.binary_threshold = static_cast<int>(binary_threshold_);
-  if (yaml["corner_refine_roi_length_scale"])
-    corner_config.roi_length_scale = yaml["corner_refine_roi_length_scale"].as<double>();
-  if (yaml["corner_refine_roi_width_scale"])
-    corner_config.roi_width_scale = yaml["corner_refine_roi_width_scale"].as<double>();
-  if (yaml["corner_refine_max_center_error_ratio"])
-    corner_config.max_center_error_ratio =
-      yaml["corner_refine_max_center_error_ratio"].as<double>();
-  if (yaml["corner_refine_max_angle_error_deg"])
-    corner_config.max_angle_error_deg = yaml["corner_refine_max_angle_error_deg"].as<double>();
-  if (yaml["corner_refine_max_pair_angle_error_deg"])
-    corner_config.max_pair_angle_error_deg =
-      yaml["corner_refine_max_pair_angle_error_deg"].as<double>();
-  if (yaml["corner_refine_min_pair_length_ratio"])
-    corner_config.min_pair_length_ratio =
-      yaml["corner_refine_min_pair_length_ratio"].as<double>();
-  corner_refiner_.set_config(corner_config);
+  configure_corner_refiner(yaml);
   save_samples_ = yaml["yolo26_save_samples"]
     ? yaml["yolo26_save_samples"].as<bool>()
     : false;
@@ -175,6 +167,32 @@ YOLO26::YOLO26(const std::string & config_path, bool debug)
   color_min_pixels_per_bar_ = std::max(1, color_min_pixels_per_bar_);
   if (yaml["detector_debug"]) debug_ = yaml["detector_debug"].as<bool>();
 
+}
+
+void YOLO26::configure_corner_refiner(const YAML::Node & yaml)
+{
+  AdaptiveCornerRefiner::Config corner_config;
+  corner_config.binary_threshold = static_cast<int>(binary_threshold_);
+  if (yaml["corner_refine_roi_length_scale"])
+    corner_config.roi_length_scale = yaml["corner_refine_roi_length_scale"].as<double>();
+  if (yaml["corner_refine_roi_width_scale"])
+    corner_config.roi_width_scale = yaml["corner_refine_roi_width_scale"].as<double>();
+  if (yaml["corner_refine_max_center_error_ratio"])
+    corner_config.max_center_error_ratio =
+      yaml["corner_refine_max_center_error_ratio"].as<double>();
+  if (yaml["corner_refine_max_angle_error_deg"])
+    corner_config.max_angle_error_deg = yaml["corner_refine_max_angle_error_deg"].as<double>();
+  if (yaml["corner_refine_max_pair_angle_error_deg"])
+    corner_config.max_pair_angle_error_deg =
+      yaml["corner_refine_max_pair_angle_error_deg"].as<double>();
+  if (yaml["corner_refine_min_pair_length_ratio"])
+    corner_config.min_pair_length_ratio =
+      yaml["corner_refine_min_pair_length_ratio"].as<double>();
+  corner_refiner_.set_config(corner_config);
+}
+
+std::vector<int> YOLO26::configure_runtime_cpu(const YAML::Node & yaml)
+{
   // 🚀 优化1: 大核绑定，提升推理性能
   std::vector<int> big_cores;
   const bool bind_big_cores = !yaml["yolo26_bind_big_cores"] ||
@@ -208,6 +226,11 @@ YOLO26::YOLO26(const std::string & config_path, bool debug)
   cv::setNumThreads(1);
   tools::logger()->info("[YOLO26] Disabled OpenCV threading to avoid CPU contention");
 
+  return big_cores;
+}
+
+void YOLO26::configure_input_area(const YAML::Node & yaml)
+{
   // ROI配置
   int x = yaml["roi"]["x"].as<int>();
   int y = yaml["roi"]["y"].as<int>();
@@ -220,6 +243,10 @@ YOLO26::YOLO26(const std::string & config_path, bool debug)
   save_path_ = "imgs";
   std::filesystem::create_directory(save_path_);
 
+}
+
+int YOLO26::initialize_model(const YAML::Node & yaml, const std::vector<int> & big_cores)
+{
   // 读取并配置模型
   auto model = core_.read_model(model_path_);
   ov::preprocess::PrePostProcessor ppp(model);
@@ -274,6 +301,11 @@ YOLO26::YOLO26(const std::string & config_path, bool debug)
   // 预先绑定tensor到InferRequest
   infer_request_.set_input_tensor(input_tensor_);
 
+  return infer_threads;
+}
+
+void YOLO26::log_runtime_settings(int infer_threads) const
+{
   tools::logger()->info("[YOLO26] Initialization complete - SYNC mode optimized");
   tools::logger()->info(
     "[YOLO26] Config: threads={}, streams=1, requests=1, letterbox={}, "
@@ -289,7 +321,11 @@ YOLO26::YOLO26(const std::string & config_path, bool debug)
 }
 
 std::list<Armor> YOLO26::detect(const cv::Mat & raw_img, int frame_count)
+{ return detect(raw_img, frame_count, false); }
+
+std::list<Armor> YOLO26::detect(const cv::Mat & raw_img, int frame_count, bool full_frame)
 {
+  diagnostics_ = {};
   if (raw_img.empty()) {
     tools::logger()->warn("[YOLO26] Empty image, camera drop!");
     return std::list<Armor>();
@@ -309,13 +345,13 @@ std::list<Armor> YOLO26::detect(const cv::Mat & raw_img, int frame_count)
     model_img = color_converted_;
   }
 
-  if (use_roi_) {
-    if (roi_.width == -1) roi_.width = raw_img.cols;
-    if (roi_.height == -1) roi_.height = raw_img.rows;
-    bgr_img = model_img(roi_);
-  } else {
-    bgr_img = model_img;
-  }
+  diagnostics_ = {};
+  if (raw_img.empty()) return {};
+  active_roi_ = use_roi_ && !full_frame
+    ? clipped_detection_roi(roi_, raw_img.size()) : cv::Rect(0, 0, raw_img.cols, raw_img.rows);
+  diagnostics_.roi = active_roi_;
+  offset_ = cv::Point2f(active_roi_.x, active_roi_.y);
+  bgr_img = model_img(active_roi_);
 
   int orig_w = bgr_img.cols;
   int orig_h = bgr_img.rows;
@@ -397,6 +433,7 @@ std::list<Armor> YOLO26::parse(
   const cv::Mat & tmp_img, int frame_count)
 {
   const int num_detections = output.rows;
+  diagnostics_.rows = num_detections;
   const int num_cols = output.cols;
   const int img_width = bgr_img.cols;
   const int img_height = bgr_img.rows;
@@ -504,7 +541,9 @@ std::list<Armor> YOLO26::parse(
       }
       armor_key_points.emplace_back(kx, ky);
     }
-    if (!keypoints_valid || min_kpt_conf < min_keypoint_confidence_) continue;
+    if (!keypoints_valid || min_kpt_conf < min_keypoint_confidence_) {
+      ++diagnostics_.rejected_keypoints; continue;
+    }
 
     ids.emplace_back(cls);
     confidences.emplace_back(conf);
@@ -513,35 +552,23 @@ std::list<Armor> YOLO26::parse(
     keypoint_confidences.emplace_back(min_kpt_conf);
   }
 
+  diagnostics_.candidates = static_cast<int>(boxes.size());
   // NMS (非极大值抑制)
   std::vector<int> indices;
   cv::dnn::NMSBoxes(boxes, confidences, candidate_confidence_, nms_threshold_, indices);
 
+  diagnostics_.nms = static_cast<int>(indices.size());
   // 生成Armor对象
   std::list<Armor> armors;
   for (int i : indices) {
     sort_keypoints(armors_key_points[i]);
 
-    if (use_roi_) {
-      armors.emplace_back(
-        ids[i],
-        confidences[i],
-        boxes[i],
-        armors_key_points[i],
-        offset_,
-        YOLOVersion::YOLO26
-      );
-    } else {
-      armors.emplace_back(
-        ids[i],
-        confidences[i],
-        boxes[i],
-        armors_key_points[i],
-        YOLOVersion::YOLO26
-      );
-    }
+    armors.emplace_back(ids[i], confidences[i], boxes[i], armors_key_points[i],
+      offset_, YOLOVersion::YOLO26);
     armors.back().keypoint_confidence = keypoint_confidences[i];
-    if (refine_corners_) refine_corners(armors.back(), tmp_img);
+    if (refine_corners_)
+      armors.back().pose_observation_valid = refine_corners(armors.back(), tmp_img);
+    if (!armors.back().pose_observation_valid) ++diagnostics_.rejected_refinement;
     if (refine_color_) refine_color(armors.back(), tmp_img, frame_count);
   }
 
@@ -554,6 +581,7 @@ std::list<Armor> YOLO26::parse(
 
     if (!name_ok || !type_ok) {
       filtered_count++;
+      ++diagnostics_.rejected_label_shape;
       it = armors.erase(it);
       continue;
     }
@@ -563,6 +591,7 @@ std::list<Armor> YOLO26::parse(
     ++it;
   }
 
+  diagnostics_.accepted = static_cast<int>(armors.size());
   if (debug_) {
     float max_kpt_conf = 0.0f;
     if (!keypoint_confidences.empty()) {
@@ -592,7 +621,8 @@ bool YOLO26::refine_corners(Armor & armor, const cv::Mat & image)
   ++corner_refine_attempted_;
   const std::array<cv::Point2f, 4> input{
     armor.points[0], armor.points[1], armor.points[2], armor.points[3]};
-  const auto refined = corner_refiner_.refine(image, input);
+  const auto refined = corner_refiner_.refine(
+    image, input, AdaptiveCornerRefiner::ChannelMode::red_blue_contrast);
   if (!refined) return false;
 
   armor.points.assign(refined->points.begin(), refined->points.end());
@@ -749,7 +779,7 @@ void YOLO26::draw_detections(
 
   if (use_roi_) {
     cv::Scalar green(0, 255, 0);
-    cv::rectangle(detection, roi_, green, 2);
+    cv::rectangle(detection, active_roi_, green, 2);
   }
 
   cv::resize(detection, detection, {}, 0.5, 0.5);
@@ -775,6 +805,71 @@ void YOLO26::save(const Armor & armor) const
   cv::imwrite(img_path, bgr_img);
 }
 
+YOLO26::BarColorStats YOLO26::sample_lightbar(
+  const cv::Mat & rgb_img, const cv::Point2f & p0, const cv::Point2f & p1,
+  int thickness) const
+{
+  const cv::Rect image_bounds(0, 0, rgb_img.cols, rgb_img.rows);
+  BarColorStats stats;
+  std::vector<cv::Point2f> endpoints{p0, p1};
+  cv::Rect roi = cv::boundingRect(endpoints);
+  roi.x -= thickness;
+  roi.y -= thickness;
+  roi.width += 2 * thickness;
+  roi.height += 2 * thickness;
+  roi &= image_bounds;
+  if (roi.empty()) return stats;
+
+  cv::Mat mask(roi.height, roi.width, CV_8UC1, cv::Scalar(0));
+  const cv::Point offset(roi.x, roi.y);
+  const auto pixel = [&offset](const cv::Point2f & p) {
+    return cv::Point(static_cast<int>(std::lround(p.x)), static_cast<int>(std::lround(p.y))) -
+           offset;
+  };
+  cv::line(mask, pixel(p0), pixel(p1), cv::Scalar(255), thickness, cv::LINE_8);
+
+  std::vector<double> samples;
+  samples.reserve(static_cast<size_t>(roi.area() / 2));
+  for (int y = 0; y < roi.height; ++y) {
+    const auto * rgb = rgb_img.ptr<cv::Vec3b>(y + roi.y);
+    const auto * m = mask.ptr<uint8_t>(y);
+    for (int x = 0; x < roi.width; ++x) {
+      if (m[x] == 0) continue;
+      const int red = rgb[x + roi.x][0];
+      const int green = rgb[x + roi.x][1];
+      const int blue = rgb[x + roi.x][2];
+      const int peak = std::max(red, blue);
+      const int chroma = red - blue;
+      if (peak < color_min_brightness_ || std::abs(chroma) < 4) continue;
+      // Green-dominant pixels cannot be red/blue LEDs.  Removing them also
+      // prevents grass, status LEDs and green debug overlays from voting.
+      if (green > peak + 12) continue;
+      samples.push_back(100.0 * chroma / std::max(1, red + blue));
+    }
+  }
+  if (samples.empty()) return stats;
+
+  // Use a median-centered inlier mean.  It is stable when one lightbar is
+  // clipped, has a saturated white core, or overlaps a colored reflection.
+  auto middle = samples.begin() + samples.size() / 2;
+  std::nth_element(samples.begin(), middle, samples.end());
+  const double median = *middle;
+  double inlier_sum = 0.0;
+  int inlier_count = 0;
+  int agreeing_count = 0;
+  for (const double sample : samples) {
+    if (std::abs(sample - median) > 22.0) continue;
+    inlier_sum += sample;
+    ++inlier_count;
+    if ((sample >= 0.0) == (median >= 0.0)) ++agreeing_count;
+  }
+  if (inlier_count == 0) return stats;
+  stats.score = inlier_sum / inlier_count;
+  stats.count = inlier_count;
+  stats.agreement = static_cast<double>(agreeing_count) / inlier_count;
+  return stats;
+}
+
 bool YOLO26::refine_color(Armor & armor, const cv::Mat & rgb_img, int frame_count)
 {
   if (rgb_img.empty() || rgb_img.type() != CV_8UC3 || armor.points.size() != 4) return false;
@@ -791,77 +886,8 @@ bool YOLO26::refine_color(Armor & armor, const cv::Mat & rgb_img, int frame_coun
     5, static_cast<int>(std::lround(std::min(
       0.12 * armor_width, 0.45 * std::max(left_length, right_length)))));
 
-  struct BarColorStats
-  {
-    double score = 0.0;  // normalized red-vs-blue chroma, range [-100, 100]
-    double agreement = 0.0;
-    int count = 0;
-  };
-
-  const cv::Rect image_bounds(0, 0, rgb_img.cols, rgb_img.rows);
-  const auto sample_bar = [&](const cv::Point2f & p0, const cv::Point2f & p1) {
-    BarColorStats stats;
-    std::vector<cv::Point2f> endpoints{p0, p1};
-    cv::Rect roi = cv::boundingRect(endpoints);
-    roi.x -= thickness;
-    roi.y -= thickness;
-    roi.width += 2 * thickness;
-    roi.height += 2 * thickness;
-    roi &= image_bounds;
-    if (roi.empty()) return stats;
-
-    cv::Mat mask(roi.height, roi.width, CV_8UC1, cv::Scalar(0));
-    const cv::Point offset(roi.x, roi.y);
-    const auto pixel = [&offset](const cv::Point2f & p) {
-      return cv::Point(static_cast<int>(std::lround(p.x)), static_cast<int>(std::lround(p.y))) -
-             offset;
-    };
-    cv::line(mask, pixel(p0), pixel(p1), cv::Scalar(255), thickness, cv::LINE_8);
-
-    std::vector<double> samples;
-    samples.reserve(static_cast<size_t>(roi.area() / 2));
-    for (int y = 0; y < roi.height; ++y) {
-      const auto * rgb = rgb_img.ptr<cv::Vec3b>(y + roi.y);
-      const auto * m = mask.ptr<uint8_t>(y);
-      for (int x = 0; x < roi.width; ++x) {
-        if (m[x] == 0) continue;
-        const int red = rgb[x + roi.x][0];
-        const int green = rgb[x + roi.x][1];
-        const int blue = rgb[x + roi.x][2];
-        const int peak = std::max(red, blue);
-        const int chroma = red - blue;
-        if (peak < color_min_brightness_ || std::abs(chroma) < 4) continue;
-        // Green-dominant pixels cannot be red/blue LEDs.  Removing them also
-        // prevents grass, status LEDs and green debug overlays from voting.
-        if (green > peak + 12) continue;
-        samples.push_back(100.0 * chroma / std::max(1, red + blue));
-      }
-    }
-    if (samples.empty()) return stats;
-
-    // Use a median-centered inlier mean.  It is stable when one lightbar is
-    // clipped, has a saturated white core, or overlaps a colored reflection.
-    auto middle = samples.begin() + samples.size() / 2;
-    std::nth_element(samples.begin(), middle, samples.end());
-    const double median = *middle;
-    double inlier_sum = 0.0;
-    int inlier_count = 0;
-    int agreeing_count = 0;
-    for (const double sample : samples) {
-      if (std::abs(sample - median) > 22.0) continue;
-      inlier_sum += sample;
-      ++inlier_count;
-      if ((sample >= 0.0) == (median >= 0.0)) ++agreeing_count;
-    }
-    if (inlier_count == 0) return stats;
-    stats.score = inlier_sum / inlier_count;
-    stats.count = inlier_count;
-    stats.agreement = static_cast<double>(agreeing_count) / inlier_count;
-    return stats;
-  };
-
-  const BarColorStats left = sample_bar(armor.points[0], armor.points[3]);
-  const BarColorStats right = sample_bar(armor.points[1], armor.points[2]);
+  const BarColorStats left = sample_lightbar(rgb_img, armor.points[0], armor.points[3], thickness);
+  const BarColorStats right = sample_lightbar(rgb_img, armor.points[1], armor.points[2], thickness);
   const auto bar_reliable = [this](const BarColorStats & stats, double min_delta) {
     return stats.count >= color_min_pixels_per_bar_ && stats.agreement >= 0.70 &&
            std::abs(stats.score) >= min_delta;
@@ -938,6 +964,10 @@ bool YOLO26::refine_color(Armor & armor, const cv::Mat & rgb_img, int frame_coun
 std::list<Armor> YOLO26::postprocess(
   double scale, cv::Mat & output, const cv::Mat & bgr_img, int frame_count)
 {
+  diagnostics_ = {};
+  active_roi_ = cv::Rect(0, 0, bgr_img.cols, bgr_img.rows);
+  diagnostics_.roi = active_roi_;
+  offset_ = cv::Point2f(0, 0);
   // postprocess 假设没有 letterbox padding（外部调用场景）
   // 使用bgr_img作为tmp_img（因为外部调用没有额外的原始图像）
   return parse(scale, 0, 0, output, bgr_img, bgr_img, frame_count);

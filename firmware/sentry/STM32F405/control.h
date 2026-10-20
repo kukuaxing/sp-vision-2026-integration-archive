@@ -1,61 +1,34 @@
 #pragma once
 #include <vector>
 #include <cmath>
+#ifdef SENTINEL_ACTUATOR_HOST_TEST
+#include "tests/sentinel/actuator_hal_stubs.hpp"
+#else
 #include "stm32f4xx.h"
-#include "motor.h"
 #include "imu.h"
+#endif
+#include "motor.h"
+#include "aim_position_reference.h"
 
 class CONTROL final
 {
 public:
+	uint8_t chassis_num{}, pantile_num{}, shooter_num{}, supply_num{};
 	uint8_t init_DM = 0;
 	Motor* chassis_motor[CHASSIS_MOTOR_NUM]{};
 	Motor* pantile_motor[PANTILE_MOTOR_NUM]{};
 	Motor* shooter_motor[SHOOTER_MOTOR_NUM]{};
 	Motor* supply_motor[SUPPLY_MOTOR_NUM]{};
-	float m_current_relative_angle;
-	float m_current_relative_velocity;
-	bool g_start_scan;
-	unsigned int radian_to_mechanical_angle(double radian_angle);
-	enum MODE { ROTATION, RESET, NORMAL,SEPARATE, FOLLOW, LOCK, TEST, AUTO,SHOOT,NAVI,AUTOCONTROL,TD,STARTUP,RC_SHOOT_TEST,NAVIT} mode;
 
+	enum MODE { PC = 0, RC, AUTO, RESET, ROTATION, SPINNING, FOLLOW, SEPARATE, FIRE, STOP, LOCK } mode = STOP;
 	struct CHASSIS
 	{
-        struct POWER_MODEL_DEBUG
-		{
-			float sum_torque_power{};
-			float k1_sum_abs_w{};
-			float k2_sum_current_sq{};
-			float k3{};
-			float predicted_power_raw{};
-			float predicted_power_with_safety{};
-			float real_power_feedback{};
-		};
 
-		// Ğ¡ÍÓÂİµ½Õı³£Ä£Ê½µÄ¹ı¶É¿ØÖÆ
-		bool transition_from_rotation = false;
-		float power_1{}, power_2{};
-      float power_model_predicted{};
-      POWER_MODEL_DEBUG power_model_debug{};
-		bool DM_ready = false;
-		bool flag_DM_ready= true;
-		uint16_t transition_timer = 0;
-		bool follow_was_rotating = false;  // FOLLOWÄ£Ê½µ×ÅÌĞı×ª×´Ì¬×·×Ù£¬ÓÃÓÚ¼ì²âËÉ¸ËË²¼ä
 
-		PID chassis_reset{ 1500.f, 0.f, 150.f, 0.1f };  // P: radÎó²î¡úµ×ÅÌ×ªËÙ; D: ·À¹ı³å; ·ûºÅ²»¶ÔÊ±È¡·´Êä³ö
+		PID chassis_reset{};
 		int32_t speedx{}, speedy{}, speedz{};
-		float navi_vx = 0.f, navi_vy = 0.f, navi_vz; //´¢´æµ¼º½ËÙ¶È
-		// µ¼º½ËÙ¶ÈÓ³Éä£ºnavi[i] ¡Á v_ms ¡ú setChassisspeed µÄĞéÄâÒ¡¸ËÖµ
-		// ÍÆµ¼£ºspeedmax=5000, ³µÂÖÖ±¾¶=151.84mm, M3508¼õËÙ±È=19.2
-		//   navi[0/1] = (19.2*60/(PI*0.15184)) * 660/5000 ¡Ö 319
-		//   navi[2]   = (19.2*60/(PI*0.15184)) * 0.23191 * 660/5000 ¡Ö 74
-		float navi[3] = { 319.0f, 319.0f, 74.0f };
-		float speedmax = 5000;
-		
 
-		void setChassisspeed(int32_t ch_speedx, int32_t ch_speedy, int32_t ch_speedz);
-		void speedCalculate(int32_t speedx_, int32_t speedy_, int32_t speedz_);
-		void Keep_Direction();
+		void Keep_Direction(int32_t ch_fwd, int32_t ch_left);
 
 		void Update();
 		float Ramp(float setval, float curval, uint32_t RampSlope);
@@ -63,27 +36,28 @@ public:
 
 	struct PANTILE
 	{
-		float avg_rpm{};
-		int fire{};
-		float k_ff = 1.f;          // Ğ¡ÍÓÂİĞı×ªÊ±µÄÇ°À¡ÔöÒæ
-		float k_ff_transition = 1.04f; // ÍË³öĞ¡ÍÓÂİ¹ı¶ÉÆÚµÄÇ°À¡ÔöÒæ£¨µ×ÅÌ¼õËÙ½×¶Î£¬ÊÊµ±¼õĞ¡±ÜÃâ¹ı²¹³¥£©
-		float k_ff_follow = 1.f;  // FOLLOWÄ£Ê½£¨ÆÕÍ¨µ×ÅÌĞı×ª£©Ê±µÄÇ°À¡ÔöÒæ£¬ÓëĞ¡ÍÓÂİ·Ö¿ªµ÷½Ú
-		float follow_ff_rpm_threshold = 100.f; // FOLLOWÄ£Ê½Ç°À¡ËÀÇø£¨rpm£©£¬µÍÓÚ´Ë×ªËÙÊ±Ç°À¡Îª0
-		enum TYPE { YAW, PITCH,L_YAW };
+		enum TYPE { YAW, PITCH };
 		float mark_pitch{}, mark_yaw{};
-		PID pantile_PID[3] = { {0.4f,0.f,0.f},{0.05f,0.f,0.f}, {0.f,0.f,0.f} };
-		PID keep_PID = { 5.f, 0.f, 1.5f, 0.2f };  // PD¿ØÖÆ£ºÈ¥³ıIÏî±ÜÃâĞ¡ÍÓÂİÇĞ»»Ê±»ı·Ö±¥ºÍµ¼ÖÂË¦¶¯£»alpha=0.2¶ÔÎ¢·ÖÂË²¨
-		PID pidAUTO[2] = { {15.f, 0.02f, 250.f},{0.5f, 0.f, 0.f} };
-		PID pantile_reset{ 18.f, 0.f, 300.f };
-		const float sensitivity[3] = { 0.4f , 0.2f ,0.006f };
-		float angle2Keep, sensitivity_MoveYaw = 0.01f;
+		float yaw_speed_out = 0.0f;
+		const float sensitivity = 2.5f;
 		bool aim = false;
-		float yaw_transmission_ratio = 0.2069f; // µç»ú×ª½Ç / ÔÆÌ¨Êµ¼Ê×ª½Ç£¬Êµ²â±ê¶¨£º¦¤motor=0.16rad, ¦¤IMU=44.32¡ã ¡ú 0.16/(44.32¡Á¦Ğ/180)¡Ö0.2069
-		const float yaw_reset_ramp_step = 2.0f; // RESETÊ±´óYawÃ¿Ö¡×î´óÎ»ÒÆ(rad)£¬·ÀÖ¹Ë²±äËğ»µ³İÂÖ
+		bool pitch_ready = false;
+		float pitch0 = 0.0f;
+		bool hold_position = false;
+		bool hold_yaw_captured = false, hold_pitch_captured = false, hold_dm_yaw_captured = false;
+		AimPositionReference aim_yaw_reference, aim_pitch_reference;
+		uint32_t yaw_feedback_generation = 0, pitch_feedback_generation = 0, dm_yaw_feedback_generation = 0;
+		void Synchronize_Feedback_Recovery();
+		void Reset_Aim_References() { aim_yaw_reference.Reset(); aim_pitch_reference.Reset(); }
+		void Hold_Pantile(); // Capture decoded motor positions; never use an uninitialized zero.
+		void Control_Pantile(int32_t ch_dji_yaw, int32_t ch_pitch, int32_t ch_dm_yaw);
+		//void Control_Pantile(int32_t ch_yaw, int32_t ch_pitch);
 		void Keep_Pantile(float angleKeep, PANTILE::TYPE type, IMU frameOfReference);
 		void Update();
-		float pid_output{};
-		float chassis_omega_rad_s{};
+
+		bool  yaw_lock_ready = false;// yawé”å®šå‡†å¤‡å¥½ï¼Œè¿™æ˜¯ä¸€ä¸ªè‡ªåŠ¨æ¨¡å¼éœ€è¦ç”¨çš„ä¸€ä¸ªåˆ¤æ–­å˜é‡
+		float yaw_lock_pos = 0.f;
+		float yaw_lock_Kp = 3.0f;    // rad/s per radï¼Œå…ˆç»™ 3ï¼Œä»å°å¾€å¤§è°ƒ
 	};
 
 	struct SHOOTER
@@ -92,70 +66,29 @@ public:
 		float now_bullet_speed = 0.f;
 
 		bool auto_shoot = false;
+		// Host request before local safety gating; a forced-off output must not
+		// masquerade as the low edge needed to re-arm after a fault.
+		bool auto_fire_request_level = false;
 		bool openRub = false, supply_bullet = false;
 		bool fraction = false;
 		bool fullheat_shoot = false;
 		bool heat_ulimit = false;
-		int16_t shoot_speed = 6500, rc_supply_speed{};
-		int16_t supply_speed = 2500;
+		int16_t shoot_speed = 6500;
 		void Update();
-	};
-
-	struct AUTOMATION
-	{
-		// ×´Ì¬»ú
-		enum AIM_STATE { IDLE, SEARCH, TRACK, LOCKED } aim_state = IDLE;
-		void autoMove();
-		// ¼ÆÊıÆ÷
-		int lost_count = 0;           // ¶ªÊ§Ä¿±ê¼ÆÊı
-		int stable_count = 0;         // ÎÈ¶¨Ëø¶¨¼ÆÊı
-		int search_count = 0;         // ËÑË÷³¬Ê±¼ÆÊı
-		float YAWstep = 0.1f;
-		// ÉÏ´Î¼ì²âÎ»ÖÃ£¨ÓÃÓÚËÑË÷Æğµã£©
-		float last_yaw_pos = 0.f;
-		float last_pitch_pos = 0.f;
-		
-		// É¨Ãè²ÎÊı
-		float scan_speed_yaw = 0.08f, scan_speed_pitch = 0.003f;  // ¼Ó¿ìÉ¨ÃèËÙ¶È
-		float scan_range = 0.3f;      // ËÑË÷·¶Î§£¨»¡¶È£¬Ô¼17¶È£©
-		bool scan_reversal_yaw = false, scan_reversal_pitch = false;
-		float scan_center_yaw = 0.f;  // É¨ÃèÖĞĞÄ
-		
-		// Ëø¶¨ãĞÖµ
-		const float LOCK_THRESHOLD = 0.02f;  // »¡¶È£¬Ô¼1¶ÈÄÚÊÓÎªÎÈ¶¨
-		const int LOCK_STABLE_COUNT = 15;    // Á¬Ğø15Ö¡ÎÈ¶¨²ÅËãËø¶¨
-		const int LOST_TIMEOUT = 30;         // 30Ö¡(Ô¼0.3s)ºóÊÓÎª¶ªÊ§
-		const int SEARCH_TIMEOUT = 200;      // ËÑË÷2Ãëºó·ÅÆú
-		
-		// ×´Ì¬Êä³ö
-		bool target_detected = false;
-		bool target_angle_aligned = false; // ÓĞÄ¿±êÇÒÊµ¼ÊÔÆÌ¨½ÇÓëÉÏÎ»»úyaw/pitchÎó²î×ã¹»Ğ¡Ê±Îªtrue
-		bool is_locked = false;       // ÊÇ·ñÎÈ¶¨Ëø¶¨£¨¿ÉÒÔ¿ª»ğ£©
-		
-		// º¯Êı
-		void stateUpdate();
-		void autoControl();
-		void autoScan();
-		void autoAim();               // ×ÔÃéÖ÷º¯Êı
-		void searchTarget();          // ËÑË÷º¯Êı£¨Ğ¡·¶Î§£©
-		
-		// ¼æÈİ¾É´úÂë
-		int navi_cont = 0;
-		int aim_cont = 0;
-		bool aim_lock = false;
-		bool navi_move = false;
-		bool scan_finish = false;
+		void CancelPendingFeed();
+		int32_t trig_raw{}; bool trig{}; bool trig_pre{}; uint16_t hold_ms{}; uint16_t rate_ms{};// å‘å°„æœºæ„è¦ç”¨çš„ï¼šè§¦å‘å™¨ï¼šåŸå§‹å€¼ã€å½“å‰å€¼ã€ä¸Šæ¬¡å€¼ã€ä¿æŒæ—¶é—´ã€é—´éš”æ—¶é—´
+		bool feed_permission_was_ready = false;
+		bool feed_rearm_required = false;
+		uint32_t left_feedback_generation = 0, right_feedback_generation = 0, feeder_feedback_generation = 0;
 	};
 
 	CHASSIS chassis;
 	PANTILE pantile;
 	SHOOTER shooter;
-	AUTOMATION automation;
 
 	static int16_t Setrange(const int16_t original, const int16_t range);
-	void Control_Pantile(int32_t ch_yaw, int32_t ch_pitch,int32_t ch_YAW);
+	static float ClampAngle(float setangle, float center, float span);
 	float GetDelta(float delta);
-	float Getdelta(float delta);
 	void Init(std::vector<Motor*> motor);
 	void init_dm();
 private:

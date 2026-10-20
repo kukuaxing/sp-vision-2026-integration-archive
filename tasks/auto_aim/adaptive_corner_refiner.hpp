@@ -10,10 +10,13 @@ namespace auto_aim
 {
 
 // Refines neural-network keypoints on the two physical light bars.  The
-// network result remains the fallback whenever the image evidence is weak.
+// Caller chooses a fixed image channel definition; missing light bars must
+// remain a missing pose observation rather than switch endpoint definitions.
 class AdaptiveCornerRefiner
 {
 public:
+  enum class ChannelMode { intensity, red_blue_contrast };
+
   struct Config
   {
     int binary_threshold = 100;
@@ -42,7 +45,8 @@ public:
   const Config & config() const { return config_; }
 
   std::optional<Result> refine(
-    const cv::Mat & image, const std::array<cv::Point2f, 4> & network_points) const;
+    const cv::Mat & image, const std::array<cv::Point2f, 4> & network_points,
+    ChannelMode mode = ChannelMode::intensity) const;
 
 private:
   struct LightCandidate

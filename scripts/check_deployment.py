@@ -26,6 +26,8 @@ def protocol_report(config, calibration):
         blockers.append(f'下位机配置协议为 {board}，正式 standard 使用 {runtime}；需完成接口适配后才能启动自瞄。')
     if board == 'SENTINEL' and config.get('xuc_serial_baud') != 921600:
         blockers.append('SENTINEL 固定使用 921600 波特率。')
+    if board == 'SENTINEL' and config.get('sentinel_swap_roll_pitch', False):
+        blockers.append('Sentinel V2 已修正轴顺序，不能启用旧 roll/pitch 交换。')
     pose_matches = board != 'UNKNOWN' and board == pose_reader
     if not pose_matches:
         warnings.append(f'标定姿态接收器使用 {pose_reader}，与声明的下位机协议 {board} 不匹配；不能按旧流程采集外参姿态。')
@@ -91,11 +93,29 @@ def main():
         binary = root/'build/standard'
         help_result = subprocess.run([str(binary),'--help'],env=env,capture_output=True,text=True,timeout=5)
         if help_result.returncode or 'sentinel-check' not in help_result.stdout:
-            protocols['runtime_blockers'].append('standard 缺少 Sentinel 固定帧入口；请重新编译。')
+            protocols['runtime_blockers'].append('standard 缺少 Sentinel V2 检查入口；请重新编译。')
         else:
             check = subprocess.run([str(binary),str(root/'configs/standard.yaml'),'--sentinel-check'],env=env,capture_output=True,text=True,timeout=5)
             if check.returncode:
                 protocols['runtime_blockers'].append('Sentinel 静态配置检查失败：'+check.stdout+check.stderr)
+            else:
+                metadata = None
+                for line in check.stdout.splitlines():
+                    if line.lstrip().startswith('{'):
+                        try:
+                            metadata = json.loads(line)
+                        except json.JSONDecodeError:
+                            pass
+                if not metadata or metadata.get('protocol') != 'SENTINEL_V2' or \
+                        metadata.get('tx_bytes') != 38 or metadata.get('rx_frame_bytes') != [46, 34, 26]:
+                    protocols['runtime_blockers'].append('standard 仍为旧协议或缺少V2帧布局声明，不能与当前固件配对。')
+                elif config.get('xuc_allow_control') and metadata.get('auto_mode_state_bit') != 128:
+                    protocols['runtime_blockers'].append('运行版需要配对的AUTO状态位支持；请重新编译standard。')
+                elif config.get('sentinel_allow_friction') and (
+                        metadata.get('friction_policy') != 'armor_detection_hold' or
+                        metadata.get('friction_only_flags') != 5 or
+                        metadata.get('friction_lost_timeout_ms') != config.get('sentinel_friction_lost_timeout_ms',5000)):
+                    protocols['runtime_blockers'].append('摩擦轮检测/丢失保持策略尚未编入standard，或保持时间与配置不符。')
         protocols['runtime_protocol_compatible'] = not protocols['runtime_blockers']
     if protocols['runtime_protocol'] == 'RMV':
         # Check help before the static flag so an old binary cannot open devices.

@@ -62,4 +62,11 @@ uint64_t Camera::get_last_frame_id() const
   return 0;
 }
 
+uint64_t Camera::get_last_capture_frame_id() const
+{
+  if (const auto * hikrobot = dynamic_cast<const HikRobot *>(camera_.get()))
+    return hikrobot->get_last_frame_id();
+  return get_last_frame_id();
+}
+
 }  // namespace io

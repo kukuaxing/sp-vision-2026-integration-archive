@@ -2,6 +2,7 @@
 #define AUTO_AIM__SOLVER_HPP
 
 #include <array>
+#include <optional>
 #include <Eigen/Dense>  // 必须在opencv2/core/eigen.hpp上面
 #include <Eigen/Geometry>
 #include <opencv2/core/eigen.hpp>
@@ -31,12 +32,28 @@ public:
 
   void set_R_gimbal2world(const Eigen::Quaterniond & q);
 
+  // Sentinel q is absolute sensor -> NAV, whose Z is gravity up.
+  // G -> NAV = q * G -> sensor; the legacy left installation inverse would
+  // tilt the world and invalidate the upright, fixed-inclination armor model.
+  bool set_R_gimbal2world_absolute_imu(const Eigen::Quaterniond & q);
+
   // RMV already reports the camera-support G -> W rotation. Do not apply the
   // legacy IMU installation conjugation a second time. Reject invalid input
   // without modifying the previous rotation; caller must then skip this frame.
   bool set_R_gimbal2world_direct(const Eigen::Quaterniond & q);
 
   void solve(Armor & armor) const;
+
+  // Relative image-bearing change for the SAME world point under two camera
+  // support poses. Includes hand-eye rotation/translation, intrinsics and lens
+  // distortion without changing this Solver's capture-time rotation.
+  // Result is [horizontal, vertical] radians in the existing image-centre /
+  // focal-length convention; add it to the corresponding measured residual.
+  std::optional<Eigen::Vector2d> image_angular_delta(
+    const Eigen::Vector3d & point_in_world,
+    const Eigen::Matrix3d & from_R_gimbal2world,
+    const Eigen::Matrix3d & to_R_gimbal2world,
+    const cv::Size & image_size) const;
 
   std::vector<cv::Point2f> reproject_armor(
     const Eigen::Vector3d & xyz_in_world, double yaw, ArmorType type, ArmorName name) const;
@@ -55,6 +72,7 @@ private:
   Eigen::Matrix3d R_camera2gimbal_;
   Eigen::Vector3d t_camera2gimbal_;
   Eigen::Matrix3d R_gimbal2world_;
+  double max_reprojection_error_px_ = 3.0;
 
   void optimize_yaw(Armor & armor) const;
 

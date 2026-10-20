@@ -31,16 +31,12 @@ void SUPERCAP::Init(UART* huart, uint32_t baud, USART_TypeDef* uart_base)
 
 void SUPERCAP::decode()
 {
- if (queueHandler == NULL || *queueHandler == NULL)
-		return;
+	pd_Rx = xQueueReceive(*queueHandler, rxData, NULL);
 
-	pd_Rx = xQueueReceive(*queueHandler, rxData, 0);
-	if (pd_Rx != pdTRUE)
-	{
-		if (offline_ticks < 1000) offline_ticks++;
-		if (offline_ticks > 40) connect = false;
-		return;
-	}
+	if (Rxsuper.I == I_pre) { count += 1; }
+	else { count = 0; }
+	if (count > 200) { connect = false; }
+	else { connect = true; }
 
 	/*memcpy(supercap_union.supertcap_data, rxData, 20);*/
 	I_pre = Rxsuper.I;
@@ -51,18 +47,10 @@ void SUPERCAP::decode()
 	{
 		if (rxData[1] == 0x0b)
 		{
-			offline_ticks = 0;
 			Rxsuper.connect_flag = rxData[2];
 			Rxsuper.cap_energy = u8_to_float(rxData + 4);
 			Rxsuper.U = u8_to_float(rxData + 8);
 			Rxsuper.I = u8_to_float(rxData + 12);
-
-			cap_voltage = Rxsuper.U;
-			cap_current = Rxsuper.I;
-			cap_power = cap_voltage * cap_current;
-			connect = (Rxsuper.connect_flag != 0) ||
-				(cap_voltage > 5.0f) ||
-				(Rxsuper.cap_energy > 50.0f);
 			
 			/*Rxsuper.stop = (rxData[15] << 8) | (0x00ff & rxData[14]);
 			Rxsuper.open_flag = rxData[16];*/
@@ -72,8 +60,6 @@ void SUPERCAP::decode()
 
 void SUPERCAP::encode()
 {
-  UpdateState();
-
 	//纯发 要改东西在rc里改
 	int packet_size = sizeof(Txsuper);
 	Txsuper.count++;
@@ -91,23 +77,6 @@ void SUPERCAP::encode()
 	
 	// 发送数据
 	m_uart->UARTTransmit(tx_data, packet_size);
-}
-
-void SUPERCAP::UpdateState()
-{
-	if (ctrl.mode == CONTROL::RESET)
-		s = WORKING;
-	else if (judgement.data.robot_status_t.power_management_chassis_output == 0)
-		s = SHUT;
-	else
-		s = WORKING;
-
-	Txsuper.state = s;
-}
-
-float SUPERCAP::GetCapPowerFeedback() const
-{
-	return cap_power;
 }
 
 /**

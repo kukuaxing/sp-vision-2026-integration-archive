@@ -1,19 +1,35 @@
-# 当前固件来源及配置
+# 当前哨兵固件来源
 
-基础 SentryUC master 6a107ca08ab944c43043a4d861032b03101c71fc，来源 https://github.com/zhangjichuan1009-create/SentryUC 。
-保留缺失返回修复、ST Legacy CAN/APB 构建适配、CAN 接收边界检查及反馈时间戳。
-当前保存目标 pitch_zero.h 的 PITCH_ZERO_RAW=32685，约 -0.0316391 rad；是用户指定上抬 8° 后的角度，非重新测量的水平。
-SENTRY_PITCH_ZERO_MODE=1 现表示专用云台标定控制器，SENTRY_CALIBRATION_READ_ONLY=0。
-pitch_zero.cpp 负责 P 轴上电回归、到位后遥控接管、DM Yaw 低速遥控以及限幅/掉线/故障保护。原整车 ControlTask 在该模式跳过，避免原控制路径阻塞及相互覆盖。发送任务只允许 CAN1 0x109、CAN2 0x206 及只读温度诊断；底盘、发射、硬件置零继续屏蔽。
-遥控左拨杆上/右拨杆下，先回中；P 为通道 3、Yaw 为通道 0。完整操作与当前实机验证范围见 FLASH_REPORT.md。
-回归测试 tools/test_gimbal_controller.cpp 直接包含实际控制器，使用 tools/test_stubs 替代硬件依赖；本机以 g++ -std=c++17 -static -Itools/test_stubs tools/test_gimbal_controller.cpp -o build/test_gimbal_controller.exe 构建，分别无参数及带 outside 参数运行。
-编译产物仅在 build/，未提交或推送。
+来源：用户2026-10-15提供的 `D:/下载/Sentinel_robot-main (2).zip`。
+SHA256：`c93e6e85afa33fbc012e00c91d255332c33f03d02258b0348b6a510e4ff283a0`。
 
-现场串口修正：遥控接 USART2，100000/8E1（HAL 使用 9-bit word + even parity）。USART3 分配给裁判的 115200/8N1 通道，尚未验证裁判链路。遥控接收及手动模式进入已确认，Yaw CAN2 ID 0x06 无反馈，处于通信超时锁定。
+本目录是该哨兵当前唯一源码，替换此前SentryUC标定固件。原步兵firmware/infantry独立保留，禁止混刷。原HAL/CMSIS/FreeRTOS随提供ZIP同步，避免引入不同HAL API；保留依赖文件版权头和既有LICENSE，不能据此推定未标许可的提供代码已获得新许可。
 
-CAN 接收分界修正为 14，过滤器在接收中断前初始化；错误回调恢复接收。Yaw 故障停止重试改为 500 ms，P 轴反馈约 162 Hz。增加仅接收的 CAN ID 盘点及默认不执行的只读寄存器 2 查询邮箱（地址 1～16）。查询不发使能或参数写入。最新证据见 FLASH_REPORT.md。
+仅对提供源码加入UART/IMU时间快照、参考与许可、跨启动身份、DMA缓存保护和编译修复；电机布局、PID、控制任务、导航开关及机械参数沿用提供包。精确最小差异可用`scripts/export_sentinel_patch.py`相对原ZIP导出，详细语义见`docs/sentinel_protocol.md`。
 
-小 Y 手动辨识已确认对应 CAN1 0x205，现已加入编码器闭环，左摇杆左右控制。仅 CAN1 0x1FF 首个槽位放行，其余槽位为零；最大指令 2500，目标速度 0.10 rad/s、范围 ±0.18 rad。修复反馈时间戳的无符号减法误超时。最新版已烧录并完整读回，但当前所有 CAN 电机均无反馈、程序保持保护，尚未完成小 Y 运动验收；详见 FLASH_REPORT.md。
+2026-10-15 后续用户明确要求恢复完整运行：XUC_ALLOW_CONTROL=1、XUC_REQUIRE_VERIFIED_POSE=0，沿用用户既有调试参数。采样时间/轴向认证位仍0，未把兼容放行伪装成新测量。姿态有效、引用四元组、序号/boot/epoch和100ms租约保护保留。
+
+运行版复位后的只读实测发现TIM2启动阶段计数快84倍：PSC已写83，但未生成更新事件加载影子分频器。已在CEN前补EGR.UG并清SR/CNT，避免首个32位溢出前错误使用84MHz计数；随后用启动50秒以内的RTOS/TIM2及IMU到达时间增量核对真实微秒频率。采样认证位依然不因此变1。
+
+为支持先启动视觉再拨双上，STOP也以50Hz上传姿态和状态，LINK_STATUS.state bit7明确报告AUTO。重启默认STOP，遥控失联进入STOP并撤销视觉/导航/发射许可。电机映射、PID与机械参数沿用所提供固件；当前0x10接小Yaw/Pitch，没有移植旧RMV的三轴轨迹接口。
+
+此前只读版已烧录、全1MiB读回通过。遥控器开机后已实际读到STOP=9、拨杆[1,3]和持续增长的18字节接收帧。当前运行版的最终烧录/部署结果见logs/sentinel-v2-validation.json及docs/status.md。实际动作与发射测试由用户启动。
+
+当前运行版已完成烧录/全1MiB读回及复位：67808字节，SHA256 1dacb8c6cc4d01eb05f2c1a3ba5fb4d7d79b9e7762688499e09d44c19932b404。启动12.77–14.91秒内实测TIM2约999.736us/RTOS毫秒，STOP、遥控与两路IMU有效。镜像外Flash完整保留；当前自动控制未激活（实际STOP），配置允许用户双上后接管和自动发射。
+
+## 当前AUTO 6500rpm预转
+
+2026-10-15 当前AUTO预转更新：按用户要求，双上AUTO由主控持续给定摩擦轮电机目标6500rpm（左右正负相反），不依赖视觉启动、目标存在、IMU有效、AIM租约或视觉显式停止命令。STOP/RESET和遥控失联仍停轮；原手动FIRE档行为保留，共用6500rpm目标。自动拨弹仍需新鲜有效AIM、目标/摩擦轮/开火许可及原转速到位门槛，不会仅因预转而开火。LINK_STATUS摩擦轮许可改由本地AUTO决定，视觉参数不变。
+
+固件SHA256 `b1a8143f6285c3f8fe4bce8769e1376d5be701dd3bf10dffc177b361fa95a40f`，67808字节；COM7已烧录、全1MiB读回一致、镜像外Flash完全保留并复位。4组真实主控代码离线回归通过，覆盖无主机/丢目标/无效IMU/租约过期/视觉撤销继续预转、STOP/遥控失联停轮及只读构建关闭。复位后三次只读均读到设定6500、实际STOP=9、拨杆[1,3]、两轮速度给定0、自动开火0，遥控和两路IMU继续收包、IMU CRC/长度错误0；TIM2约1000.101us/RTOS毫秒。没有由代理拨入AUTO或试转/发射，6500为电机目标值，不作为已测实际轮速。
 
 
-当前HI91修复及UART3端口/波特率修正已烧录，证据见FLASH_REPORT.md。imu_packet.h按厂家字段顺序解析原始传感器轴与wxyz四元数，保留时间戳和计数；安装后的云台坐标仍待验证。tests/calibration_pose_test.py通过PTY验证实际capture接收器，firmware/sentry/tools/test_imu_packet.cpp验证真实数据帧。
+## 2026-10-16 检测触发、丢失五秒停轮
+
+当前摩擦轮策略为检测触发：仅在AUTO且链路/姿态/引用有效时，当前画面出现敌方颜色装甲板就请求6500rpm电机目标；连续没有实际检测满5000ms停轮，重新检测重新计时。跟踪器预测不刷新此计时。五秒保持仅针对正常图像的目标丢失；STOP/RESET、遥控失联、姿态失效、串口停更、程序退出仍撤销摩擦轮和自动拨弹。主控租约维持100ms，不延长为5秒；上位机在保持期间持续发送新的有效引用。
+
+无目标预转使用同一0x10帧，flags=0x05（CONTROL_EN|FRICTION_EN），TARGET_VALID/FIRE_REQ均0、yaw/pitch误差为0。该组合只允许摩擦轮，不能进入云台闭环或自动拨弹。主控FrictionReady与AimReady共享引用/epoch/新鲜度/模式验证，分别要求摩擦轮许可和目标有效。真正开火仍要求有效目标、摩擦轮/开火许可和原电机转速门槛。flags=0显式撤销现在会停轮；旧AUTO本地无条件预转已取消。上位机stop()/析构退出绕过五秒保持，断链由主控100ms租约兜底。
+
+正式配置为sentinel_friction_lost_timeout_ms: 5000，sentinel_valid_for_ms: 100，转速继续由固件shoot_speed=6500决定。没有修改导航接口、云台PID、机械范围、外参或弹道。程序需与本轮固件配对，旧固件的无条件AUTO预转不能实现五秒停轮。
+
+当前检测触发版已完成烧录、全1MiB读回和复位：c6d4d825f0a846945be7c5ff4b0ed0ae90bc91e163527e3a065875679f81bd5e，67920字节。镜像外Flash保持原样；STOP下6500设定、两轮给定0，未试转。最新结果见docs/status.md及data/flash/20261016_013548/result.json。

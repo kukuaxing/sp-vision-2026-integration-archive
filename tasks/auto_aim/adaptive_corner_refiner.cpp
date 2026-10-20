@@ -35,7 +35,7 @@ cv::Rect clipped_roi(
 }  // namespace
 
 std::optional<AdaptiveCornerRefiner::Result> AdaptiveCornerRefiner::refine(
-  const cv::Mat & image, const std::array<cv::Point2f, 4> & p) const
+  const cv::Mat & image, const std::array<cv::Point2f, 4> & p, ChannelMode mode) const
 {
   if (image.empty()) return std::nullopt;
   for (const auto & point : p) {
@@ -43,7 +43,15 @@ std::optional<AdaptiveCornerRefiner::Result> AdaptiveCornerRefiner::refine(
   }
 
   cv::Mat gray;
-  if (image.channels() == 1) {
+  if (mode == ChannelMode::red_blue_contrast) {
+    if (image.channels() != 3) return std::nullopt;
+    // Abs(R-B) is RGB/BGR invariant. Exclude the white digit/panel that can
+    // merge into a light-bar contour in max-channel intensity. Always use this
+    // definition for colored armor, including after a failed extraction.
+    std::vector<cv::Mat> channels;
+    cv::split(image, channels);
+    cv::absdiff(channels[0], channels[2], gray);
+  } else if (image.channels() == 1) {
     gray = image;
   } else {
     // Max-channel intensity is insensitive to whether the camera buffer is RGB

@@ -30,7 +30,7 @@ struct RxSurPacket
 	float cap_energy;
 	float U;
 	float I;
-
+	
 };
 
 struct TxSurPacket
@@ -65,19 +65,13 @@ public:
 	working_state s = WORKING;
 	TxSurPacket Txsuper;
 	RxSurPacket Rxsuper;
-	float cap_voltage = 0.0f;
-	float cap_current = 0.0f;
-	float cap_power = 0.0f;
-	uint16_t offline_ticks = 0;
-
+	
 	float I_pre;
 	int count;
 	bool connect = false;
 	void Init(UART* huart, uint32_t baud, USART_TypeDef* uart_base);
 	void encode();
 	void decode();
-	void UpdateState();
-	float GetCapPowerFeedback() const;
 
 	int update_cnt = 0;
 
@@ -115,12 +109,12 @@ public:
 	/* 获得功率控制值 */
 	float Get_limScale(void);
 
-	uint8_t motor_num = 4; 					/*<! 底盘电机数量，舵轮底盘 = 8，麦轮底盘 = 4  */
+	uint8_t motor_num=4; 					/*<! 底盘电机数量，舵轮底盘 = 8，麦轮底盘 = 4  */
 	E_ENABLE cap_charge_enable; /*<! 电容充电开关 */
 	E_LOOP control_loop = REMAIN_ENERGY_LOOP; // 或 REAL_POWER_LOOP   /*<! 实时功率环/剩余能量环 */
-	uint8_t ctrl_period = 20;				/*<! 控制周期,功率预测用 单位ms */
+	uint8_t ctrl_period=20;				/*<! 控制周期,功率预测用 单位ms */
 	float power_sum_total = 0.0f;
-	int max_current_out = 16000;			  /*<! 最大电流输出值，建议设置和电调最大电流值一致，如C620为16384 */
+	int max_current_out=16000;			  /*<! 最大电流输出值，建议设置和电调最大电流值一致，如C620为16384 */
 	int max_power_out = 200; //最大功率输出值
 
 	float cap_charge_power;		  /*<! 电容允许充电功率 */

@@ -16,6 +16,7 @@ CHILD_PID=""
 LOCK_COLOR=""
 SELECT_COLOR=false
 CHECK_ONLY=false
+FOLLOW_ONLY=false
 FOLLOW_ARGS=()
 
 fail() {
@@ -108,7 +109,7 @@ select_color() {
 prepare_runtime_config() {
   local temp="$RUNTIME_CONFIG.tmp.$$"
   mkdir -p -- "$(dirname "$RUNTIME_CONFIG")"
-  if ! awk -v color="$LOCK_COLOR" -v override="$OVERRIDE_BOARD_COLOR" '
+  if ! awk -v color="$LOCK_COLOR" -v override="$OVERRIDE_BOARD_COLOR" -v follow_only="$FOLLOW_ONLY" '
       BEGIN { updated = 0 }
       /^[[:space:]]*enemy_color[[:space:]]*:/ && !updated {
         print "enemy_color: \"" color "\""
@@ -119,8 +120,23 @@ prepare_runtime_config() {
         print "sentinel_use_detect_color: false # explicit operator color selection"
         next
       }
+      follow_only == "true" && /^[[:space:]]*(auto_fire|xuc_allow_shoot|sentinel_allow_friction)[[:space:]]*:/ {
+        key = $0
+        sub(/^[[:space:]]*/, "", key)
+        sub(/[[:space:]]*:.*/, "", key)
+        print key ": false # explicit follow-only session"
+        disabled[key] = 1
+        next
+      }
       { print }
-      END { if (!updated) exit 42 }
+      END {
+        if (!updated) exit 42
+        if (follow_only == "true") {
+          if (!disabled["auto_fire"]) print "auto_fire: false"
+          if (!disabled["xuc_allow_shoot"]) print "xuc_allow_shoot: false"
+          if (!disabled["sentinel_allow_friction"]) print "sentinel_allow_friction: false"
+        }
+      }
     ' "$BASE_CONFIG" > "$temp"; then
     rm -f -- "$temp"
     fail "无法从基础配置生成颜色运行配置：$BASE_CONFIG"
@@ -140,6 +156,9 @@ while (($#)); do
     --check)
       CHECK_ONLY=true
       ;;
+    --follow-only)
+      FOLLOW_ONLY=true
+      ;;
     --select-color)
       SELECT_COLOR=true
       ;;
@@ -150,7 +169,9 @@ while (($#)); do
       valid_color "$LOCK_COLOR" || fail "无效的锁定颜色：$LOCK_COLOR（只能是 red 或 blue）"
       ;;
     --help|-h)
-      printf '用法：%s [--check] [--select-color] [--color red|blue] [--rmv-follow] [--rmv-rotate] [--rmv-fire]\n' "$0"
+      printf '用法：%s [--check] [--follow-only] [--select-color] [--color red|blue] [--rmv-follow] [--rmv-rotate] [--rmv-fire]\n' "$0"
+      printf '%s\n' '--follow-only 仅适用于SENTINEL：只跟随，摩擦轮/发射关闭；仅覆盖本次运行缓存，不修改正式配置。'
+      printf '%s\n' '--check 仅预检，不启动相机、串口或自瞄程序；可与--follow-only组合。'
       printf 'RMV 默认只识别和记录；--rmv-follow 开启大 Y/P 跟踪，小 Y 保持、取消相对角度限幅，不发射。\n'
       printf '%s\n' '--rmv-rotate 开启四装甲旋转试算；--rmv-fire 显式接入单发，双上预转就绪后由上位机触发，无需操作摇杆。'
       printf '无参数及开机自启动：沿用上次保存的颜色，不弹出选择窗口。\n'
@@ -174,6 +195,9 @@ prune_old_logs() {
 
 preflight() {
   local report="$PROJECT/logs/xuc-bringup/desktop_preflight.json"
+  if [[ "$FOLLOW_ONLY" == true ]]; then
+    printf '[预检模式] 只跟随，摩擦轮/发射关闭；仅本次运行缓存覆盖。\n'
+  fi
   printf '[自检] 正在检查配置、模型、运行库、相机、串口权限和协议兼容性……\n'
   if ! python3 "$PROJECT/scripts/check_deployment.py" --require-runtime > "$report" 2>&1; then
     cat "$report"
@@ -247,6 +271,19 @@ stop_child() {
 
 [[ -r "$BASE_CONFIG" ]] || fail "找不到基础运行配置：$BASE_CONFIG"
 source "$PROJECT/scripts/runtime_env.sh"
+if [[ "$FOLLOW_ONLY" == true ]]; then
+  for option in "${FOLLOW_ARGS[@]}"; do
+    [[ "$option" != "--rmv-fire" ]] || fail "--follow-only 不能与 --rmv-fire 同时使用。"
+  done
+  if ! python3 - "$BASE_CONFIG" <<'PY'
+import sys, yaml
+config = yaml.safe_load(open(sys.argv[1]))
+sys.exit(0 if config.get('board_protocol') == 'SENTINEL' else 1)
+PY
+  then
+    fail "--follow-only 仅支持 SENTINEL；RMV 请使用现有 --rmv-follow。"
+  fi
+fi
 mkdir -p -- "$PROJECT/logs/xuc-bringup"
 exec 9>"$PROJECT/logs/xuc-bringup/field_autoaim.lock"
 flock -n 9 || fail "自瞄正在启动或运行，请勿重复点击。"
@@ -254,6 +291,9 @@ preflight
 
 if [[ "$CHECK_ONLY" == true ]]; then
   printf '上次装甲板颜色：%s\n' "$(color_label "$(read_saved_color)")"
+  if [[ "$FOLLOW_ONLY" == true ]]; then
+    printf '[仅预检] 未启动相机、串口或自瞄程序；未生成运行缓存。\n'
+  fi
   exit 0
 fi
 
@@ -284,6 +324,9 @@ printf '锁定颜色：%s（已保存）\n' "$(color_label "$LOCK_COLOR")"
 printf '基础配置：%s\n' "$BASE_CONFIG"
 printf '配置：%s\n' "$CONFIG"
 printf '日志：%s\n' "$LOG_FILE"
+if [[ "$FOLLOW_ONLY" == true ]]; then
+  printf '模式：只跟随，摩擦轮/发射关闭。\n'
+fi
 python3 - "$CONFIG" "${FOLLOW_ARGS[@]}" <<'PY'
 import sys, yaml
 c = yaml.safe_load(open(sys.argv[1]))
@@ -294,6 +337,14 @@ if c.get('board_protocol') == 'RMV':
 else:
     print('控制：' + ('开启' if c['xuc_allow_control'] else '关闭') +
           '；发射：' + ('开启' if c['xuc_allow_shoot'] and c['auto_fire'] else '关闭'))
+    if c.get('board_protocol') == 'SENTINEL':
+        print('预测延迟：高速 %.0f ms / 低速 %.0f ms；切换转速 %.2f rad/s' %
+              (1000*c['high_speed_delay_time'], 1000*c['low_speed_delay_time'], c['decision_speed']))
+        print('开火容差：水平 ±%.2f° / 俯仰 ±%.2f° / 旋转预测 ±%.2f°；请求间隔 %d ms' %
+              (c['xuc_fire_yaw_tolerance_deg'], c['xuc_fire_pitch_tolerance_deg'],
+               c['xuc_gyro_predicted_yaw_tolerance_deg'], c.get('sentinel_fire_min_interval_ms', 1000)))
+        print('落点修正：水平 %.6f° / 俯仰 %.6f°；旋转开火使用同一水平修正' %
+              (c['xuc_direct_yaw_impact_correction_deg'], c['xuc_ballistic_pitch_trim_deg']))
 PY
 printf '请保持机器人在安全档；程序不会替你切换遥控器 AUTO。\n\n'
 
@@ -311,7 +362,7 @@ for _ in $(seq 1 100); do
     tail -n 80 "$LOG_FILE" || true
     fail "自瞄程序在建立通信前退出，请查看日志。"
   fi
-  if grep -Eq '\[SYNC\]\[(XUC|RMV)\]|\[SYNC\]\[SENTINEL\] yaw=' "$LOG_FILE"; then
+  if grep -Eq '\[SYNC\]\[(XUC|RMV)\]|\[SYNC\]\[SENTINEL( V2)?\] yaw=' "$LOG_FILE"; then
     connected=true
     break
   fi
@@ -319,9 +370,15 @@ for _ in $(seq 1 100); do
 done
 
 if [[ "$connected" != true ]]; then
-  stop_child || fail "未收到下位机心跳，且进程没有正常退出；请保持安全档并检查终端。"
+  startup_failure="10秒内未收到下位机心跳，程序已自动停止。"
+  stop_failure="未收到下位机心跳，且进程没有正常退出；请保持安全档并检查终端。"
+  if grep -Eq '\[SYNC\]\[SENTINEL( V2)?\][[:space:]]+link=true[[:space:]]+pose=0([[:space:]]|$)' "$LOG_FILE"; then
+    startup_failure="已收到下位机数据，但云台姿态未通过新鲜度检查，程序已自动停止。"
+    stop_failure="已收到下位机数据，但云台姿态未通过新鲜度检查，且进程没有正常退出；请保持安全档并检查终端。"
+  fi
+  stop_child || fail "$stop_failure"
   tail -n 80 "$LOG_FILE" || true
-  fail "10秒内未收到下位机心跳，程序已自动停止。"
+  fail "$startup_failure"
 fi
 
 printf '[启动成功] 已与下位机建立通信，PID=%s。\n' "$CHILD_PID"

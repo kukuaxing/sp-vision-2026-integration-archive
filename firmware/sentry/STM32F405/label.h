@@ -1,21 +1,16 @@
 #pragma once
+#ifdef SENTINEL_ACTUATOR_HOST_TEST
+#include "tests/sentinel/actuator_hal_stubs.hpp"
+#else
 #include "FreeRTOS.h"
 #include "task.h"
 #include "queue.h"
+#endif
 
 /*
-Í·ÎÄ¼şÖĞ²»Òª½øĞĞÈ«¾Ö±äÁ¿¶¨Òå£¬¿É½øĞĞºê¶¨Òå
-È«¾Ö±äÁ¿ÓÃexternÉùÃ÷£¬±ÜÃâÍ·ÎÄ¼ş¶à´ÎÒıÓÃmultiple defined
+å¤´æ–‡ä»¶ä¸­ä¸è¦è¿›è¡Œå…¨å±€å˜é‡å®šä¹‰ï¼Œå¯è¿›è¡Œå®å®šä¹‰
+å…¨å±€å˜é‡ç”¨externå£°æ˜ï¼Œé¿å…å¤´æ–‡ä»¶å¤šæ¬¡å¼•ç”¨multiple defined
 */
-
-// ================================================================
-// »úÆ÷ÈË¿ØÖÆÄ£Ê½Ñ¡Ôñ
-// 0: Ò£¿ØÆ÷¿ØÖÆ (RC)    1: ×Ô¶¯¿ØÖÆ (AUTO)
-// ================================================================
-#define ROBOT_CONTROL_MODE 0
-
-#define ROBOT_RC_MODE   0
-#define ROBOT_AUTO_MODE 1
 
 #define CAN1_MOTOR_NUM 4
 #define CAN2_MOTOR_NUM 4
@@ -31,34 +26,41 @@
 
 #define degreeToMechanical(a) ((a)*8192.f/360.f)
 #define mechanicalToDegree(a) ((a)*360.f/8192.f)
-#define degreeToRadian(a) ((a)*3.14159265f/180.f)
-#define radianToDegree(a) ((a)*180.f/3.14159265f)
+
 #ifndef PI
-#define PI 3.14159265f
+#define PI 3.1415926
 #endif // !PI
 
 
 class PARAMETER
 {
 public:
-
+	float dm_initial_pitch{}, dm_initial_yaw{};
 	float pitch_max{}, imu_pitch_max{}, pitch_min{}, imu_pitch_min{}, orgin_pitch{}, initial_pitch{}, initial_yaw{};
 	int32_t ace_speed{}, max_speed{}, rota_speed{};
 	int32_t pitch_speed{}, yaw_speed{};
+	float yaw_center{}, yaw_span{};
+	float bullet_step{}; float bullet_lead_max{};
+	float dm_pitch_min{}; 
+	float dm_pitch_max{};
+	// åº•ç›˜å¯¼èˆªï¼šè§†è§‰é€Ÿåº¦ â†’ rpm
+	float DV_MAX{};              // æ¯å‘¨æœŸ(5ms)æœ€å¤šå˜ 200rpm
+	float NAV_MAX{};              // ä¸æ‘‡æ†é‡ç¨‹å¯¹é½
+	float K_NAV{};        // é€Ÿåº¦å¢ç›Š
 
-	PARAMETER& Init();
+	void Init();
 
 
 };
 
 
-//ÈÎÎñÓÅÏÈ¼¶
+//ä»»åŠ¡ä¼˜å…ˆçº§
 #define START_TASK_PRIO		1
-//ÈÎÎñ¶ÑÕ»´óĞ¡	
+//ä»»åŠ¡å †æ ˆå¤§å°	
 #define START_STK_SIZE 		128  
-//ÈÎÎñ¾ä±ú
+//ä»»åŠ¡å¥æŸ„
 extern TaskHandle_t StartTask_Handler;
-//ÈÎÎñº¯Êı
+//ä»»åŠ¡å‡½æ•°
 
 #define LED_TASK_PRIO		1
 #define LED_STK_SIZE 		128  
@@ -73,7 +75,7 @@ extern TaskHandle_t DecodeTask_Handler;
 extern TaskHandle_t RcTask_Handler;
 
 #define CONTROL_TASK_PRIO		2
-#define CONTROL_STK_SIZE 		256  
+#define CONTROL_STK_SIZE 		128  
 extern TaskHandle_t ControlTask_Handler;
 
 #define MOTOR_TASK_PRIO		2

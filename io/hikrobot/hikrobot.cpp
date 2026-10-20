@@ -4,6 +4,7 @@
 #include <yaml-cpp/yaml.h>
 
 #include "tools/logger.hpp"
+#include "io/frame_timestamp.hpp"
 
 using namespace std::chrono_literals;
 
@@ -31,6 +32,14 @@ HikRobot::HikRobot(const std::string & config_path)
 {
   auto yaml = YAML::LoadFile(config_path);
   exposure_us_ = yaml["exposure_ms"].as<double>() * 1e3;
+  if (yaml["camera_timestamp_transport_delay_ms"])
+    timestamp_transport_delay_us_ = yaml["camera_timestamp_transport_delay_ms"].as<double>() * 1e3;
+  (void)estimated_exposure_midpoint(std::chrono::steady_clock::now(),
+    exposure_us_, timestamp_transport_delay_us_);
+  tools::logger()->info(
+    "[HikRobot][TIMING] estimated exposure midpoint; exposure_us={} "
+    "transport_offset_us={}; device-clock/exposure synchronization unverified",
+    exposure_us_, timestamp_transport_delay_us_);
   gain_ = yaml["gain"].as<double>();
   const auto vid_pid = yaml["vid_pid"].as<std::string>();
   if (yaml["camera_fps"]) frame_rate_ = yaml["camera_fps"].as<double>();
@@ -96,40 +105,59 @@ void HikRobot::read(cv::Mat & img, std::chrono::steady_clock::time_point & times
 
   img = data.img;
   timestamp = data.timestamp;
+  last_frame_id_ = data.frame_id;
 }
 
 void HikRobot::capture_start()
 {
   capturing_ = false;
   capture_quit_ = false;
+  if (!open_camera()) return;
+  configure_camera();
+  const auto ret = MV_CC_StartGrabbing(handle_);
+  if (ret != MV_OK) {
+    tools::logger()->warn("MV_CC_StartGrabbing failed: {:#x}", ret);
+    return;
+  }
+  grabbing_ = true;
 
+  capture_thread_ = std::thread{&HikRobot::capture_loop, this};
+}
+
+bool HikRobot::open_camera()
+{
   unsigned int ret;
 
   MV_CC_DEVICE_INFO_LIST device_list;
   ret = MV_CC_EnumDevices(MV_USB_DEVICE, &device_list);
   if (ret != MV_OK) {
     tools::logger()->warn("MV_CC_EnumDevices failed: {:#x}", ret);
-    return;
+    return false;
   }
 
   if (device_list.nDeviceNum == 0) {
     tools::logger()->warn("Not found camera!");
-    return;
+    return false;
   }
 
   ret = MV_CC_CreateHandle(&handle_, device_list.pDeviceInfo[0]);
   if (ret != MV_OK) {
     tools::logger()->warn("MV_CC_CreateHandle failed: {:#x}", ret);
-    return;
+    return false;
   }
 
   ret = MV_CC_OpenDevice(handle_);
   if (ret != MV_OK) {
     tools::logger()->warn("MV_CC_OpenDevice failed: {:#x}", ret);
-    return;
+    return false;
   }
   device_open_ = true;
 
+  return true;
+}
+
+void HikRobot::configure_camera()
+{
   // Leave any persisted trigger mode before changing image-format nodes.
   set_enum_value("TriggerMode", MV_TRIGGER_MODE_OFF);
   if (width_ > 0 || height_ > 0) {
@@ -161,73 +189,69 @@ void HikRobot::capture_start()
 
   log_camera_state();
 
-  ret = MV_CC_StartGrabbing(handle_);
-  if (ret != MV_OK) {
-    tools::logger()->warn("MV_CC_StartGrabbing failed: {:#x}", ret);
-    return;
-  }
-  grabbing_ = true;
+}
 
-  capture_thread_ = std::thread{[this] {
-    tools::logger()->info("HikRobot's capture thread started.");
+void HikRobot::capture_loop()
+{
+  tools::logger()->info("HikRobot's capture thread started.");
 
-    capturing_ = true;
+  capturing_ = true;
 
-    MV_FRAME_OUT raw;
-    MV_CC_PIXEL_CONVERT_PARAM cvt_param{};
+  MV_FRAME_OUT raw;
+  MV_CC_PIXEL_CONVERT_PARAM cvt_param{};
 
-    while (!capture_quit_) {
-      std::this_thread::sleep_for(1ms);
+  while (!capture_quit_) {
+    std::this_thread::sleep_for(1ms);
 
-      unsigned int ret;
-      unsigned int nMsec = 100;
+    unsigned int ret;
+    unsigned int nMsec = 100;
 
-      ret = MV_CC_GetImageBuffer(handle_, &raw, nMsec);
-      if (ret != MV_OK) {
-        tools::logger()->warn("MV_CC_GetImageBuffer failed: {:#x}", ret);
-        break;
-      }
-
-      auto timestamp = std::chrono::steady_clock::now();
-      static bool logged_frame_format = false;
-      if (!logged_frame_format) {
-        tools::logger()->info(
-          "[HikRobot] first frame: {}x{}, pixel_type={:#x}, frame_len={}",
-          raw.stFrameInfo.nWidth, raw.stFrameInfo.nHeight,
-          static_cast<unsigned int>(raw.stFrameInfo.enPixelType), raw.stFrameInfo.nFrameLen);
-        logged_frame_format = true;
-      }
-      cv::Mat rgb_img(cv::Size(raw.stFrameInfo.nWidth, raw.stFrameInfo.nHeight), CV_8UC3);
-
-      // 用官方 SDK 做 Bayer->RGB，避免手写 type_map 踩 R/B 命名偏移（见 daheng.cpp 同款坑）
-      cvt_param.nWidth = raw.stFrameInfo.nWidth;
-      cvt_param.nHeight = raw.stFrameInfo.nHeight;
-      cvt_param.pSrcData = raw.pBufAddr;
-      cvt_param.nSrcDataLen = raw.stFrameInfo.nFrameLen;
-      cvt_param.enSrcPixelType = raw.stFrameInfo.enPixelType;
-      cvt_param.enDstPixelType = PixelType_Gvsp_RGB8_Packed;
-      cvt_param.pDstBuffer = rgb_img.data;
-      cvt_param.nDstBufferSize = rgb_img.total() * rgb_img.elemSize();
-
-      unsigned int cvt_ret = MV_CC_ConvertPixelType(handle_, &cvt_param);
-      if (cvt_ret != MV_OK) {
-        tools::logger()->warn("MV_CC_ConvertPixelType failed: {:#x}", cvt_ret);
-        MV_CC_FreeImageBuffer(handle_, &raw);
-        continue;
-      }
-
-      queue_.push({rgb_img, timestamp});
-
-      ret = MV_CC_FreeImageBuffer(handle_, &raw);
-      if (ret != MV_OK) {
-        tools::logger()->warn("MV_CC_FreeImageBuffer failed: {:#x}", ret);
-        break;
-      }
+    ret = MV_CC_GetImageBuffer(handle_, &raw, nMsec);
+    if (ret != MV_OK) {
+      tools::logger()->warn("MV_CC_GetImageBuffer failed: {:#x}", ret);
+      break;
     }
 
-    capturing_ = false;
-    tools::logger()->info("HikRobot's capture thread stopped.");
-  }};
+    const auto timestamp = estimated_exposure_midpoint(
+      std::chrono::steady_clock::now(), exposure_us_, timestamp_transport_delay_us_);
+    static bool logged_frame_format = false;
+    if (!logged_frame_format) {
+      tools::logger()->info(
+        "[HikRobot] first frame: {}x{}, pixel_type={:#x}, frame_len={}",
+        raw.stFrameInfo.nWidth, raw.stFrameInfo.nHeight,
+        static_cast<unsigned int>(raw.stFrameInfo.enPixelType), raw.stFrameInfo.nFrameLen);
+      logged_frame_format = true;
+    }
+    cv::Mat rgb_img(cv::Size(raw.stFrameInfo.nWidth, raw.stFrameInfo.nHeight), CV_8UC3);
+
+    // 用官方 SDK 做 Bayer->RGB，避免手写 type_map 踩 R/B 命名偏移（见 daheng.cpp 同款坑）
+    cvt_param.nWidth = raw.stFrameInfo.nWidth;
+    cvt_param.nHeight = raw.stFrameInfo.nHeight;
+    cvt_param.pSrcData = raw.pBufAddr;
+    cvt_param.nSrcDataLen = raw.stFrameInfo.nFrameLen;
+    cvt_param.enSrcPixelType = raw.stFrameInfo.enPixelType;
+    cvt_param.enDstPixelType = PixelType_Gvsp_RGB8_Packed;
+    cvt_param.pDstBuffer = rgb_img.data;
+    cvt_param.nDstBufferSize = rgb_img.total() * rgb_img.elemSize();
+
+    unsigned int cvt_ret = MV_CC_ConvertPixelType(handle_, &cvt_param);
+    if (cvt_ret != MV_OK) {
+      tools::logger()->warn("MV_CC_ConvertPixelType failed: {:#x}", cvt_ret);
+      MV_CC_FreeImageBuffer(handle_, &raw);
+      continue;
+    }
+
+    queue_.push({rgb_img, timestamp, raw.stFrameInfo.nFrameNum});
+
+    ret = MV_CC_FreeImageBuffer(handle_, &raw);
+    if (ret != MV_OK) {
+      tools::logger()->warn("MV_CC_FreeImageBuffer failed: {:#x}", ret);
+      break;
+    }
+  }
+
+  capturing_ = false;
+  tools::logger()->info("HikRobot's capture thread stopped.");
 }
 
 void HikRobot::capture_stop()

@@ -24,6 +24,8 @@ public:
 
   // 🆕 获取最后读取的相机帧ID
   uint64_t get_last_frame_id() const;
+  // Capture identity is separate from legacy hardware-trigger/IMU count pairing.
+  uint64_t get_last_capture_frame_id() const;
 
 private:
   std::unique_ptr<CameraBase> camera_;

@@ -2,10 +2,11 @@
 #include <cinttypes>
 #include <cstring>
 #include <cmath>
-#include "PID.h"
+#include "pid.h"
 #include "kalman.h"
 #include "label.h"
-#define WHEEL_RADIUS_MM 75.f
+#include "feedback_watchdog.h"
+#define WHEEL_RADIUS_MM 47.5f
 #define GEAR_RATIO      36.0f
 
 constexpr auto MAXSPEED = 5000;
@@ -28,17 +29,16 @@ public:
 	uint32_t ID;
 	Kalman kalman{ 1.f,40.f };
 	Motor(const motor_type type, const motor_mode mode, const function_type function, const uint32_t id, PID _speed, PID _position, PID _speed2);
-	Motor(const motor_type type, const motor_mode mode, const function_type function, const uint32_t id, PID _speed, PID _position);//ACEÄ£Ê½
+	Motor(const motor_type type, const motor_mode mode, const function_type function, const uint32_t id, PID _speed, PID _position);//ACEæ¨¡å¼
 	Motor(const motor_type type, const motor_mode mode, const function_type function, const uint32_t id, PID _speed);
 	void recorded_the_Laps();
-	const float Ki_comp = 0.5f;         // »ı·ÖÏµÊı£¨Ô­2.0¡ú0.5£¬½µµÍ»ı·ÖÈÆÏßµ¼ÖÂµÄÍ£×ª³å»÷£©
-	const float Int_Limit = 3000.0f;     // »ı·ÖÏŞ·ù
-	const float Err_Threshold = 5.0f;    // Îó²îãĞÖµ
-	const float Kff_vel = 0.2f;          // ´óÔÆÌ¨½ÇËÙ¶ÈÇ°À¡ÏµÊı£¨µÖ¿¹Ä¦²ÁÍÏ×§£©
-	const float Kff_acc = 0.05f;         // ´óÔÆÌ¨½Ç¼ÓËÙ¶ÈÇ°À¡ÏµÊı£¨µÖ¿¹¹ßĞÔË¦¶¯£©
 	void Ontimer(uint8_t idata[][8], uint8_t* odata);
-	float continuous_gimbal_yaw{};
-	float absolute_target_auto{};
+	bool OnFeedbackFrame(const uint8_t* bytes); // CAN receive callback only.
+	bool FeedbackFresh() const {
+		return feedback_watchdog_.Fresh(HAL_GetTick()) && decoded_generation_ == feedback_generation_;
+	}
+	uint32_t FeedbackGeneration() const { return feedback_generation_; }
+	void CancelPositionTarget();
 private:
 	motor_status_t m_status = UNINIT;
 	int32_t old_torque_current = 0;
@@ -50,12 +50,16 @@ private:
 	static int16_t getword(const uint8_t high, const uint8_t low);
 	static int32_t setrange(const int32_t original, const int32_t range);
 	type_t type;
+	FeedbackWatchdog feedback_watchdog_;
+	uint8_t feedback_bytes_[8]{};
+	volatile uint32_t feedback_generation_ = 0;
+	uint32_t decoded_generation_ = 0;
 public:
 	function_type function;
 	uint16_t need_curcircle;
 	static int16_t getdeltaa(int16_t diff);
 	uint8_t getStatus()const;
-	int32_t current{}, curspeed{}, inv_curspeed{}, setcurrent{},setspeed{}, torque_current, motor_status, motor_angle_status, sum_angle{};//Õâ¸öcurrentÓÃÓÚÊä³öµçÁ÷»òÕßµçÑ¹
+	int32_t current{}, curspeed{}, setcurrent{},setspeed{}, torque_current, motor_status, motor_angle_status, sum_angle{};//è¿™ä¸ªcurrentç”¨äºè¾“å‡ºç”µæµæˆ–è€…ç”µå‹
 	int16_t adjspeed{};
 	int16_t maxspeed{}, maxcurrent{};
 	Kalman currentKalman{ 1.f,40.f };
@@ -63,17 +67,18 @@ public:
 	int32_t stopAngle;
 	int32_t mode{};
 	int round_count;
-	bool pd = 0, spinning = 0;//pd:µ¥´Î²¦µ¯ spinning:Ò»Ãë°Ë·¢
-	PID pid[2];
+	bool pd = 0, spinning = 0;//pd:å•æ¬¡æ‹¨å¼¹ spinning:ä¸€ç§’å…«å‘
+	bool has_feedback = false;   // Decoded feedback is currently fresh.
+	bool angle_latched = false;  // Reset on loss; recovery captures current position.
+	bool use_sum_angle = false;
+	PID pid[3];
 	float Torque_constant_2006 = (0.18*10)/10000;
-	float setangle{}, angle[2]{},distance{}, initial_x{}, rota_angle{}, reset_rota_angle{}, delta_angle{},maxangle=75.f;
-	float yaw_limit_center_ref = 0.0f;   // ÒÔRESETÄ£Ê½¼ÇÂ¼µÄĞ¡yawÏà¶Ô½ÇÎªÏŞÎ»ÖĞĞÄ
-	bool yaw_limit_center_valid = false;
+	float setangle{}, angle[2]{},distance{}, initial_x{}, rota_angle{}, reset_rota_angle{}, delta_angle{};
 	float Torque_left;
 	float Torque_right;
 	float const_dx = 0.004974;// m / s  /rpm
-	float target_yaw_auto;
+	float pos_deadband = 0.0f;
 };
-//´Ë´¦Òª¸ù¾İÊµ¼Ê²»Í¬canÏßÉÏµÄµç»úÊıÁ¿½øĞĞ¸ü¸Ä
+//æ­¤å¤„è¦æ ¹æ®å®é™…ä¸åŒcançº¿ä¸Šçš„ç”µæœºæ•°é‡è¿›è¡Œæ›´æ”¹
 extern Motor can1_motor[CAN1_MOTOR_NUM];
 extern Motor can2_motor[CAN2_MOTOR_NUM];

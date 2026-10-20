@@ -1,13 +1,13 @@
 #include "label.h"
 #include "Power_read.h"
-#include <cstdlib>   // abs() º¯Êý
+#include <cstdlib>   // abs() å‡½æ•°
 uint8_t CNT_transmate = 0;
 void POWER::Init(UART* huart, USART_TypeDef* Instance, const uint32_t BaudRate)
 {
-    // ³õÊ¼»¯ UART£¬²¢ÆôÓÃ DMA ½ÓÊÕºÍ·¢ËÍ
+    // åˆå§‹åŒ– UARTï¼Œå¹¶å¯ç”¨ DMA æŽ¥æ”¶å’Œå‘é€
     huart->Init(Instance, BaudRate)
         .DMARxInit(nullptr)
-        .DMATxInit();   // <-- Ôö¼Ó·¢ËÍ DMA ³õÊ¼»¯
+        .DMATxInit();   // <-- å¢žåŠ å‘é€ DMA åˆå§‹åŒ–
 
     m_uart = huart;
     queueHandler = &huart->UartQueueHandler;
@@ -16,7 +16,7 @@ void POWER::Init(UART* huart, USART_TypeDef* Instance, const uint32_t BaudRate)
 void POWER::Receive()
 {
     if (queueHandler == NULL || *queueHandler == NULL) {
-        return;  // »òÕß±¨´í
+        return;  // æˆ–è€…æŠ¥é”™
     }
     pd_Rx = xQueueReceive(*queueHandler, m_uartrx, 0);
 }
@@ -24,7 +24,7 @@ void POWER::Send()
 {
     if (m_uart == nullptr) return;
 
-    // Ê¹ÓÃ×èÈû·½Ê½·¢ËÍ
+    // ä½¿ç”¨é˜»å¡žæ–¹å¼å‘é€
     m_uart->UARTTransmit((uint8_t*)"AT+P\r\n", strlen("AT+P\r\n"));
 }
 

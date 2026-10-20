@@ -42,14 +42,14 @@ inline void SystemClockConfig(void)
 
 	/**Initializes the CPU, AHB and APB busses clocks
 	*/
-	RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;  //¿ªÆô¸ßËÙÍâ²¿¾§Õñ×÷ÎªÊ±ÖÓÔ´
+	RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;  //å¼€å¯é«˜é€Ÿå¤–éƒ¨æ™¶æŒ¯ä½œä¸ºæ—¶é’Ÿæº
 	RCC_OscInitStruct.HSEState = RCC_HSE_ON;
 	RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
 	RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
 	RCC_OscInitStruct.PLL.PLLM = 25;
 	RCC_OscInitStruct.PLL.PLLN = 336;
 	RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
-	RCC_OscInitStruct.PLL.PLLQ = 7;//405Îª7
+	RCC_OscInitStruct.PLL.PLLQ = 7;//405ä¸º7
 
 	if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
 	{
@@ -57,7 +57,7 @@ inline void SystemClockConfig(void)
 
 	/**Initializes the CPU, AHB and APB busses clocks
 	*/
-	RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK | RCC_CLOCKTYPE_SYSCLK   //ÉèÖÃÍâÉèÊ±ÖÓÆµÂÊ
+	RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK | RCC_CLOCKTYPE_SYSCLK   //è®¾ç½®å¤–è®¾æ—¶é’Ÿé¢‘ç‡
 		| RCC_CLOCKTYPE_PCLK1 | RCC_CLOCKTYPE_PCLK2;
 	RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
 	RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
@@ -70,14 +70,14 @@ inline void SystemClockConfig(void)
 
 	/**Configure the Systick interrupt time
 	*/
-	HAL_SYSTICK_Config(HAL_RCC_GetHCLKFreq() / 1000);  //ÅäÖÃÏµÍ³¶¨Ê±Æ÷
+	HAL_SYSTICK_Config(HAL_RCC_GetHCLKFreq() / 1000);  //é…ç½®ç³»ç»Ÿå®šæ—¶å™¨
 
 	/**Configure the Systick
 	*/
 	HAL_SYSTICK_CLKSourceConfig(SYSTICK_CLKSOURCE_HCLK);
 
 	/* SysTick_IRQn interrupt configuration */
-	HAL_NVIC_SetPriority(SysTick_IRQn, 0, 0);     //¿ªÆôÏµÍ³¶¨Ê±Æ÷ÖĞ¶Ï,ÎªÊµÊ±²Ù×÷ÏµÍ³£¨RTOS£©Ìá¹©Ê±ÖÓĞÅºÅ
+	HAL_NVIC_SetPriority(SysTick_IRQn, 0, 0);     //å¼€å¯ç³»ç»Ÿå®šæ—¶å™¨ä¸­æ–­,ä¸ºå®æ—¶æ“ä½œç³»ç»Ÿï¼ˆRTOSï¼‰æä¾›æ—¶é’Ÿä¿¡å·
 }
 
 

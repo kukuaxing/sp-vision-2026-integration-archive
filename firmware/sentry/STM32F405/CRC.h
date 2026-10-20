@@ -1,5 +1,7 @@
 #pragma once
+#ifndef SENTINEL_HOST_TEST
 #include "stm32f4xx_hal.h"
+#endif
 #include <stdint.h>
 uint8_t GetCRC8CheckSum(uint8_t* pchMessage, uint32_t dwLength, uint8_t ucCRC8);
 uint8_t VerifyCRC8CheckSum(uint8_t* pchMessage, uint32_t dwLength);

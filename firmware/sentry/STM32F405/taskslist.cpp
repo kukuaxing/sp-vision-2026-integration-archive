@@ -1,8 +1,5 @@
 #include "label.h"
 #include "taskslist.h"
-#include "calibration_mode.h"
-#include "pitch_zero.h"
-extern void GimbalDiagnosticUpdate();
 #include "can.h"
 #include "motor.h"
 #include "imu.h"
@@ -11,14 +8,12 @@ extern void GimbalDiagnosticUpdate();
 #include "control.h"
 #include "led.h"
 #include "delay.h"
-#include "DMmotor.h"
-#include "nuc.h"
-#include "PowerLimiter.h" // 引入头文件
-#include "judgement.h"    // 读取裁判系统功率上限
-#include "supercap.h"
-
-extern float Kp = 10;
-extern float Kd = 0.6;
+#include "HTmotor.h"
+#include "Power_read.h"
+#include "xuc.h"
+static CAN* const dm_bus[2] = { &can1, &can2 };   // DMmotor[i] 所在的总线
+//extern float Kp = 10;
+//extern float Kd = 0.6;
 extern int start_flag;
 void TASK::Init()
 {
@@ -28,7 +23,7 @@ void TASK::Init()
 		(uint16_t)START_STK_SIZE,        //任务堆栈大小
 		(void*)NULL,                  //传递给任务函数的参数
 		(UBaseType_t)START_TASK_PRIO,       //任务优先级
-		(TaskHandle_t*)&StartTask_Handler);   //任务句柄              
+		(TaskHandle_t*)&StartTask_Handler);   //任务句柄
 	vTaskStartScheduler();          //开启任务调度
 }
 
@@ -39,6 +34,13 @@ void start_task(void* pvParameters)
 {
 	taskENTER_CRITICAL();           //进入临界区
 	//创建任务
+
+	xTaskCreate((TaskFunction_t)ArmTask,
+		(const char*)"ArmTask",
+		(uint16_t)LED_STK_SIZE,
+		(void*)NULL,
+		(UBaseType_t)LED_TASK_PRIO,
+		(TaskHandle_t*)&LedTask_Handler);
 
 	xTaskCreate((TaskFunction_t)DecodeTask,
 		(const char*)"DecodeTask",
@@ -74,167 +76,46 @@ void start_task(void* pvParameters)
 int CNT = 0;
 void MotorUpdateTask(void* pvParameters)
 {
-    // 初始化功率限制器
-    static bool power_limit_init = false;
-    static uint32_t last_power_feedback_seq = 0;
-    static bool bypass_power_limit_last = false;
-    if (!power_limit_init) {
-        power_limiter.Init();
-        power_limit_init = true;
-    }
+	TickType_t xlastWakeTime = xTaskGetTickCount();
 
-    while (1)
-    {
-        TickType_t xlastWakeTime = xTaskGetTickCount();
+	while (1)
+	{
 
-        // 1. 计算 PID (Ontimer 会更新 motor.current)
-        for (auto& motor : can1_motor) motor.Ontimer(can1.data, can1.temp_data);
-        for (auto& motor : can2_motor) motor.Ontimer(can2.data, can2.temp_data);
 
-        // 云台电机
-        DM_motorYaw.DMmotorOntimer(can2.DMmotor_data, can2.DMmotor_temp_data_yaw);
-        DM_motorPitch.DMmotorOntimer(can1.DMmotor_data, can1.DMmotor_temp_data_pitch);
+		for (auto& motor : can1_motor)motor.Ontimer(can1.data, can1.temp_data);
 
-        // =================================================================
-        // 2. 功率限制计算
-        // =================================================================
-      
-		// Read the referee power limit. Fall back to 80W when the referee is offline.
-		float ref_limit = (judgement.data.robot_status_t.chassis_power_limit > 10)
-			? (float)judgement.data.robot_status_t.chassis_power_limit
-			: 80.0f;
-		
-	
+		for (auto& motor : can2_motor)motor.Ontimer(can2.data, can2.temp_data);
 
-      const bool bypass_power_limit = (ctrl.mode == CONTROL::FOLLOW);
+		for (uint8_t i = 0; i < sizeof(DMmotor) / sizeof(DMmotor[0]); i++)
+			DMmotor[i].State_Decode(can2.jointidata)
+			.DMmotor_Ontimer(DMmotor[i].Kp, DMmotor[i].Kd, dm_bus[i]->jointpdata[i]);
 
-		// Supercap board already receives referee limit and buffer data.
-		// Do not locally raise the chassis power limit again, otherwise the two
-		// control loops stack and easily cause over-power on the referee side.
-        if (!bypass_power_limit)
-		{
-			if (bypass_power_limit_last)
-			{
-				power_limiter.Init();
-			}
-			power_limiter.Process(ctrl.chassis_motor, ctrl.chassis.power_1, ref_limit, true);
-          const auto model_debug = power_limiter.GetModelDebugData();
-			ctrl.chassis.power_model_debug.sum_torque_power = model_debug.sum_torque_power;
-			ctrl.chassis.power_model_debug.k1_sum_abs_w = model_debug.k1_sum_abs_w;
-			ctrl.chassis.power_model_debug.k2_sum_current_sq = model_debug.k2_sum_current_sq;
-			ctrl.chassis.power_model_debug.k3 = model_debug.k3;
-			ctrl.chassis.power_model_debug.predicted_power_raw = model_debug.predicted_power_raw;
-			ctrl.chassis.power_model_debug.predicted_power_with_safety = model_debug.predicted_power_with_safety;
-			ctrl.chassis.power_model_debug.real_power_feedback = model_debug.real_power_feedback;
-           ctrl.chassis.power_model_predicted = power_limiter.GetPredictedPower();
-		}
-       else
-		{
-			ctrl.chassis.power_model_predicted = 0.0f;
-           ctrl.chassis.power_model_debug.sum_torque_power = 0.0f;
-			ctrl.chassis.power_model_debug.k1_sum_abs_w = 0.0f;
-			ctrl.chassis.power_model_debug.k2_sum_current_sq = 0.0f;
-			ctrl.chassis.power_model_debug.k3 = 0.0f;
-			ctrl.chassis.power_model_debug.predicted_power_raw = 0.0f;
-			ctrl.chassis.power_model_debug.predicted_power_with_safety = 0.0f;
-			ctrl.chassis.power_model_debug.real_power_feedback = ctrl.chassis.power_1;
-		}
-		bypass_power_limit_last = bypass_power_limit;
 
-        // =================================================================
-        // 3. 【关键修正】将限制后的电流安全回填到 CAN2 缓冲区
-        // =================================================================
 
-        // 我们直接遍历 ctrl.chassis_motor，确保只处理底盘电机
-        for (int i = 0; i < CHASSIS_MOTOR_NUM; i++) {
-            Motor* m = ctrl.chassis_motor[i];
-            if (m == nullptr) continue;
-
-            // 临时变量存储电流，方便移位操作
-            int16_t safe_current = m->current;
-
-            // 目标缓冲区指针
-            uint8_t* pBuffer = nullptr;
-            int buffer_index = -1;
-
-            // -------------------------------------------------------------
-            // 绝对 ID 映射 (Hardcoded Mapping) - 专治数据错位
-            // -------------------------------------------------------------
-            // 根据大疆电调协议：
-            // ID 1 (0x201) -> 0x200帧 的 Byte 0, 1
-            // ID 2 (0x202) -> 0x200帧 的 Byte 2, 3
-            // ID 3 (0x203) -> 0x200帧 的 Byte 4, 5
-            // ID 4 (0x204) -> 0x200帧 的 Byte 6, 7
-
-            // 既然你说电机在 CAN2，我们只操作 can2.temp_data
-            // 注意：CanTransimtTask 里发送 0x200 用的是 can2.temp_data
-
-            if (m->ID == 0x205) {
-                pBuffer = can2.temp_data;
-                buffer_index = 8; // Offset 8
-            }
-            else if (m->ID == 0x206) {
-                pBuffer = can2.temp_data;
-                buffer_index = 10;
-            }
-            else if (m->ID == 0x207) {
-                pBuffer = can2.temp_data;
-                buffer_index = 12;
-            }
-            else if (m->ID == 0x208) {
-                pBuffer = can2.temp_data;
-                buffer_index = 14;
-            }
-
-            // 只有匹配到了才写入，防止数组越界或写错位置
-            if (pBuffer != nullptr && buffer_index >= 0) {
-                pBuffer[buffer_index] = (safe_current >> 8) & 0xFF; // 高8位
-                pBuffer[buffer_index + 1] = safe_current & 0xFF;        // 低8位
-            }
-        }
-
-        vTaskDelayUntil(&xlastWakeTime, pdMS_TO_TICKS(2));
-    }
+	vTaskDelayUntil(&xlastWakeTime, pdMS_TO_TICKS(2));//开始执行该任务之后1ms再执行该任务
+}
 }
 
 void CanTransimtTask(void* pvParameters)
 {
+	TickType_t xlastWakeTime1 = xTaskGetTickCount();//不知道为什么要从while里面挪出来，这个函数是FreeRTOS的一个函数，获取当前任务的时间戳
+
+	/* 🔴 原本用 (timer.counter++) % 3，而 timer.counter 是【全局变量】，
+	 *    在两处各 +1 一次：tim.cpp 的 HAL_TIM_PeriodElapsedCallback（TIM3 @1kHz
+	 *    中断）＋ 本任务（也是 1 kHz）。余数步进 = (1000·Δt+1) mod 3 —— 只有
+	 *    SysTick 与 TIM3 的相位【恰好】使总步进为 3 的倍数时，才等价于「每 3ms
+	 *    各发一帧」；相位一漂（中断被抢占、tick 抖动）就变成「某帧连发两次、
+	 *    另一帧间隔 6ms」。对底盘 4×M3508 的电流环 = 控制周期抖动。
+	 *    ⇒ 改用本任务私有计数器，只在本任务递增，与任何中断无关。*/
+	static uint8_t can_div = 0;
+
 	while (true)
 	{
-
-		TickType_t xlastWakeTime1 = xTaskGetTickCount();
-#if SENTRY_PITCH_ZERO_MODE
-		PitchZeroUpdate();
-		GimbalDiagnosticUpdate();
-		vTaskDelay(pdMS_TO_TICKS(5));
-		continue;
-#endif
-#if SENTRY_CALIBRATION_READ_ONLY
-		static bool disable_sent = false;
-		static uint32_t last_disable = 0;
-		const uint32_t now = HAL_GetTick();
-		if (!disable_sent || now - last_disable >= 500) {
-			const uint8_t disable[8] = {255,255,255,255,255,255,255,0xFD};
-			can1.Transmit(0x109, disable, 8);
-			disable_sent = true; last_disable = now;
-		}
-		// DaMiao status refresh: no enable, motion, parameter write or zero command.
-		const uint8_t query[8] = {0x09, 0x00, 0xCC, 0, 0, 0, 0, 0};
-		can1.Transmit(0x7FF, query, 8);
-		vTaskDelay(pdMS_TO_TICKS(50));
-		continue;
-#endif
-
-		switch ((timer.counter++) % 4)
+		switch (++can_div % 3)
 		{
 		case 0:
-			DM_motorYaw.DMmotorTransmit(0x206);
-			DM_motorPitch.DMmotorTransmit(0x109);
-			if (timer.counter % 250 == 4)
-			{
-				DM_motorYaw.MotorStart(0x206);
-				DM_motorPitch.MotorStart(0x109);
-			}
+				DMmotor[0].DMmotor_transmit(can1);
+				DMmotor[1].DMmotor_transmit(can2);
 			break;
 		case 1:
 			can1.Transmit(0x1ff, can1.temp_data + 8);
@@ -244,14 +125,10 @@ void CanTransimtTask(void* pvParameters)
 			can1.Transmit(0x200, can1.temp_data);
 			can2.Transmit(0x200, can2.temp_data);
 			break;
-		case 3:
-			can1.Transmit(0x2ff, can1.temp_data + 8);
-			can2.Transmit(0x2ff, can2.temp_data + 8);
-			break;
 		default:
 			break;
 		}
-		
+
 		vTaskDelayUntil(&xlastWakeTime1, pdMS_TO_TICKS(1));//开始执行该任务之后1ms再执行该任务
 
 	}
@@ -261,43 +138,69 @@ void ControlTask(void* pvParameters)
 {
 	while (true)
 	{
-#if SENTRY_PITCH_ZERO_MODE
-		vTaskDelay(pdMS_TO_TICKS(5));
-		continue; // Dedicated gimbal controller owns commands in calibration mode.
-#endif
+		rc.Update();
 		ctrl.chassis.Update();
 		ctrl.pantile.Update();
 		ctrl.shooter.Update();
-		ctrl.automation.stateUpdate();
-		rc.Update();
-		xuc.Encode();
-		vTaskDelay(1);
+		vTaskDelay(5);
 	}
 }
 
 
 void DecodeTask(void* pvParameters)
 {
+	/* ---- 上行发送分频（2026-10-15 新增）----
+	 *
+	 * 原来 xuc.Encode() 在 ArmTask(100 ms) ⇒ 三帧（0x01/0x02/0x81）一起只有 10 Hz。
+	 * 现挪到本任务：5 ms 一拍，%4 ⇒ 每 20 ms 一次 = **50 Hz**。
+	 *
+	 * 为什么先上 50 Hz 而不是 V2 §6.2 建议的 100 Hz：
+	 *   三帧合计 106 B（0x01 46 + 0x02 34 + 0x81 26）。921600 baud 下 1 B ≈ 10.85 µs
+	 *   ⇒ 串口线上时间 ≈ **1.15 ms**。100 Hz 需每 10 ms 发一次（占线 11.5%），
+	 *   50 Hz 只占 **5.75%**，留一半余量给重传与抖动。
+	 *   ⚠️ 这是【首次实测值】：上车先看 uart4.tx_busy_reject 是否恒 0、
+	 *      DecodeTask 实际周期是否还稳 5 ms，再决定往 100 Hz 提。
+	 *
+	 * ⚠️ 计数器是本任务的函数内 static —— 必须【只在这里】递增。
+	 *    原因见 CanTransimtTask() 里的同类说明。
+	 */
+	static uint8_t tx_div = 0;
+
 	while (true)
 	{
 		rc.Decode();
-		xuc.Decode();
 		imu_pantile.Decode();
-		imu_gimbal.Decode();
-       supercap.decode();
-#if !SENTRY_PITCH_ZERO_MODE
-        judgement.BuffData();
-        judgement.GetData();
-#endif
-       supercap.encode();
-#if !SENTRY_PITCH_ZERO_MODE
-        judgement.SendData();
-#endif
+		imu_chassis.Decode();
+		xuc.Decode();
+
+		/* ---- 上行发送（从 ArmTask 挪来）----
+		 * 同任务的好处：xuc.Decode() 与 xuc.Encode() 在同一时间轴上，
+		 * 抓包/看 watch 时"这一周期收了什么、发的是什么"能直接对上。*/
+		// Keep startup/STOP telemetry alive; physical AUTO is explicit in state.bit7.
+		if (++tx_div >= 4) { tx_div = 0; xuc.Encode(); }
+
 		vTaskDelay(5);
 	}
 }
 
-
+void ArmTask(void* pvParameters)
+{
+	/* ⚠️ xuc.Encode() 已挪到 DecodeTask（50 Hz）。
+	 *   本任务只剩「达妙初始化 + 功率计发送」：
+	 *   - DMmotorinit 各含 1 ms 阻塞 delay，100 ms 周期下无所谓；
+	 *   - power.Send() 是 9600 波特【阻塞】发送，绝不能和上报混在一个任务里。
+	 * 所以 100 ms 的 ArmTask + 512 B 栈（LED_STK_SIZE）现在只干轻活，风险反而降了。*/
+	while (true)
+	{
+		// Startup requests only: DMmotorinit requires physical STOP/RESET and
+		// stops emitting FC after operation or a safety latch. Feedback faults
+		// require STOP/RESET + MCU restart; this loop cannot undo the latch.
+		DMmotor[0].DMmotorinit(can1);
+		DMmotor[1].DMmotorinit(can2);
+		power.Send();
+		vTaskDelay(100);
+	}
+}
 
 
 

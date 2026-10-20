@@ -134,9 +134,9 @@ YOLO::YOLO(const std::string & config_path, bool debug)
   }
 }
 
-std::list<Armor> YOLO::detect(const cv::Mat & img, int frame_count)
+std::list<Armor> YOLO::detect(const cv::Mat & img, int frame_count, bool full_frame)
 {
-  return yolo_->detect(img, frame_count);
+  return yolo_->detect(img, frame_count, full_frame);
 }
 
 std::list<Armor> YOLO::postprocess(

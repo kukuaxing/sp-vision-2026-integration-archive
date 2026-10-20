@@ -63,8 +63,26 @@ XucSender::XucSender(const std::string & config_path)
         std::abs(imu_yaw_sign_) < 1e-9 || std::abs(imu_pitch_sign_) < 1e-9 ||
         !std::isfinite(imu_yaw_offset_rad_) || !std::isfinite(imu_pitch_offset_rad_))
       throw std::invalid_argument("Invalid SENTINEL IMU transform");
-    if (yaml["sentinel_swap_roll_pitch"])
-      sentinel_swap_roll_pitch_ = yaml["sentinel_swap_roll_pitch"].as<bool>();
+    if (yaml["sentinel_swap_roll_pitch"] && yaml["sentinel_swap_roll_pitch"].as<bool>())
+      throw std::invalid_argument("Sentinel V2 has correct R/P ordering; remove old axis swap");
+    if (yaml["sentinel_allow_friction"]) sentinel_allow_friction_ = yaml["sentinel_allow_friction"].as<bool>();
+    const int hold_ms = yaml["sentinel_friction_lost_timeout_ms"] ?
+      yaml["sentinel_friction_lost_timeout_ms"].as<int>() : 5000;
+    if (hold_ms < 0 || hold_ms > 60000)
+      throw std::invalid_argument("Sentinel friction lost timeout must be 0..60000 ms");
+    sentinel_friction_hold_.timeout_ns = int64_t(hold_ms)*1000000;
+    if (yaml["sentinel_require_verified_pose"])
+      sentinel_require_verified_pose_ = yaml["sentinel_require_verified_pose"].as<bool>();
+    const int valid_ms = yaml["sentinel_valid_for_ms"] ? yaml["sentinel_valid_for_ms"].as<int>() : 100;
+    if (valid_ms < 1 || valid_ms > 150) throw std::invalid_argument("Sentinel validity must be 1..150 ms");
+    sentinel_valid_for_ms_ = static_cast<uint16_t>(valid_ms);
+    const int fire_interval_ms = yaml["sentinel_fire_min_interval_ms"]
+      ? yaml["sentinel_fire_min_interval_ms"].as<int>() : default_sentinel_fire_interval_ms;
+    // Exceed the maximum 150 ms command lease, so a sustained host request
+    // cannot keep the MCU's fire level high through its 300 ms repeat arm time.
+    if (fire_interval_ms < 200 || fire_interval_ms > 5000)
+      throw std::invalid_argument("Sentinel fire interval must be 200..5000 ms");
+    sentinel_fire_min_interval_ns_ = int64_t(fire_interval_ms) * 1000000;
     const double tx_hz = yaml["sentinel_tx_hz"] ? yaml["sentinel_tx_hz"].as<double>() : 100.0;
     if (!std::isfinite(tx_hz) || tx_hz < 10 || tx_hz > 100)
       throw std::invalid_argument("SENTINEL tx_hz must be 10..100 (MCU max 200 Hz)");
@@ -83,13 +101,18 @@ XucSender::XucSender(const std::string & config_path)
     serial::Timeout timeout = serial::Timeout::simpleTimeout(10);
     serial_.setTimeout(timeout);
     serial_.open();
+    if (sentinel_) serial_.flushInput(); // Drop queued startup bytes; State also guards stale-sequence recovery.
     // 启动接收线程：解析新版 TxPacket_TJ
     recv_thread_ = std::thread([this] {
       if (sentinel_) recv_sentinel_loop(); else recv_loop();
     });
     if (sentinel_) {
-      tools::logger()->info("[SENTINEL] {} @ {} baud: RX=64 TX=40; wire=deg, internal=rad; receive-only until control enabled", port, baud);
-      tools::logger()->warn("[SENTINEL] no feeder/RPM/shot acknowledgement fields; a valid outgoing frame starts friction wheels in AUTO");
+      tools::logger()->info("[SENTINEL] {} @ {} baud: V2 A6/6A RX=46+34+26 TX=38; control={} friction={} shoot={} verified_pose_required={}",
+        port, baud, allow_control_, sentinel_allow_friction_, allow_shoot_, sentinel_require_verified_pose_);
+      tools::logger()->info("[SENTINEL] friction follows armor detections; lost hold={} ms; faults/exit cancel immediately",
+        sentinel_friction_hold_.timeout_ns/1000000);
+      tools::logger()->info("[SENTINEL] fire requests separated by at least {} ms; cooldown sends fire=0; no queued requests",
+        sentinel_fire_min_interval_ns_/1000000);
       return;
     }
     tools::logger()->info(
@@ -115,9 +138,8 @@ XucSender::XucSender(const std::string & config_path)
 XucSender::~XucSender()
 {
   if (sentinel_ && sentinel_output_active_ && serial_.isOpen()) {
-    // Best-effort cancellation; MCU's 250 ms timeout remains authoritative.
-    const auto stop = sentinel::encode({});
-    try { serial_.write(stop.data(), stop.size()); } catch (...) {}
+    // Explicit V2 cancellation bypasses ordinary TX throttling.
+    send_sentinel(Command{}, true);
   }
   recv_quit_.store(true, std::memory_order_relaxed);
   if (recv_thread_.joinable()) {
@@ -128,17 +150,35 @@ XucSender::~XucSender()
   }
 }
 
+namespace {
+int64_t steady_ns() {
+  return std::chrono::duration_cast<std::chrono::nanoseconds>(
+    std::chrono::steady_clock::now().time_since_epoch()).count();
+}
+}
 bool XucSender::rx_valid() const
 {
+  if (!sentinel_) return feedback_link_valid();
+  if (!feedback_link_valid()) return false;
+  std::lock_guard<std::mutex> lock(sentinel_mutex_);
+  return sentinel_state_.pose_valid(steady_ns());
+}
+bool XucSender::control_ready() const
+{
+  if (!allow_control_) return false;
   if (sentinel_) {
-    if (!feedback_link_valid()) return false;
-    const auto now_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(
-      std::chrono::steady_clock::now().time_since_epoch()).count();
     std::lock_guard<std::mutex> lock(sentinel_mutex_);
-    return sentinel_feedback_.gimbal.valid && sentinel_feedback_.gimbal.id == 1 &&
-           sentinel_have_sample_ && now_ns - sentinel_last_sample_ns_ <= sentinel_sensor_timeout_ns_;
+    return rx_valid_.load(std::memory_order_relaxed) && !sentinel_tx_failed_ &&
+      sentinel_state_.reference_ready(steady_ns(),sentinel_require_verified_pose_);
   }
-  return feedback_link_valid();
+  return (!require_feedback_for_control_ || rx_valid()) &&
+    (!require_auto_mode_for_control_ || mode() == 1);
+}
+bool XucSender::lower_yaw_armed() const
+{
+  if (!sentinel_) return rx_valid() && mode() == 1 && (robot_id() & 0x40);
+  std::lock_guard<std::mutex> lock(sentinel_mutex_);
+  return sentinel_state_.status_valid(steady_ns()) && (sentinel_state_.feedback.link.state & 0x04);
 }
 
 bool XucSender::feedback_link_valid() const
@@ -162,122 +202,231 @@ XucSender::FeederFeedback XucSender::feeder_feedback() const
 sentinel::Feedback XucSender::sentinel_feedback() const
 {
   std::lock_guard<std::mutex> lock(sentinel_mutex_);
-  return sentinel_feedback_;
+  return sentinel_state_.feedback;
 }
 
-double XucSender::imu_roll() const
-{
-  if (!sentinel_) return 0.0;
-  const auto feedback = sentinel_feedback();
-  return (sentinel_swap_roll_pitch_ ? feedback.gimbal.pitch_deg : feedback.gimbal.roll_deg) *
-         sentinel::deg_to_rad;
-}
-
-double XucSender::raw_imu_pitch() const
-{
-  return static_cast<double>(imu_pitch_.load(std::memory_order_relaxed));
-}
-
+double XucSender::imu_roll() const { return sentinel_ ? sentinel_feedback().gimbal.roll : 0.0; }
+double XucSender::raw_imu_pitch() const { return imu_pitch_.load(std::memory_order_relaxed); }
 std::array<double, 3> XucSender::imu_angles_rad() const
 {
   if (!sentinel_) return {0, imu_pitch(), imu_yaw()};
   const auto imu = sentinel_feedback().gimbal;
-  return {(sentinel_swap_roll_pitch_ ? imu.pitch_deg : imu.roll_deg) * sentinel::deg_to_rad,
-          imu_pitch_sign_ * (sentinel_swap_roll_pitch_ ? imu.roll_deg : imu.pitch_deg) *
-            sentinel::deg_to_rad + imu_pitch_offset_rad_,
-          imu_yaw_sign_ * imu.yaw_deg * sentinel::deg_to_rad + imu_yaw_offset_rad_};
+  return {imu.roll, imu_pitch_sign_*imu.pitch+imu_pitch_offset_rad_,
+          imu_yaw_sign_*imu.yaw+imu_yaw_offset_rad_};
+}
+std::array<double, 3> XucSender::gimbal_gyro_rad_s() const
+{
+  const auto imu = sentinel_feedback().gimbal;
+  if (!(imu.flags & sentinel::gyro_valid)) return {NAN,NAN,NAN};
+  return {imu.gx,imu_pitch_sign_*imu.gy,imu_yaw_sign_*imu.gz};
 }
 
-void XucSender::send_sentinel(const Command & cmd)
+XucSender::PoseSnapshot XucSender::pose_snapshot_locked(
+  int64_t query_ns, int64_t now_ns, bool capture) const
 {
-  const auto now_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(
-    std::chrono::steady_clock::now().time_since_epoch()).count();
-  if (sentinel_last_tx_ns_ && now_ns - sentinel_last_tx_ns_ < sentinel_tx_interval_ns_) return;
-  const bool requested = control_ready() && cmd.control &&
-    std::isfinite(cmd.yaw) && std::isfinite(cmd.pitch);
-  // No neutral "heartbeat": even fire=0 spins the wheels in the current MCU.
-  // On loss send ONE zero-error/fire=0 cancellation, then let MCU timeout stop wheels.
-  if (!requested && !sentinel_output_active_) return;
-  sentinel::Control wire;
-  const auto feedback = sentinel_feedback();
-  const double yaw = feedback.gimbal.yaw_deg * sentinel::deg_to_rad;
-  const double pitch = (sentinel_swap_roll_pitch_ ? feedback.gimbal.roll_deg :
-      feedback.gimbal.pitch_deg) * sentinel::deg_to_rad;
-  if (requested) {
-    wire.yaw_deg = static_cast<float>(yaw / sentinel::deg_to_rad);
-    wire.pitch_deg = static_cast<float>(pitch / sentinel::deg_to_rad);
-    wire.yaw_error_deg = static_cast<float>(std::remainder(
-      command_yaw_to_raw(cmd.yaw) - yaw, 2 * sentinel::pi) / sentinel::deg_to_rad);
-    const double target_pitch_raw = (cmd.pitch - imu_pitch_offset_rad_) / imu_pitch_sign_;
-    wire.pitch_error_deg = static_cast<float>((target_pitch_raw - pitch) / sentinel::deg_to_rad);
-    wire.distance_m = std::isfinite(cmd.horizon_distance) && cmd.horizon_distance >= 0
-      ? static_cast<float>(cmd.horizon_distance) : 0;
-    // Navigation and v_y remain zero: this process only owns aiming.
-    wire.fire = allow_shoot_ && cmd.shoot;
-    if (!std::isfinite(wire.yaw_error_deg) || !std::isfinite(wire.pitch_error_deg) ||
-        !std::isfinite(wire.distance_m)) return;
+  PoseSnapshot out;
+  static_cast<sentinel::PoseEstimate &>(out) = capture
+    ? sentinel_pose_history_.at(query_ns, now_ns) : sentinel_pose_history_.latest(now_ns);
+  if (!rx_valid_.load(std::memory_order_relaxed) || !sentinel_state_.pose_valid(now_ns)) {
+    out.valid = false;
+    out.status = sentinel::PoseStatus::stale;
   }
-  const auto bytes = sentinel::encode(wire);
+  const bool status_fresh = sentinel_state_.status_valid(now_ns);
+  out.mode = status_fresh && (sentinel_state_.feedback.link.state & sentinel::auto_mode) ? 1 : 0;
+  out.lower_yaw_armed = status_fresh && (sentinel_state_.feedback.link.state & 0x04);
+  out.control_ready = allow_control_ && rx_valid_.load(std::memory_order_relaxed) && !sentinel_tx_failed_ &&
+    sentinel_pose_history_.latest(now_ns).valid &&
+    sentinel_state_.reference_ready(now_ns, sentinel_require_verified_pose_);
+  out.rpy_rad[1] = imu_pitch_sign_ * out.rpy_rad[1] + imu_pitch_offset_rad_;
+  out.rpy_rad[2] = imu_yaw_sign_ * out.rpy_rad[2] + imu_yaw_offset_rad_;
+  out.gyro_rad_s[1] *= imu_pitch_sign_;
+  out.gyro_rad_s[2] *= imu_yaw_sign_;
+  return out;
+}
+
+XucSender::PoseSnapshot XucSender::pose_now() const
+{
+  if (!enabled_ || !sentinel_) return {};
+  std::lock_guard<std::mutex> lock(sentinel_mutex_);
+  return pose_snapshot_locked(0, steady_ns(), false);
+}
+
+XucSender::PoseSnapshot XucSender::pose_at_capture(
+  Clock::time_point capture, std::chrono::milliseconds wait) const
+{
+  if (!enabled_ || !sentinel_) return {};
+  const int64_t query_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(
+    capture.time_since_epoch()).count();
+  const auto until = Clock::now() + std::clamp(wait,
+    std::chrono::milliseconds(0), std::chrono::milliseconds(10));
+  while (true) {
+    PoseSnapshot out;
+    {
+      std::lock_guard<std::mutex> lock(sentinel_mutex_);
+      out = pose_snapshot_locked(query_ns, steady_ns(), true);
+    }
+    if (out.valid || out.status != sentinel::PoseStatus::bracket_unavailable ||
+        Clock::now() >= until) return out;
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+  }
+}
+
+XucSender::SendResult XucSender::stop()
+{
+  if (!enabled_ || !serial_.isOpen()) { SendResult r; r.status=SendStatus::disabled; return r; }
+  return sentinel_ ? send_sentinel(Command{}, true) : send(Command{});
+}
+
+XucSender::SendResult XucSender::send_sentinel(
+  const Command & cmd, bool stop, Clock::time_point fire_deadline, uint64_t expected_generation)
+{
+  const auto now_ns = steady_ns();
+  SendResult result;
+  sentinel::Bytes bytes;
+  bool requested = false;
+  uint8_t transmitted_flags = 0;
+  {
+    std::lock_guard<std::mutex> lock(sentinel_mutex_);
+    if (sentinel_tx_failed_) { result.status=SendStatus::io_failed; return result; }
+    // The caller solved this target in one reference generation. Never wrap
+    // that old target in a newer MCU epoch/boot merely because it changed
+    // while inference or the precise shot deadline was being processed.
+    if (!stop && expected_generation != 0 && expected_generation != sentinel_state_.generation)
+      return result;
+    if (sentinel_output_generation_ != sentinel_state_.generation) {
+      sentinel_output_active_ = false;
+      sentinel_last_sent_flags_ = 0;
+      sentinel_friction_hold_.reset();
+      sentinel_output_generation_ = sentinel_state_.generation;
+    }
+    const bool ready = !stop && allow_control_ && rx_valid_.load(std::memory_order_relaxed) &&
+      sentinel_pose_history_.latest(now_ns).valid &&
+      sentinel_state_.reference_ready(now_ns,sentinel_require_verified_pose_);
+    const bool angular = ready && cmd.control &&
+      std::isfinite(cmd.yaw) && std::isfinite(cmd.pitch);
+    const bool friction = sentinel_friction_hold_.update(ready && sentinel_allow_friction_,
+      cmd.armor_detected, now_ns);
+    const bool fire_expired = cmd.shoot && fire_deadline != Clock::time_point{} &&
+      Clock::now() > fire_deadline;
+    result.fire_expired = fire_expired;
+    const bool fire_requested = angular && friction && allow_shoot_ && cmd.shoot && !fire_expired;
+    const auto last_fire_ns = last_shoot_tx_ns_.load(std::memory_order_acquire);
+    result.fire_rate_limited = fire_requested && last_fire_ns > 0 &&
+      now_ns - last_fire_ns < sentinel_fire_min_interval_ns_;
+    const bool fire = fire_requested && !result.fire_rate_limited;
+    const bool fire_edge = fire && (!(sentinel_last_sent_flags_ & sentinel::fire_request) ||
+      fire_deadline != Clock::time_point{});
+    const bool clear_fire = !fire && (sentinel_last_sent_flags_ & sentinel::fire_request);
+    requested = angular || friction;
+    if (!requested && !sentinel_output_active_) return result; // receive-only sends zero bytes.
+    // A one-frame qualified fire event must not vanish behind the state-update
+    // rate limiter. Expired fire also bypasses it so a prior fire level clears.
+    if (requested && !fire_edge && !clear_fire && !fire_expired && sentinel_last_tx_ns_ &&
+        now_ns-sentinel_last_tx_ns_<sentinel_tx_interval_ns_) {
+      result.status=SendStatus::throttled; return result;
+    }
+    if (!sentinel_state_.can_stop()) return result;
+    sentinel::Aim aim;
+    if (requested) {
+      const auto& ref=sentinel_state_.feedback.gimbal;
+      aim.ref_epoch=ref.epoch; aim.ref_seq=ref.seq; aim.ref_time_us=ref.time_us;
+      aim.valid_for_ms=sentinel_valid_for_ms_;
+      aim.flags=sentinel::control_enable;
+      if (angular) {
+        aim.flags|=sentinel::target_valid;
+        const double target_pitch=(cmd.pitch-imu_pitch_offset_rad_)/imu_pitch_sign_;
+        aim.yaw_error=static_cast<float>(std::remainder(command_yaw_to_raw(cmd.yaw)-ref.yaw,2*sentinel::pi));
+        aim.pitch_error=static_cast<float>(target_pitch-ref.pitch);
+      }
+      if (friction) aim.flags|=sentinel::friction_enable;
+      if (fire) aim.flags|=sentinel::fire_request;
+      if (!std::isfinite(aim.yaw_error) || !std::isfinite(aim.pitch_error) ||
+          std::abs(aim.pitch_error) > sentinel::pi) {
+        aim={}; requested=false; // Invalid transformed targets revoke, never retain the last fire request.
+        sentinel_friction_hold_.reset();
+      }
+    }
+    result.seq=sentinel_state_.take_sequence();
+    bytes=sentinel::encode_aim(aim,result.seq,sentinel_state_.feedback.boot_id);
+    transmitted_flags=aim.flags;
+  }
   try {
-    if (serial_.write(bytes.data(), bytes.size()) != bytes.size())
-      throw std::runtime_error("Incomplete SENTINEL serial frame");
-    sentinel_last_tx_ns_ = now_ns;
-    sentinel_output_active_ = requested;
-    if (wire.fire) last_shoot_tx_ns_.store(now_ns, std::memory_order_release);
-  } catch (const std::exception & error) {
-    rx_valid_.store(false, std::memory_order_relaxed);
-    tools::logger()->warn("[SENTINEL] write failed: {}", error.what());
+    // Re-check after acquiring/encoding the reference, immediately before I/O.
+    if ((transmitted_flags & sentinel::fire_request) &&
+        fire_deadline != Clock::time_point{} && Clock::now() > fire_deadline) {
+      transmitted_flags &= ~sentinel::fire_request;
+      bytes[sentinel::header_size+14]=transmitted_flags;
+      sentinel::put16(bytes.data()+bytes.size()-2, sentinel::crc16(bytes.data(),bytes.size()-2));
+      result.fire_expired=true;
+    }
+    if (serial_.write(bytes.data(),bytes.size())!=bytes.size())
+      throw std::runtime_error("Incomplete Sentinel V2 serial frame");
+    result.tx_time_ns=steady_ns();
+    sentinel_last_tx_ns_=result.tx_time_ns; sentinel_output_active_=requested;
+    sentinel_last_sent_flags_=transmitted_flags;
+    result.status=SendStatus::sent;
+    result.control_sent=(transmitted_flags&sentinel::target_valid)!=0;
+    result.friction_sent=(transmitted_flags&sentinel::friction_enable)!=0;
+    result.fire_sent=(transmitted_flags&sentinel::fire_request)!=0;
+    if (result.fire_sent)
+      last_shoot_tx_ns_.store(result.tx_time_ns,std::memory_order_release);
+  } catch (const std::exception& error) {
+    { std::lock_guard<std::mutex> lock(sentinel_mutex_); sentinel_tx_failed_=true; }
+    sentinel_output_active_=false;
+    result.status=SendStatus::io_failed;
+    tools::logger()->warn("[SENTINEL V2] write failed; command output latched off: {}",error.what());
   }
+  return result;
 }
 
 void XucSender::recv_sentinel_loop()
 {
   sentinel::Decoder decoder;
-  uint8_t scratch[256];
+  uint8_t scratch[512];
   while (!recv_quit_.load(std::memory_order_relaxed)) {
-    size_t count;
-    try { count = serial_.read(scratch, sizeof(scratch)); }
-    catch (const std::exception & error) {
-      rx_valid_.store(false, std::memory_order_relaxed);
-      tools::logger()->warn("[SENTINEL] read stopped: {}", error.what());
-      return;
+    std::size_t count=0;
+    try { count=serial_.read(scratch,sizeof(scratch)); }
+    catch (const std::exception& error) {
+      rx_valid_.store(false,std::memory_order_relaxed);
+      tools::logger()->warn("[SENTINEL V2] read stopped: {}",error.what()); return;
     }
-    rx_bytes_.fetch_add(count, std::memory_order_relaxed);
-    decoder.feed(scratch, count, [this](const sentinel::Feedback& packet) {
-      const auto now_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(
-        std::chrono::steady_clock::now().time_since_epoch()).count();
+    rx_bytes_.fetch_add(count,std::memory_order_relaxed);
+    const auto now_ns=steady_ns();
+    decoder.feed(scratch,count,now_ns,[this,now_ns](const sentinel::Frame& frame) {
       {
         std::lock_guard<std::mutex> lock(sentinel_mutex_);
-        if (packet.reset_tracker && !sentinel_reset_level_) tracker_reset_.store(true);
-        sentinel_reset_level_ = packet.reset_tracker;
-        if (packet.gimbal.valid && packet.gimbal.id == 1 &&
-            (!sentinel_have_sample_ || packet.gimbal.time_ms != sentinel_last_sample_time_ms_)) {
-          sentinel_last_sample_ns_ = now_ns;
-          sentinel_last_sample_time_ms_ = packet.gimbal.time_ms;
-          sentinel_have_sample_ = true;
+        const auto generation=sentinel_state_.generation;
+        if (!sentinel_state_.apply(frame,now_ns)) return;
+        if (generation!=sentinel_state_.generation) {
+          tracker_reset_.store(true);
+          sentinel_pose_history_.reset();
         }
-        sentinel_feedback_ = packet;
+        const auto& imu=sentinel_state_.feedback.gimbal;
+        if (frame.type==sentinel::gimbal_type)
+          sentinel_pose_history_.push(imu, sentinel_state_.feedback.boot_id,
+            sentinel_state_.generation, now_ns);
+        imu_yaw_.store(imu.yaw,std::memory_order_relaxed);
+        imu_pitch_.store(imu.pitch,std::memory_order_relaxed);
       }
-      // Receiving a packet means AUTO was active when sent. This is a local
-      // inference, NOT an explicit mode/permission bit from the wire.
-      mode_.store(1, std::memory_order_relaxed);
-      imu_yaw_.store(packet.gimbal.yaw_deg * sentinel::deg_to_rad, std::memory_order_relaxed);
-      imu_pitch_.store((sentinel_swap_roll_pitch_ ? packet.gimbal.roll_deg :
-        packet.gimbal.pitch_deg) * sentinel::deg_to_rad, std::memory_order_relaxed);
-      valid_packets_.fetch_add(1, std::memory_order_relaxed);
-      last_rx_ns_.store(now_ns, std::memory_order_relaxed);
-      rx_valid_.store(true, std::memory_order_relaxed);
+      // Paired firmware emits status in every mode. Never infer AUTO from incoming bytes.
+      mode_.store((sentinel_feedback().link.state & sentinel::auto_mode) ? 1 : 0,
+                  std::memory_order_relaxed);
+      valid_packets_.fetch_add(1,std::memory_order_relaxed);
+      last_rx_ns_.store(now_ns,std::memory_order_relaxed);
+      rx_valid_.store(true,std::memory_order_relaxed);
     });
-    header_candidates_.store(decoder.headers, std::memory_order_relaxed);
-    crc_errors_.store(decoder.crc_errors, std::memory_order_relaxed);
-    field_errors_.store(decoder.field_errors, std::memory_order_relaxed);
+    header_candidates_.store(decoder.headers,std::memory_order_relaxed);
+    crc_errors_.store(decoder.crc_errors,std::memory_order_relaxed);
+    field_errors_.store(decoder.field_errors,std::memory_order_relaxed);
   }
 }
 
-void XucSender::send(const Command & cmd)
+XucSender::SendResult XucSender::send(
+  const Command & cmd, Clock::time_point fire_deadline, uint64_t expected_generation)
 {
-  if (!enabled_ || !serial_.isOpen()) return;
-  if (sentinel_) { send_sentinel(cmd); return; }
+  SendResult result;
+  if (!enabled_ || !serial_.isOpen()) { result.status=SendStatus::disabled; return result; }
+  if (sentinel_) return send_sentinel(cmd, false, fire_deadline, expected_generation);
 
   XucRxPacket pkt{};
   pkt.head[0] = 'S';
@@ -285,7 +434,8 @@ void XucSender::send(const Command & cmd)
   const bool link_ready = control_ready();
   const bool control_requested = link_ready && cmd.control;
   pkt.control = control_requested ? 1 : 0;
-  pkt.shoot = (control_requested && allow_shoot_ && cmd.shoot) ? 1 : 0;
+  result.fire_expired=cmd.shoot && fire_deadline!=Clock::time_point{} && Clock::now()>fire_deadline;
+  pkt.shoot = (control_requested && allow_shoot_ && cmd.shoot && !result.fire_expired) ? 1 : 0;
 
   double target_yaw_raw = yaw_sign_ * cmd.yaw;
   double target_pitch_raw = pitch_sign_ * cmd.pitch;
@@ -332,15 +482,18 @@ void XucSender::send(const Command & cmd)
   buf[offsetof(XucRxPacket, crc16) + 1] = static_cast<uint8_t>((crc >> 8) & 0xff);
 
   try {
-    if (pkt.shoot != 0) {
-      const auto tx_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(
-        std::chrono::steady_clock::now().time_since_epoch()).count();
-      last_shoot_tx_ns_.store(tx_ns, std::memory_order_release);
-    }
-    serial_.write(buf, sizeof(buf));
+    if (serial_.write(buf, sizeof(buf)) != sizeof(buf))
+      throw std::runtime_error("Incomplete XUC serial frame");
+    result.status=SendStatus::sent;
+    result.tx_time_ns=steady_ns();
+    result.control_sent=pkt.control!=0;
+    result.fire_sent=pkt.shoot!=0;
+    if (result.fire_sent) last_shoot_tx_ns_.store(result.tx_time_ns, std::memory_order_release);
   } catch (const std::exception & e) {
+    result.status=SendStatus::io_failed;
     tools::logger()->warn("[XUC] write failed: {}", e.what());
   }
+  return result;
 }
 
 // 接收线程：读串口字节 → 扫描 'S''P' + CRC16 校验 → 解析 TxPacket_TJ（20 字节）

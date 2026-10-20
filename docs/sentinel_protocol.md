@@ -1,81 +1,201 @@
-# Sentinel 固定帧通信
+# Sentinel V2 通信适配
 
-适配依据：[Hohokamk/Sentinel_robot b6f4697756eb8b7c61a6868e450f8d0cda2752ae](https://github.com/Hohokamk/Sentinel_robot/tree/b6f4697756eb8b7c61a6868e450f8d0cda2752ae)，核对 `STM32F405/xuc.h`、`xuc.cpp`、`RC.cpp`、`imu.cpp`、`usart.cpp` 与 `taskslist.cpp`。不自动兼容更旧的32字节版本：固定帧没有版本号，两端必须使用同一布局。
+## 2026-10-20 开火基准与现场参数
 
-正式配置：`configs/standard.yaml`，`board_protocol: SENTINEL`、`xuc_enable: true`、`xuc_serial_baud: 921600`。通过 `io::XucSender` 的 Sentinel 分支收发；原SP14/20与RMV实现仍供对应旧固件使用。
+旋转中心跟随与预测开火共用固定Yaw修正。普通旋转开火参考为“sensor基准原生预测Yaw + 跟随固定修正 - 旋转微调”；候选窗口和发送前复查使用同一参考，避免固定着弹修正在跟随中生效、在开火门禁中遗漏。Pitch像素跟随和发送前复查继续共用现有弹道补偿。
 
-## 物理连接及模式
+`sentinel_fire_min_interval_ms`当前为1000，缺省也为1000。按成功完成的串口开火请求计时，冷却发送fire=0，保持合法跟随和摩擦轮更新，不排队、不补发；这是请求限频，不是出膛计数。两条高低速延迟当前均330ms，分别由decision_speed选择，不代表真实发射延迟已标定。
 
-UART4，921600，8N1，无流控。`usart.cpp` 配置 **PA0 TX / PA1 RX / AF8**；电控文档仍写PC10/PC11，具体连接以源码与板上引出标注核对。用户已确认连接PA0/PA1对应UART4接口。本文不据此宣称线路或串口已实测通过。
+启动入口显示实际延迟、门限、落点修正与请求间隔；主程序`[CONFIG][EFFECTIVE]`和不打开设备的`--sentinel-check`提供结构化effective_settings。新诊断的delay_branch直接标识高低速参数分支，calibrated_fire_sensor_yaw_rad标识修正后的开火角；历史未校准误差须绑定当时的程序版本解释。单轮诊断保留最多12000帧。
 
-本次源码 `RC_STATE(rc.s[0],rc.s[1])`：双上=AUTO，左上右中=STOP，双中=RESET，双下=ROTATION。双上不存在左右开关映射歧义；其余左右标注沿用电控命名。上行只在AUTO发送，约10Hz。协议没有遥控档位/模式/控制许可字段；视觉端仅从新鲜上行推断发送时处于AUTO，最终接管仍由下位机判定。
+本版依据用户提供的 `Sentinel_robot-main (2).zip`（2026-10-15）。源码唯一保存在 `firmware/sentry`，视觉唯一配置为 `configs/standard.yaml`。ZIP SHA256：`c93e6e85afa33fbc012e00c91d255332c33f03d02258b0348b6a510e4ff283a0`。
 
-`RC::OnPC` 每5ms执行：`mark_pitch += 0.5*pitch_diff`，大Y的6020位置目标累加 `0.5*yaw_diff*8192/(2π)`，死区0.3°；同一误差在新帧到来前会重复使用。这里的误差量不能填成绝对目标角。下位机约250ms无新控制帧后停止视觉摩擦轮/开火/导航。
+当前 `board_protocol: SENTINEL` 表示 **V2 A6 6A**，不再接收旧64/40字节 Sentinel 固定帧；旧SP、RMV分别保留给其对应硬件，不能向本固件使用。附件中的旧说明只作参考，字段以实际解析代码为准。2026-10-15的通信适配阶段曾通过ATK/COM7烧录及全1MiB读回核对，并部署到小电脑/home/rcsdart/rm27；该阶段的8秒只读探针解析1200帧、CRC/字段错误0、发送0字节，两路IMU时间推进。这些历史结果对应当时的源码与镜像；当前源码中的四元数姿态修正，其部署和实车闭环状态由对应烧录、验收记录另行确认。
 
-## 上行：64字节
+## 通信与职责
 
-| 偏移 | 字段 | 类型及单位 |
+UART4 配置为921600、8N1、无流控。**实际 GPIO 为 PA0 TX / PA1 RX / AF8**（`usart.cpp`），附件文字中的PC10/PC11与代码不符；断电后结合板卡标注核对实际引出和转接器电平。
+
+固件双上=AUTO，左上右中=STOP，双中=RESET，双下=ROTATION。双下不能作为停机档。运行版在所有档位持续上报，DecodeTask名义5ms、每4轮上报一组，约50Hz；这不是实测控制频率。三帧一组106字节，921600/8N1理论线时约1.15ms。
+
+上位机负责识别/跟踪、目标角与坐标转换、封包和新鲜度检查；电控负责参考校验、目标重建、云台闭环、限位、模式与发射最终许可。当前0x10实际驱动小Yaw和Pitch，尚无大小Yaw自动分配。本适配不发送0x11导航；原固件独立导航开关保持1，不能由“自瞄关闭”推断底盘所有来源均被禁用。
+
+## 帧格式
+
+所有多字节值小端，无结构体填充：
+
+| 帧内偏移 | 字段 | 长度 |
+|---:|---|---:|
+| 0 | magic=A6 6A | 2 |
+| 2 | version=02 | 1 |
+| 3 | type | 1 |
+| 4 | payload_len=N | 2 |
+| 6 | sequence，每类型独立递增并按uint16回绕 | 2 |
+| 8 | MCU boot_id，上位机下行原样回填 | 4 |
+| 12 | payload | N |
+| 12+N | CRC16，低字节先发 | 2 |
+
+总长14+N，负载上限128。CRC反射多项式0x8408、初值FFFF、无最终异或，覆盖帧头和负载；`123456789`校验值6F91。可复用旧SP CRC，不能复用RMV CRC。
+
+| type | 方向 | 负载/整帧 | 用途 |
+|---|---|---|---|
+| 01 | MCU→PC | 32/46 | 云台IMU |
+| 02 | MCU→PC | 20/34 | 底盘IMU，无gyro |
+| 81 | MCU→PC | 12/26 | 链路状态、接受序号、拒绝原因 |
+| 10 | PC→MCU | 24/38 | 自瞄，本适配发送的唯一类型 |
+| 11 | PC→MCU | 24/38 | 导航，本适配不发送 |
+
+接收器按字节流处理半帧、粘包、CRC错误与噪声；候选半帧100ms超时后重新找头。合法未知类型整帧跳过。有效字段包含NaN/Inf、未知IMU标志或错误已知类型长度会拒绝。保留缓冲有界。
+
+## 上行负载
+
+01：id@0/u8、flags@1/u8、epoch@2/u16、time_us@4/u32、roll/pitch/yaw@8/12/16/f32、gyro_xyz@20/24/28/f32。
+
+02：前20字节布局相同，不含gyro，bit1必须0。角度rad，gyro为传感器本体系rad/s，不能视为欧拉角导数。
+
+### CH010/HI226 姿态语义（2026-10-16 源码修正）
+
+当前 `IMU::GetAngle*`、电控云台闭环及01/02上行的roll/pitch/yaw，统一使用**由传感器WXYZ四元数归一化后提取的常规ZYX欧拉角**，对应机体系到导航系的旋转 `R = Rz(yaw) Ry(pitch) Rx(roll)`。此处只统一姿态表示，不改变物理安装或坐标标定。
+
+厂家0x91载荷中，偏移48/52/56仍是原生roll/pitch/yaw；默认ENU/312约定的roll绕Y、pitch绕X，与常规ZYX的角名称语义不同。原生字段保存在 `GetDeviceEuler()`，只供诊断；控制与上行不直接使用这些原生标签。偏移60/64/68/72的四元数顺序为WXYZ、表示机体到导航系旋转。见[厂家字段定义](https://github.com/hipnuc/products/blob/2676ffb1214fc5eb80e1410c5b217adda1569035/c/hipnuc/hipnuc_dec.h#L61-L75)、[厂家旧版手册第21、50、51页](https://download.hipnuc.com/legacy/imu_cum_cn_150_170.pdf)。
+
+- CH010和HI226共同要求一个完整、单独的76字节HI91载荷，整帧82字节；短载荷、混合多个子包的载荷或其他长度不进入此姿态分支。
+- 四元数须全部有限且模长平方位于 `[0.98, 1.02]`，随后归一化；异常四元数不提交姿态、设备时间、epoch、有效样本数或新鲜到达时刻。重复设备时间同样不刷新。
+- gyro继续使用厂家偏移24/28/32的XYZ本体系角速度，接收端deg/s、上行rad/s；不随欧拉角标签交换轴、翻转符号或改成欧拉角导数。旧IMU601分支保持其原有语义。
+- 安装旋转、手眼外参、云台电机方向及PID稳定性仍需各自证据。此次姿态表示修正不意味着这些项目已验证，认证标志也不因此置位。
+
+日志解释须绑定固件版本：四元数修正前的现场记录中，探针 `raw_rpy_deg` 是旧MCU转发的厂家原生角；采用修正源码的固件输出后，同名字段表示MCU归一化后的ZYX角。此处“raw”仅指探针收到的上行字段，不能据此判定它仍是厂家原生312。旧记录缺少WXYZ时，不能宣称已从这些记录验证实机四元数。
+
+flags：bit0姿态有效、bit1角速度有效、bit2样本时刻已验证、bit3轴向已验证。姿态、链路、时间和控制许可独立：只收到CRC正确帧不代表可控制。
+
+81：host_session@0/u32（0）、aim_last_seq@4/u16、state@6/u8、last_reject@7/u8、aim_age_ms@8/u16、reserved@10/u16。state：01会话、02自瞄新鲜、04云台许可、08摩擦轮许可、10开火许可、20导航新鲜、40导航许可、80物理AUTO许可（本配对版本扩展）；会话首版不实现。age=FFFF表示无有效参考。
+
+拒绝原因：0正常、1boot不符、3参考不符、4过期、5数值/标志非法、6本地不允许、8重复/旧序号、9本地源故障。`aim_last_seq`表示解析侧已记入该序号，不代表云台已到位或弹丸已发出。
+
+本次修复后，time_us来自**对应IMU完整有效报文的MCU UART接收时刻**，云台UART2、底盘UART5分别保存，字节/长度/ISR时刻在同一临界区取出。它不是传感器真实采样时刻，也未获得误差≤2ms的实测证明，因此SAMPLE_VALID默认仍0。设备时间重复不刷新样本到达时刻；设备重启使epoch变化，正常uint32回绕不会误当重启。
+
+V2没有颜色、裁判弹速、摩擦轮转速、拨弹完成和出膛事件。颜色使用配置；旧拨弹字段复用、反馈ACK门禁和延迟自适应不进入此后端。既有弹速、外参和延迟仅保留为配置，未重新测量。
+
+## 0x10负载：以HandleAim实际偏移为准
+
+| 负载偏移 | 类型 | 字段 |
 |---:|---|---|
-| 0 | header=0x5A | uint8 |
-| 1 | detect_color bit0、reset_tracker bit1、reserved bit2–7 | 0红/1蓝；当前reserved=15 |
-| 2 | rsv0 | 2字节 |
-| 4 / 8 / 12 | p_roll / p_pitch / p_yaw | float32，度 |
-| 16 / 20 / 24 | p_gx / p_gy / p_gz | float32，度/秒 |
-| 28 | p_time | uint32，IMU自身采样时间，毫秒 |
-| 32 / 33 | p_id / p_valid | uint8；云台身份1，有效0/1 |
-| 34 | rsv1 | 2字节 |
-| 36 / 40 / 44 | c_roll / c_pitch / c_yaw | float32，度 |
-| 48 | c_time | uint32，底盘IMU自身采样时间，毫秒 |
-| 52 / 53 | c_id / c_valid | uint8；底盘身份2，有效0/1 |
-| 54 | rsv2 | 2字节 |
-| 56 / 58 | rx_total / rx_count | uint16，总接收/校验通过计数；会回绕 |
-| 60 | rsv3 | 2字节 |
-| 62 | CRC16 | uint16，小端，覆盖0–61 |
+| 0 | u32 | host_session=0 |
+| 4 | u16 | ref_epoch |
+| 6 | u16 | ref_seq，引用01帧序号 |
+| 8 | u32 | ref_time_us，原样回填该01帧时间 |
+| 12 | u16 | valid_for_ms，1..150，默认100 |
+| 14 | u8 | flags：01控制、02目标有效、04摩擦轮、08开火 |
+| 15 | u8 | reserved=0 |
+| 16 | f32 | yaw_error，rad |
+| 20 | f32 | pitch_error，rad |
 
-两块IMU的毫秒时间戳不等于Linux时钟，也没有证据表明两块IMU时钟同步。接收函数保留原始时间、身份及有效标志，不用主机接收时间冒充采样时间。底盘角速度、关节编码器/电机速度、弹速、轮速、发射许可、拨弹状态、出膛事件均未包含在此协议里；`rx_count`也不代表开火接受或弹丸数量。
+附件`docs_通信协议.md`的0x10/0x11偏移表与实际代码不一致，不能按那张表封包。所有偏移从payload首字节计算，不是整帧偏移。
 
-`io/sentinel/protocol.hpp` 用显式偏移和小端读写，不依赖PC结构体或编译器位域布局。流式解析支持半帧、粘包、噪声及CRC错误后的重新找帧；保留缓冲有界。有效IMU块含NaN/Inf会拒绝；无效IMU块的原始垃圾值不用于控制，但不妨碍确认串口链路。
+上位机先用既有IMU符号、零偏映射的逆变换，把绝对目标还原到参考反馈同一基准，再计算 `yaw_error=wrap_pi(target_feedback_yaw-ref.yaw)`、`pitch_error=target_feedback_pitch-ref.pitch`。当前参考反馈是上述四元数导出的ZYX角；代码中的raw命名也须按此反馈基准理解。电控仅在新命令通过时重建 `ref+error`，随后用当前IMU闭环，不重复积分串口误差。不启用旧roll/pitch交换补丁；完整安装旋转、手眼变换和电机方向是否匹配，仍须分别核验。
 
-`sentinel_feedback()`提供双IMU原始数据；`imu_angles_rad()`和`gimbal_gyro_rad_s()`提供转换后的姿态/云台角速度。控制需要新鲜链路、`p_id=1`、`p_valid=1`及持续推进的`p_time`；链路或采样时间超过250ms即失效。底盘有效性独立保留，不伪造底盘速度。
+上位机在同一锁内取参考姿态、epoch、seq、time、boot，禁止用计算时刻的姿态替换已引用样本。下行sequence与ref_seq不同；新进程由81的aim_last_seq+1恢复，避免从0重启被判旧包。MCU重启/epoch变化会清跟踪状态；延迟到达的近期旧boot帧不能把当前身份切回去。
 
-源码将HI91官方roll/pitch以及gx/gy的偏移互换。默认 `sentinel_swap_roll_pitch: true` 按官方字段恢复逻辑轴，原始值始终保留；它不能代替实际安装旋转矩阵。`xuc_imu_*_sign/offset`用于逻辑角映射，方向及既有手眼标定与当前IMU的对应关系仍需单轴只读检查。原版`imu.cpp`的 `rxData[3] << 8 + rxData[2]` 等CRC长度/校验组装还有优先级问题；若`p_valid`持续0，应由电控修复源数据，不放宽视觉门禁。
+flags=0且误差0为显式撤销视觉跟踪/摩擦轮/自动拨弹，电控不要求有效IMU参考；上位机正常丢目标时使用独立摩擦轮心跳维持五秒。上位机在正常检测丢失的5秒内持续更新仅摩擦轮心跳；保持到期且无角度输出、失效或退出时尽力发送显式撤销，绕过普通发送节流。不能把零误差但CONTROL_ENABLE=1当撤销。正常命令最多50Hz，只发送当前目标，不排队回放；短写/写异常后本进程锁定输出，依赖电控租期撤销，需重启程序复核。
 
-颜色默认跟随 `detect_color`；重置位的上升沿重置跟踪。桌面显式选择红/蓝会在运行缓存中关闭电控颜色覆盖，不修改正式配置；无人值守启动沿用正式配置的电控颜色策略。
+## 必须留在电控的修复
 
-## 下行：40字节
+相对用户提供ZIP，通信、源有效性及姿态表示的必要修正包括：
 
-| 偏移 | 字段 | 类型及单位 / 视觉填法 |
-|---:|---|---|
-| 0 | header=0xA5 | uint8 |
-| 1 / 5 | pitch / yaw | float32，度；当前逻辑姿态 |
-| 9 / 13 | yaw_diff / pitch_diff | float32，度；目标减当前，yaw取最短转角 |
-| 17 | distance | float32，米；有效视觉测距或0 |
-| 21 | fireadvice bit0 | uint8；0/1开火电平 |
-| 22 | 保留 | 3字节，0 |
-| 25 | v_y | float32，0；当前不发送速度前馈 |
-| 29 | 保留 | 1字节，0 |
-| 30 / 34 | speed_x / speed_y | float32，米/秒；当前视觉无导航命令，均0 |
-| 38 | CRC16 | uint16，小端，覆盖0–37 |
+- UART快照原子取出数据与长度/到达时刻，接收缓存100→320，以容纳最大142字节V2帧。
+- IMU接收时刻与各自样本绑定；真实长度和CRC检查；重复设备时间不刷鲜，设备重启更新epoch。
+- CH010/HI226从完整HI91的WXYZ归一化提取ZYX，避免把厂家原生312角直接按ZYX重建；原生欧拉角只保留诊断，gyroXYZ不变，异常四元数不刷新时间或样本。
+- 引用缓存取自真正提交发送的帧；DMA繁忙时不改写在途发送缓冲。
+- boot_id改用F405硬件RNG，失败上报0并禁止命令；不再用确定性的tick+地址伪装跨启动身份。
+- `xuc::WrapPi`修为`XUC::WrapPi`，角度归一化改为有界计算并拒绝超出±pi的误差，避免大有限数导致循环不终止；参考源、目标有效、当前IMU/epoch、AUTO及验证位都参与许可。
+- 超时/失效清摩擦轮与自动拨弹；正常检测丢失的5秒由上位机持续更新仅摩擦轮心跳保持，STOP/RESET或遥控失联停轮。开火仍要求新鲜有效目标和上位机摩擦轮/开火许可。
+- 修复aim_fresh状态在指令过期后仍保持的问题；命令解析结果原子提交给控制任务。
+- 实机启动阶段发现TIM2分频影子寄存器未加载，计数快84倍；在启动CEN前生成EGR.UG并清标志/计数，确保指令租约使用真正的微秒计数。
 
-先通过IMU映射的逆变换将算法目标角还原到反馈的同一坐标，再计算误差；内部算法仍用弧度。旧SP的 `xuc_yaw_sign` / `xuc_pitch_sign` 不用于此分支，不混用两套转换。所有保留字段清零，40字节一次写入，最多 `sentinel_tx_hz=100`，低于固件队列/5ms解码约200Hz上限；没有导航意图时不发送运动速度。
+运行版按用户明确授权沿用既有调试参数：主控`XUC_ALLOW_CONTROL=1`、`XUC_REQUIRE_VERIFIED_POSE=0`，视觉`sentinel_require_verified_pose=false`；控制、摩擦轮、自动开火开关均开启。认证宏`XUC_SAMPLE_TIME_VERIFIED=0`、`XUC_AXES_VERIFIED=0`保留，表示没有在本次通信切换中重新测量；兼容策略不会伪造测量标志。可切回严格模式要求认证位。
 
-当前保持 `xuc_allow_control: false`、`xuc_allow_shoot: false`、`auto_fire: false`，只接收。接通串口不会发送零帧或心跳：**AUTO中任何合法控制帧即使fire=0，也会启动摩擦轮**。以后开启控制时，无目标/无效姿态发送一次零误差、不开火的撤销帧，随后停止发送，等固件超时；正常退出亦尽力撤销。其停止摩擦轮不能由视觉单独即时确认。
+STOP也持续上传，主控启动默认STOP；遥控丢帧超过100ms强制STOP，离开AUTO撤销瞄准、导航和自动发射。上位机以state.bit7判断AUTO，不能凭收到姿态推断档位；从STOP进入AUTO需新的有效命令。无需重新标定才能启动。双上在识别/对准条件满足时会允许自动发射，STOP立即撤权。
 
-开启发射后，固定靶稳定资格按电控要求输出电平；固件在上升沿尝试单发，持续300ms后进入约125ms调度的连发。旋转事件仍按预测窗口产生资格。该协议无单发ID/ACK/轮速反馈，不能沿用RMV的有界20发及掉速延迟测量工具，也不能把持续fire=1当作一次可靠单发。旧拨弹反馈复用、ACK门禁、延迟自适应和针对旧内环的外层PI在Sentinel分支停用；既有弹道/时延参数仍只是初值，未重新标定。
+## 构建和验收
 
-## 构建与只读核对
+Windows离线：`py -3 scripts/check_offline.py --with-vision`（沿用已安装依赖，见offline_development.md）。CMake离线目标包含真实主控xuc.cpp/CRC.cpp和提取的实际RC::ApplyAim，分别验证关闭、严格模式未验证、模拟验证通过和沿用既有标定四种编译组合；物理STOP/遥控失联即使持续收到视觉命令也会撤权。另有实际CH010解析器回归；替身仅覆盖硬件/时钟/RTOS，不启动机器人。
 
-在小电脑恢复连接并完成部署后，由用户执行：
+固件使用提供ZIP的HAL/CMSIS/FreeRTOS源码和链接脚本：
 
-```bash
-cd /home/rcsdart/rm27
-bash scripts/build.sh standard xuc_board_probe
-source scripts/runtime_env.sh
+```sh
+cmake -S firmware/sentry -B firmware/sentry/build -G Ninja -DCMAKE_TOOLCHAIN_FILE=cmake/arm-none-eabi-toolchain.cmake -DCMAKE_BUILD_TYPE=Debug
+cmake --build firmware/sentry/build
+```
+
+输出`firmware/sentry/build/STM32F405.elf`及`.bin`，不提交构建产物。需要向电控交付最小补丁时，用`scripts/export_sentinel_patch.py`从原ZIP导出到build/；补丁按原ZIP的`Sentinel_robot-main/`为根应用。烧录入口scripts/flash_sentinel.py校验UID、镜像、实际STOP/RESET、全Flash读回及未覆盖区；不会自动开始动作测试。
+
+小电脑完成用户安排的部署后，先检查配置，再只读接收：
+
+```sh
 ./build/standard configs/standard.yaml --sentinel-check
-# 将遥控器切双上后，只读接收；此工具发送0字节。
 ./build/xuc_board_probe /dev/serial/by-id/usb-1a86_USB_Serial-if00-port0 921600 8 --sentinel
 ```
 
-`--sentinel-check`只查配置，不打开设备；探针分别打印link、pose、原始双IMU字段和收包计数。link=1说明64字节CRC有效上行；pose=1还需有效IMU及推进的时间戳。检查完使用新版STOP档或双中RESET。旧 `configs/calibration.yaml` 的RMV标定流程保留，不能直接向此固件使用。
+前者不打开设备，后者发送0字节。由用户切AUTO并负责现场操作，结束使用本版STOP/RESET。依次确认boot非0、三类型帧稳定、IMU有效/时间推进、单轴方向及角度量级；再做时间与图像对齐、单轴限幅跟随。读通串口、离线测试通过都不能证明外参、时间误差、PID稳定性或命中率。
 
-离线验证：ARM GCC直接提取原始TxPacket做64字节/字段偏移断言；独立Python字节向量交叉核对CRC与字段；Linux私有PTY运行真实XucSender，覆盖只读零输出、拆包、错误帧、角度/角速度转换、±180°回绕、无效位/错身份/时间戳冻结、撤销及恢复。虚拟测试不启动物理机器人；实际在车固件、线路与姿态安装未被这些测试认证。
+当前旧RMV/原始IMU标定工具保留供兼容流使用，不能直接用它向本V2固件采集；通用原始传感器解码头已移到calibration/raw_imu_packet.hpp，避免依赖已替换的旧哨兵固件。
+
+## 2026-10-15 只读版历史部署结果
+
+主控UID `1b0037000647353330303436`，镜像SHA256 `4ae450781650991ab2db1042e249df7560cce1819ccd3135fdb570fde1d02396`，67472字节。首次写入结束后无线调试器在读回阶段超时；没有再次擦写，降到250kHz、禁用延迟传输、256字节分块后，全1MiB读取与“新镜像+原其余字节”逐字节一致，并已复位。恢复数据与结果在 `data/flash/20261015_223349`、`data/flash/20261015_223733`。
+
+复位后只读SWD检查：内核运行、RTOS时间推进、随机boot非0、两路CH010均82字节帧、CRC/长度错误0、独立接收时间持续更新。小电脑真实XucSender探针在8秒内收到1200帧，`link=1 pose=1`，CRC/字段错误0；该pose仅表示有效姿态和时间推进，不表示轴向/采样精度已通过。发送0字节，主控aim_accepted/control均0。
+
+遥控链路后续已核实：用户打开遥控并置STOP后，三次只读SWD模式均9=STOP，接收帧20704→20853，长度18、拨杆[1,3]。此前“未收到遥控”状态已解除。用户随后要求直接恢复运行版；本次继续沿用已有参数，不重做从零标定。
+
+小电脑已保存部署前未提交源码到Git stash `8a4cadc67f403f762151e9611e35238bcbe62d70`，主目录唯一工程仍为 `/home/rcsdart/rm27`；模型/SDK库/采集记录保留。`scripts/check_deployment.py`通过，库/资源及GTK3界面后端检查正常、串口与海康设备存在；主程序静态声明为SENTINEL_V2。桌面启动器私有假设备测试通过；真实自瞄没有启动。旧RMV标定姿态接收器与V2不兼容的警告继续保留，未将其标为可用。
+
+实机证据：`logs/deployment/sentinel-v2-live-summary.json`、`sentinel-v2-postflash-readonly.json`、`sentinel-v2-runtime-check.json`、`sentinel-v2-launcher-check.log`。
+
+## 2026-10-15 运行版交付（历史）
+
+2026-10-15 运行版已交付：用户明确要求沿用已有调试参数，直接启用完整控制/发射。主控XUC_ALLOW_CONTROL=1、XUC_REQUIRE_VERIFIED_POSE=0；视觉控制、摩擦轮、自动开火均开启，认证测量位保持0，通过明确的兼容策略使用既有标定，不伪造新测量。双上AUTO接管、左上右中STOP，遥控丢帧超过100ms进入STOP并撤销视觉/导航/发射；重启默认STOP。STOP仍以50Hz上传，状态bit7明确报告物理AUTO，支持先启动视觉再拨档。
+
+固件67808字节、SHA256 `1dacb8c6cc4d01eb05f2c1a3ba5fb4d7d79b9e7762688499e09d44c19932b404`，ATK/COM7写入、全1MiB读回一致，镜像外全部Flash保持原样并已复位。发现并修复TIM2启动阶段未加载PSC影子分频器导致84倍计数的问题；复位后12.77–14.91秒内实测每RTOS毫秒约999.736微秒，IMU到达时间同步推进，未把UART到达时间等同传感器采样时刻。三次实际模式均9=STOP、遥控帧914→1067、18字节、拨杆[1,3]；两路IMU CRC/长度错误0、内核RUNNING。
+
+小电脑/home/rcsdart/rm27已同步运行版并重新编译standard/capture/xuc_board_probe，主程序SHA256 `d3fa3f506bb3a9239fc24efd14211f482792b5b57697cf7d7c998c81a2f23e48`。静态/运行库/资源检查及8组启动器私有检查通过，自动登录与现有开机启动入口均启用，未执行整机重启验证。Windows37项回归、Linux7项Sentinel回归（含5种真实收发器PTY配置）通过；8秒STOP只读实机探针接收1204有效帧、1次CRC异常被丢弃、0字段错误，发送0字节。实际链路不声明零错误。没有由代理启动真实自瞄、相机、动作或发射，实车跟踪/命中效果由用户测试。
+
+当前所给Sentinel固件的0x10执行小Yaw和Pitch；旧RMV三轴轨迹接口不包含在该V2报文中。电机映射、PID、机械参数和视觉既有调参保持本轮导入的当前代码/配置。最新证据：`logs/sentinel-v2-validation.json`、`logs/deployment/sentinel-v2-operational-postflash.json`、`logs/deployment/sentinel-v2-operational-runtime-check.json`、`logs/deployment/sentinel-v2-operational-live-summary.json`、`data/flash/20261015_232721/result.json`。
+
+
+## 2026-10-15 AUTO 6500rpm预转（历史，后由检测策略替代）
+
+2026-10-15该阶段的AUTO预转更新：按用户要求，双上AUTO由主控持续给定摩擦轮电机目标6500rpm（左右正负相反），不依赖视觉启动、目标存在、IMU有效、AIM租约或视觉显式停止命令。STOP/RESET和遥控失联仍停轮；原手动FIRE档行为保留，共用6500rpm目标。自动拨弹仍需新鲜有效AIM、目标/摩擦轮/开火许可及原转速到位门槛，不会仅因预转而开火。LINK_STATUS摩擦轮许可当时改由本地AUTO决定，视觉参数不变。
+
+固件SHA256 `b1a8143f6285c3f8fe4bce8769e1376d5be701dd3bf10dffc177b361fa95a40f`，67808字节；COM7已烧录、全1MiB读回一致、镜像外Flash完全保留并复位。4组真实主控代码离线回归通过，覆盖无主机/丢目标/无效IMU/租约过期/视觉撤销继续预转、STOP/遥控失联停轮及只读构建关闭。复位后三次只读均读到设定6500、实际STOP=9、拨杆[1,3]、两轮速度给定0、自动开火0，遥控和两路IMU继续收包、IMU CRC/长度错误0；TIM2约1000.101us/RTOS毫秒。没有由代理拨入AUTO或试转/发射，6500为电机目标值，不作为已测实际轮速。
+
+小电脑rm27已同步当前固件源码、测试、配置注释和说明；视觉执行文件无需重编译，原参数及启动入口不变。证据：`logs/sentinel-v2-prespin-tests.log`、`logs/deployment/sentinel-v2-prespin-postflash.json`、`data/flash/20261015_234205/result.json`。下面运行版交付记录为前一阶段历史，摩擦轮依赖AIM的旧行为由本条取代。
+
+
+## 2026-10-16 检测触发、丢失五秒停轮
+
+当前摩擦轮策略为检测触发：仅在AUTO且链路/姿态/引用有效时，当前画面出现敌方颜色装甲板就请求6500rpm电机目标；连续没有实际检测满5000ms停轮，重新检测重新计时。跟踪器预测不刷新此计时。五秒保持仅针对正常图像的目标丢失；STOP/RESET、遥控失联、姿态失效、串口停更、程序退出仍撤销摩擦轮和自动拨弹。主控租约维持100ms，不延长为5秒；上位机在保持期间持续发送新的有效引用。
+
+无目标预转使用同一0x10帧，flags=0x05（CONTROL_EN|FRICTION_EN），TARGET_VALID/FIRE_REQ均0、yaw/pitch误差为0。该组合只允许摩擦轮，不能进入云台闭环或自动拨弹。主控FrictionReady与AimReady共享引用/epoch/新鲜度/模式验证，分别要求摩擦轮许可和目标有效。真正开火仍要求有效目标、摩擦轮/开火许可和原电机转速门槛。flags=0显式撤销现在会停轮；旧AUTO本地无条件预转已取消。上位机stop()/析构退出绕过五秒保持，断链由主控100ms租约兜底。
+
+正式配置为sentinel_friction_lost_timeout_ms: 5000，sentinel_valid_for_ms: 100，转速继续由固件shoot_speed=6500决定。没有修改导航接口、云台PID、机械范围、外参或弹道。程序需与本轮固件配对，旧固件的无条件AUTO预转不能实现五秒停轮。
+
+## 2026-10-16 检测策略实机交付结果（四元数修正前）
+
+2026-10-16 当前摩擦轮策略已更新并部署：AUTO许可下，按当前敌方颜色筛选后的真实装甲板检测触发6500rpm电机目标，连续失去实际检测满5000ms停轮；重新检测刷新计时，跟踪器预测不刷新计时。AUTO不再无条件预转。保持期间即使没有跟踪目标，也通过flags=5、零角度误差、无目标/开火位的独立心跳只维持摩擦轮；云台和自动拨弹不沿用旧许可。STOP/RESET、遥控失联、无效姿态、程序退出或通信中断仍撤权，主控100ms有效期不放宽为5秒。导航接口、云台参数、机械范围、外参及弹道不变。
+
+该阶段固件67920字节、SHA256 `c6d4d825f0a846945be7c5ff4b0ed0ae90bc91e163527e3a065875679f81bd5e`，ATK/COM7烧录、全1MiB读回通过，镜像外全部Flash保留并已复位。只读实测三次均STOP=9、拨杆[1,3]、6500设定、摩擦轮使能0、两轮速度给定0、自动拨弹0，UART1持续收包、两路IMU CRC/长度错误0，内核RUNNING。没有由代理拨入AUTO或试转/发射，实车5秒与转速表现尚未代测。
+
+Windows37项回归与Linux7项Sentinel回归通过，含6组真实XucSender私有PTY配置。新场景验证检测启动、连续丢失5秒、重新检测、显式stop/析构退出、无目标时不输出云台或开火；真实主控代码验证独立摩擦轮租约、非法无目标开火/角度拒绝、100ms超时和STOP/遥控失联。精确5秒边界与时钟倒退/复位由生产计时类直接测试。
+
+/home/rcsdart/rm27已同步并重编译standard/capture/xuc_board_probe，主程序SHA256 `ddd9261416538892dea057806bedb714b4124b6530b58e65034788207323c806`。静态元数据确认friction_policy=armor_detection_hold、friction_lost_timeout_ms=5000、friction_only_flags=5；运行库/资源/协议检查和8组启动器私有测试通过。自启动入口保持，未重启整机、未启动实车应用。证据：`logs/sentinel-v2-validation.json`、`logs/sentinel-v2-detection-friction-native.log`、`logs/sentinel-v2-detection-friction-linux.log`、`logs/deployment/sentinel-v2-detection-friction-runtime-check.json`、`logs/deployment/sentinel-v2-detection-friction-postflash.json`、`data/flash/20261016_013548/result.json`。
+
+## 2026-10-16云台修正交付
+
+当前镜像`1eebc404`（73028B）已烧录、全1MiB读回匹配；上位首次接管yaw保护已部署。厂家原生姿态改为四元数提取ZYX，STOP／失去AIM时每轴仅捕获一次位置。近水平STOP静态观察约25.9秒，目标恒定，P编码位置波动约0.022°。人工轴方向核验支持当前控制正号，自动闭环未验收，认证位保持原值。详见[完整验证记录](../logs/sentinel-v2-validation.json)。
+
+可选启动 `tools/field_start_autoaim.sh --follow-only`，仅本次运行缓存禁用`auto_fire`、`xuc_allow_shoot`及`sentinel_allow_friction`；正式配置与默认行为不改。先在STOP核对识别／姿态，实际AUTO复测由用户启动。
+
+## 启动历史缓存与序号恢复（2026-10-16）
+
+Sentinel开口先清理RX缓存。普通seq严格单调规则保持；已过期的同boot／epoch云台流，可由两条连续、源时间超过高水位且继续推进的有效样本确认重接（本地及源间隔均≤100ms）。重接增加generation并清旧02／81及发送种子，下一81重新seed。重复、冻结、倒序不刷新deadline。该机制不能认证绝对墙钟新鲜度，也不处理所有跨epoch歧义。启动器仍以有效姿态日志为成功门槛。

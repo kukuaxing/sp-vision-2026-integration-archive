@@ -20,15 +20,19 @@ public:
   explicit HikRobot(const std::string & config_path);
   ~HikRobot() override;
   void read(cv::Mat & img, std::chrono::steady_clock::time_point & timestamp) override;
+  std::uint64_t get_last_frame_id() const { return last_frame_id_; }
 
 private:
   struct CameraData
   {
     cv::Mat img;
     std::chrono::steady_clock::time_point timestamp;
+    std::uint64_t frame_id;
   };
 
   double exposure_us_;
+  double timestamp_transport_delay_us_ = 0.0;
+  std::uint64_t last_frame_id_ = 0;
   double gain_;
   double frame_rate_;
   int64_t width_;
@@ -54,6 +58,9 @@ private:
   int vid_, pid_;
 
   void capture_start();
+  bool open_camera();
+  void configure_camera();
+  void capture_loop();
   void capture_stop();
 
   bool set_float_value(const std::string & name, double value);

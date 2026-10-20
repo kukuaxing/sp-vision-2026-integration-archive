@@ -13,4 +13,4 @@
 
 - 仓库只跟踪源码、配置、构建脚本、文档及依赖清单。禁止提交固件镜像、可执行文件、SDK动态库、模型权重、日志或录像；提交前运行 `python3 scripts/check_source_tree.py`。
 
-- 2026-10-14 Sentinel通信适配以电控仓库 b6f4697 为准；该版双上=AUTO、左上右中=STOP、双中=RESET、双下=ROTATION。旧RMV双下停机的记录不适用于此版，不自动烧录旧固件。
+- 2026-10-15 Sentinel通信适配以用户提供的 Sentinel_robot-main (2).zip V2及firmware/sentry必要修复为准，旧b6f4697固定帧不再适用；该版双上=AUTO、左上右中=STOP、双中=RESET、双下=ROTATION。旧RMV双下停机的记录不适用于此版，不自动烧录旧固件。

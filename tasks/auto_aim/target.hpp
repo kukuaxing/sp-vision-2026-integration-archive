@@ -28,6 +28,13 @@ public:
     double huber_threshold = 2.5;
   };
 
+  struct CenterProcessConfig {
+    bool adaptive_enabled = false;
+    double acceleration_variance = 100.0;
+    double rotation_acceleration_variance = 10.0;
+    double rotation_rate_rad_s = 0.8;
+  };
+
   ArmorName name;
   ArmorType armor_type;
   ArmorPriority priority;
@@ -43,6 +50,14 @@ public:
     const Armor & armor, std::chrono::steady_clock::time_point t, double radius, int armor_num,
     Eigen::VectorXd P0_dig, const YawESKF::Config & yaw_eskf_config,
     const IteratedUpdateConfig & iterated_update_config);
+  Target(
+    const Armor & armor, std::chrono::steady_clock::time_point t, double radius, int armor_num,
+    Eigen::VectorXd P0_dig, const YawESKF::Config & yaw_eskf_config,
+    const IteratedUpdateConfig & iterated_update_config, const CenterProcessConfig & center_config);
+  double center_acceleration_variance() const { return center_acceleration_variance_; }
+  std::vector<Eigen::Vector4d> whole_ekf_armor_xyza_list() const {
+    return association_armor_xyza_list();
+  }
   Target(double x, double vyaw, double radius, double h);
 
   void predict(std::chrono::steady_clock::time_point t);
@@ -59,6 +74,9 @@ public:
   Eigen::VectorXd ekf_x_at(double relative_time_s) const;
   const tools::ExtendedKalmanFilter & ekf() const;
   bool yaw_eskf_trusted() const;
+  // Confidence of the coherent vehicle state, independent of a yaw splice.
+  bool whole_rotation_trusted() const;
+  bool federated_phase_consistent() const;
   double yaw_eskf_angle() const;
   double yaw_eskf_rate() const;
   double yaw_eskf_acceleration() const;
@@ -69,6 +87,9 @@ public:
   Eigen::Vector3d armor_motion_velocity(int id) const;
   double armor_motion_nis(int id) const;
   std::vector<Eigen::Vector4d> armor_xyza_list(bool prefer_direct_motion = false) const;
+  // Data association must use the same phase/geometry as the vehicle filter's
+  // measurement function, not a separately estimated yaw pasted into its mean.
+  std::vector<Eigen::Vector4d> association_armor_xyza_list() const;
   std::vector<Eigen::Vector4d> armor_xyza_list_at(
     double relative_time_s, bool prefer_direct_motion = false) const;
   int armor_num() const;
@@ -92,6 +113,8 @@ private:
   YawESKF yaw_eskf_;
   std::array<ArmorMotionFilter, 4> armor_motion_filters_;
   IteratedUpdateConfig iterated_update_config_;
+  CenterProcessConfig center_process_config_;
+  double center_acceleration_variance_ = 100.0;
   std::chrono::steady_clock::time_point t_;
 
   void update_ypda(const Armor & armor, int id);  // yaw pitch distance angle

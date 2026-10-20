@@ -1,704 +1,313 @@
 #include "control.h"
+#ifndef SENTINEL_ACTUATOR_HOST_TEST
 #include "tim.h"
 #include "judgement.h"
-#include "DMmotor.h"
-#include "nuc.h"
-#include "RC.h"
-#include "LowPassFilter.h"
-#include "supercap.h"
-extern DMMOTOR DM_motorYaw;
-extern DMMOTOR DM_motorPitch;
-LowPassFilter yaw_rotation_speed_filter(0.8f);    // 小陀螺/RESET/SHOOT 前馈滤波器
-LowPassFilter follow_rotation_speed_filter(0.8f); // FOLLOW模式独立前馈滤波器，防止与小陀螺共享状态时互相污染
+#endif
+#include "HTmotor.h"
+#include "motor.h"
 
-namespace {
-	struct FeedforwardBlendState
-	{
-		float cmd = 0.0f;
-		bool deadband_hold = true;
-	};
-
-	FeedforwardBlendState yaw_ff_state;
-	FeedforwardBlendState follow_ff_state;
-
-	static inline float BlendFeedforwardWithHysteresis(
-		float raw_ff,
-		float avg_rpm,
-		float enter_deadband_rpm,
-		float exit_deadband_rpm,
-		float blend_alpha,
-		FeedforwardBlendState& state)
-	{
-		const float abs_rpm = std::abs(avg_rpm);
-
-		if (state.deadband_hold)
-		{
-			if (abs_rpm > exit_deadband_rpm)
-			{
-				state.deadband_hold = false;
-			}
-		}
-		else
-		{
-			if (abs_rpm < enter_deadband_rpm)
-			{
-				state.deadband_hold = true;
-			}
-		}
-
-		float target_ff = state.deadband_hold ? 0.0f : raw_ff;
-		state.cmd = blend_alpha * target_ff + (1.0f - blend_alpha) * state.cmd;
-		return state.cmd;
-	}
-}
-
-void CONTROL::Init(std::vector<Motor*> motor)
+void CONTROL::init_dm()//达妙单独初始化
 {
-	int num1{}, num2{}, num3{}, num4{};
+	DMmotor[0].setPos = para.dm_initial_pitch;   // Pitch：P_S 模式，setPos 有效
+	DMmotor[1].setSpeed = para.dm_initial_yaw;                  // Yaw：SPEED 模式，只有 setSpeed 有效
+	init_DM = 1;                                 // 标志置位，表示已初始化
+}
+void CONTROL::Init(std::vector<Motor*> motor)//普通电机初始化
+{
 	for (int i = 0; i < motor.size(); i++)
+		//新增了容量检查，因为每个类型的电机的内存是连续的，
+		//所以如果不小心多了电机可能会有覆盖问题
 	{
 		switch (motor[i]->function)
 		{
 		case(function_type::chassis):
-			chassis_motor[num1++] = motor[i];
+			if (chassis_num < CHASSIS_MOTOR_NUM) chassis_motor[chassis_num++] = motor[i];
 			break;
 		case(function_type::pantile):
-			pantile_motor[num2++] = motor[i];
+			if (pantile_num < PANTILE_MOTOR_NUM) {
+				pantile_motor[motor[i]->ID == ID5 ? PANTILE::TYPE::YAW
+					: PANTILE::TYPE::PITCH] = motor[i];
+				++pantile_num;
+			}
 			break;
 		case(function_type::shooter):
-			shooter_motor[num3++] = motor[i];
+			if (shooter_num < SHOOTER_MOTOR_NUM) shooter_motor[shooter_num++] = motor[i];
 			break;
 		case(function_type::supply):
-			supply_motor[num4]->spinning = false;
-			supply_motor[num4]->need_curcircle = false;
-			supply_motor[num4++] = motor[i];
+			if (supply_num < SUPPLY_MOTOR_NUM) {
+				supply_motor[supply_num] = motor[i];              // 先放进槽
+				supply_motor[supply_num]->spinning = false;       // 再通过指针写成员
+				supply_motor[supply_num]->need_curcircle = false;
+				++supply_num;
+			}
+			break;//就算是最后一个，也要补上break;
 		default:
 			break;
 		}
-		
 	}
-	
-	pantile_motor[PANTILE::TYPE::YAW]->setangle = para.initial_yaw;
+	if (pantile_motor[PANTILE::TYPE::PITCH]) pantile_motor[PANTILE::TYPE::PITCH]->setangle = para.initial_pitch;
+	if (pantile_motor[PANTILE::TYPE::YAW])   pantile_motor[PANTILE::TYPE::YAW]->setangle = para.initial_yaw;
+
+}
+float CONTROL::ClampAngle(float setangle, float center, float span)
+{
+	float off = (float)Motor::getdeltaa((int16_t)(setangle - center));  // 相对中点的带符号偏移
+	off = std::max(std::min(off, span), -span);                        // 钳到 ±半宽
+	setangle = center + off;
+	if (setangle < 0.f)     setangle += 8192.f;                        // 回绕归一
+	if (setangle >= 8192.f) setangle -= 8192.f;
+	return setangle;
 }
 
-void CONTROL::CHASSIS::setChassisspeed(int32_t ch_speedx_, int32_t ch_speedy_, int32_t ch_speedz_)//从遥控器获取速度函数
+void CONTROL::PANTILE::Control_Pantile(int32_t ch_dji_yaw, int32_t ch_pitch, int32_t ch_dm_yaw)
 {
- const bool bypass_power_scaling = (ctrl.mode == CONTROL::FOLLOW);
-	if (bypass_power_scaling)
+	Reset_Aim_References();
+	hold_position = false;
+	// 1. 大疆Yaw/位置累加
+	if (ctrl.pantile_motor[PANTILE::TYPE::YAW] && ctrl.pantile_motor[PANTILE::TYPE::YAW]->has_feedback)//feedback和他本身不为空
 	{
-		const float base_xy_speedmax = 5000.0f;
-		const float base_spin_speedmax = 7000.0f;
-		ctrl.chassis.speedmax = base_xy_speedmax;
-
-		ctrl.chassis.speedx = ch_speedx_ / 660.0f * ctrl.chassis.speedmax;
-		ctrl.chassis.speedy = -ch_speedy_ / 660.0f * ctrl.chassis.speedmax;
-		ctrl.chassis.speedz = ch_speedz_ / 660.0f * base_spin_speedmax;
-		return;
+		// 满杆 180°/s，5ms 周期
+		const float yaw_rate = 8192.f * 0.5f;
+		// 摇杆有推量时累加目标角度；摇杆回中(0)时目标角度自然保持不变
+		ctrl.pantile_motor[PANTILE::TYPE::YAW]->setangle += -(float)ch_dji_yaw / 660.f * yaw_rate * 0.005f;
 	}
 
-	const float fallback_power_limit = 80.0f;
-	const float nominal_power_limit = 80.0f;
-	const float min_ratio = 0.45f;
-	const float max_ratio = 2.0f;
-	const float base_xy_speedmax = 5000.0f;
-	const float base_spin_speedmax = 7000.0f;
-	const float cap_full_energy = 1764.0f;
-	const float cap_ready_energy = 600.0f;
+	// 2. 达妙 Pitch 轴（位置模式）
+	mark_pitch += -(float)ch_pitch / 660.f * (PI * 0.5f) * 0.005f;
 
-	float ref_power_limit = (judgement.data.robot_status_t.chassis_power_limit > 10)
-		? (float)judgement.data.robot_status_t.chassis_power_limit
-		: fallback_power_limit;
-	float power_ratio = ref_power_limit / nominal_power_limit;
-	power_ratio = fminf(fmaxf(power_ratio, min_ratio), max_ratio);
-	float cap_energy_ratio = 0.0f;
-	if (supercap.connect) {
-		cap_energy_ratio = (supercap.Rxsuper.cap_energy - cap_ready_energy) /
-			(cap_full_energy - cap_ready_energy);
-		cap_energy_ratio = fminf(fmaxf(cap_energy_ratio, 0.0f), 1.0f);
-	}
+	// 3. 达妙 Yaw 轴（纯速度模式）
+	// 速度模式：摇杆推多少就给多大角速度，传 0 就立刻刹停
+	const float max_dm_speed = PI; // 最大 180°/s
+	yaw_speed_out = (float)ch_dm_yaw / 660.f * max_dm_speed;
 
-	const float scaled_xy_speedmax = base_xy_speedmax * sqrtf(power_ratio);
-	const float spin_energy_factor = 1.00f + 0.20f * cap_energy_ratio;
-	const float scaled_spin_speedmax =
-		base_spin_speedmax * sqrtf(power_ratio) * spin_energy_factor;
-	ctrl.chassis.speedmax = scaled_xy_speedmax;
-	if (!((rc.rc.s[0] == rc.DOWN && rc.rc.s[1] == rc.MID)))
-	{
-		ctrl.chassis.speedx = ch_speedx_ / 660.0f * ctrl.chassis.speedmax;
-		ctrl.chassis.speedy = -ch_speedy_ / 660.0f * ctrl.chassis.speedmax;
-	}
-	ctrl.chassis.speedz = ch_speedz_ / 660.0f * scaled_spin_speedmax;
-}
-
-void CONTROL::CHASSIS::speedCalculate(int32_t speedx_, int32_t speedy_, int32_t speedz_)//速度解算并设定函数
-{
-	constexpr float wheel_speed_cap = 9000.0f;
-	auto clamp_speed = [](float target) {
-		return fminf(fmaxf(target, -wheel_speed_cap), wheel_speed_cap);
-	};
-	const uint32_t ramp_slope =
-		(std::abs(static_cast<float>(speedz_)) >
-		 (std::abs(static_cast<float>(speedx_)) + std::abs(static_cast<float>(speedy_))))
-		? 190U
-		: 150U;
-
-	float target0 = clamp_speed(-speedy_ * 0.707f - speedx_ * 0.707f + speedz_);
-	float target1 = clamp_speed(-speedy_ * 0.707f + speedx_ * 0.707f + speedz_);
-	float target2 = clamp_speed(speedy_ * 0.707f + speedx_ * 0.707f + speedz_);
-	float target3 = clamp_speed(speedy_ * 0.707f - speedx_ * 0.707f + speedz_);
-
-	ctrl.chassis_motor[0]->setspeed = Ramp(target0, ctrl.chassis_motor[0]->setspeed, ramp_slope);
-	ctrl.chassis_motor[1]->setspeed = Ramp(target1, ctrl.chassis_motor[1]->setspeed, ramp_slope);
-	ctrl.chassis_motor[2]->setspeed = Ramp(target2, ctrl.chassis_motor[2]->setspeed, ramp_slope);
-	ctrl.chassis_motor[3]->setspeed = Ramp(target3, ctrl.chassis_motor[3]->setspeed, ramp_slope);
 
 }
 
-void CONTROL::Control_Pantile(int32_t ch_yaw, int32_t ch_pitch,int32_t ch_YAW)
+void CONTROL::PANTILE::Hold_Pantile()
 {
-	ch_pitch *= (-1.f);
-	ch_yaw *= (-1.f);
-	ch_YAW *= (-1.f);//方向相反修改这里正负
-	ctrl.pantile.mark_yaw += ctrl.pantile.sensitivity[0] * ch_yaw / 660.f;
-	DM_motorYaw.set_yaw_pos += ctrl.pantile.sensitivity[1]* ctrl.pantile.sensitivity[1] * ch_YAW / 660.f;
-	DM_motorPitch.set_pitch_pos += ctrl.pantile.sensitivity[2] * ch_pitch / 660.0f;
-
-	
-}
-
-//
-//void CONTROL::PANTILE::Keep_Pantile(float angleKeep, PANTILE::TYPE type, IMU frameOfReference)
-//{
-//	if (type == ctrl.pantile.L_YAW) {
-//		float delta = 0, adjust = sensitivity[1];
-//		delta = degreeToRadian(ctrl.GetDelta(angleKeep - frameOfReference.GetAngleYaw()));
-//		if (delta <= -3.14f)
-//			delta += 2 * 3.14f;
-//		else if (delta >= 3.14f)
-//			delta -= 2 * 3.14f;
-//		DM_motorYaw.set_speed = ctrl.pantile.keep_PID.Position(delta, 100.f);
-//	}
-//}
-
-void CONTROL::PANTILE::Keep_Pantile(float angleKeep, PANTILE::TYPE type, IMU frameOfReference)
-{
-	if (type == ctrl.pantile.L_YAW) {
-		
-		const float wheel_radius = 0.076f;      // m
-		const float chassis_radius = 0.25f;     // m
-		const float gear_ratio = 19.2f;
-		
-
-		// 1. 角度误差
-		float delta = degreeToRadian(ctrl.GetDelta(angleKeep - frameOfReference.GetAngleYaw()));
-
-		// 2. 归一化到 (-PI, PI)
-		if (delta <= -PI)
-			delta += 2.0f * PI;
-		else if (delta >= PI)
-			delta -= 2.0f * PI;
-
-		// 3. PID 输出（rad/s）
-		float pid_output = ctrl.pantile.keep_PID.Position(delta, 100.0f);
-
-		// 4. 底盘平均电机转速（rpm）
-		avg_rpm =
-			(ctrl.chassis_motor[0]->curspeed +
-				ctrl.chassis_motor[1]->curspeed +
-				ctrl.chassis_motor[2]->curspeed +
-				ctrl.chassis_motor[3]->curspeed) / 4.0f;
-
-		// 5. 估算底盘自转角速度（rad/s）
-		float chassis_rotation_speed =
-			avg_rpm * 2.0f * PI / 60.0f / gear_ratio * wheel_radius / chassis_radius;
-
-		// 6. 滤波（各模式使用独立滤波器，防止状态互相污染）
-		float ff_rotation_speed = (ctrl.mode == CONTROL::FOLLOW)
-			? follow_rotation_speed_filter.update(chassis_rotation_speed)
-			: yaw_rotation_speed_filter.update(chassis_rotation_speed);
-
-     // 7. 前馈软死区：使用滞回 + 平滑，避免减速穿越阈值时“抽一下”
-		FeedforwardBlendState& ff_state = (ctrl.mode == CONTROL::FOLLOW)
-			? follow_ff_state
-			: yaw_ff_state;
-		const float deadband_enter = (ctrl.mode == CONTROL::FOLLOW)
-			? follow_ff_rpm_threshold
-			: 80.0f;
-		const float deadband_exit = deadband_enter + 25.0f;
-		const float ff_blend_alpha = 0.20f;
-		ff_rotation_speed = BlendFeedforwardWithHysteresis(
-			ff_rotation_speed,
-			avg_rpm,
-			deadband_enter,
-			deadband_exit,
-			ff_blend_alpha,
-			ff_state);
-
-		// 8. 前馈叠加：过渡期 / 普通旋转 / 小陀螺 使用各自独立增益
-		float active_k_ff;
-		if (ctrl.chassis.transition_from_rotation)
-			active_k_ff = k_ff_transition;
-		else if (ctrl.mode == CONTROL::FOLLOW)
-			active_k_ff = k_ff_follow;
-		else
-			active_k_ff = k_ff;
-		float set_speed = pid_output + active_k_ff * ff_rotation_speed;
-
-
-		// 9. 输出
-		DM_motorYaw.set_speed = set_speed;
+	Synchronize_Feedback_Recovery();
+	Reset_Aim_References();
+	Motor* yaw = ctrl.pantile_motor[PANTILE::TYPE::YAW];
+	if (!yaw || !yaw->FeedbackFresh()) hold_yaw_captured = false;
+	if (!DMmotor[0].FeedbackFresh()) hold_pitch_captured = false;
+	if (!DMmotor[1].FeedbackFresh()) hold_dm_yaw_captured = false;
+	if (!hold_position) {
+		hold_yaw_captured = false;
+		hold_pitch_captured = false;
+		hold_dm_yaw_captured = false;
+	}
+	hold_position = true;
+	yaw_speed_out = 0.f;
+	Motor* y = ctrl.pantile_motor[PANTILE::TYPE::YAW];
+	if (!hold_yaw_captured && y && y->FeedbackFresh() && y->has_feedback && y->angle_latched &&
+	    std::isfinite(y->angle[now]) && y->angle[now] >= 0.f && y->angle[now] < 8192.f) {
+		y->setangle = y->angle[now];
+		hold_yaw_captured = true;
+	}
+	// decoded is only set after a real frame with this motor ID was decoded.
+	// Fault/uninitialized feedback must not overwrite the previous goal with zero.
+	// Latch each axis once per hold entry. Following every new feedback position
+	// would remove restoring position error and let gravity/external loads drift.
+	if (!hold_pitch_captured && DMmotor[0].FeedbackFresh() && DMmotor[0].decoded && DMmotor[0].status <= 1u && std::isfinite(DMmotor[0].pos)) {
+		mark_pitch = DMmotor[0].pos;
+		DMmotor[0].setPos = mark_pitch;
+		if (!pitch_ready) pitch0 = mark_pitch;
+		pitch_ready = true;
+		hold_pitch_captured = true;
+	}
+	if (!hold_dm_yaw_captured && DMmotor[1].FeedbackFresh() && DMmotor[1].decoded && DMmotor[1].status <= 1u && std::isfinite(DMmotor[1].pos)) {
+		yaw_lock_pos = DMmotor[1].pos;
+		yaw_lock_ready = true;
+		DMmotor[1].setSpeed = 0.f;
+		hold_dm_yaw_captured = true;
 	}
 }
 
-void CONTROL::CHASSIS::Keep_Direction()//以云台朝向为正方向，底盘方向解算
+void CONTROL::PANTILE::Synchronize_Feedback_Recovery()
 {
-	double s_x = speedx, s_y = speedy;
-	// 电机与云台通过同步带/齿轮连接，存在传动比 k（电机角位移 / 云台角位移）
-	// 实际云台转角 = 电机转角 / k，k 可通过对比 IMU 与电机角度变化标定
-	double theat = ctrl.Getdelta(DM_motorYaw.pos - DM_motorYaw.initial_pos_yaw);
-	double s_t = sin(theat);
-	double c_t = cos(theat);
-	speedx = (s_x * c_t - s_y * s_t);
-	speedy = (s_x * s_t + s_y * c_t);
-
+	Motor* y = ctrl.pantile_motor[PANTILE::TYPE::YAW];
+	const uint32_t yaw_generation = y ? y->FeedbackGeneration() : 0;
+	const uint32_t pitch_generation = DMmotor[0].FeedbackGeneration();
+	const uint32_t dm_yaw_generation = DMmotor[1].FeedbackGeneration();
+	if (yaw_generation != yaw_feedback_generation || pitch_generation != pitch_feedback_generation) {
+		Reset_Aim_References();
+		ctrl.shooter.CancelPendingFeed();
+	}
+	if (yaw_generation != yaw_feedback_generation) hold_yaw_captured = false;
+	if (pitch_generation != pitch_feedback_generation) hold_pitch_captured = pitch_ready = false;
+	if (dm_yaw_generation != dm_yaw_feedback_generation) hold_dm_yaw_captured = yaw_lock_ready = false;
+	yaw_feedback_generation = yaw_generation;
+	pitch_feedback_generation = pitch_generation;
+	dm_yaw_feedback_generation = dm_yaw_generation;
 }
+
+void CONTROL::PANTILE::Keep_Pantile(float angleKeep, PANTILE::TYPE type,IMU frameOfReference)
+{
+	//下面是写好的函数，注意有两个变量要写到para里面，这里单独使用一个死区和pid
+	//Motor* y = ctrl.pantile_motor[PANTILE::TYPE::YAW];
+	//if (!y || !y->has_feedback) return;
+
+	//// frameOfReference 传 imu_pantile ⇒ 它的 yaw 就是枪口世界朝向
+	//const float err = ctrl.GetDelta(angleKeep - frameOfReference.GetAngleYaw());
+	//if (fabsf(err) < KEEP_DB) return;                    // 死区，防抖
+
+	//y->setangle += KEEP_KP * err * (8192.f / 360.f);     // 度 → 编码值
+}
+
+
+void CONTROL::CHASSIS::Keep_Direction(int32_t ch_fwd, int32_t ch_left)
+{
+	const float dyaw = ctrl.GetDelta(imu_pantile.GetAngleYaw() - imu_chassis.GetAngleYaw());
+	const float rad = dyaw * PI / 180.f;
+
+	const float fwd = (float)ch_fwd * 4000.f / 660.f;   // 前后
+	const float left =-(float)ch_left * 4000.f / 660.f;   // 左右
+
+	speedx = fwd * cosf(rad) - left * sinf(rad);
+	speedy = fwd * sinf(rad) + left * cosf(rad);
+}
+
 
 void CONTROL::CHASSIS::Update()
 {
-	if (flag_DM_ready)
+	// ① 取指令；RESET 模式直接归零，不留残留
+	float vx = 0.f, vy = 0.f, wz = 0.f;
+	if (ctrl.mode != CONTROL::RESET)
 	{
-		ctrl.pantile.angle2Keep = imu_pantile.GetAngleYaw();
-        if (DM_motorYaw.pos != 0 && DM_motorPitch.pos != 0 && rc.HasReceivedValidFrame())
-		{
-			DM_ready = true;
-			flag_DM_ready = false;
-		}
-	}
-	power_1 = supercap.cap_power;
-	power_2 = supercap.cap_voltage * supercap.cap_current;
-  if (ctrl.mode == RESET && !DM_ready)
-	{
-		speedx = 0;
-		speedy = 0;
-		speedz = 0;
-		for (int i = 0; i < CHASSIS_MOTOR_NUM; ++i)
-		{
-			if (ctrl.chassis_motor[i] != nullptr)
-			{
-				ctrl.chassis_motor[i]->setspeed = 0;
-			}
-		}
-		return;
+		vx = (float)speedx;
+		vy = (float)speedy;
+		wz = (float)speedz;
 	}
 
-	if (ctrl.mode == RESET && DM_ready)
+	// ② 45° X 布局逆解（数组下标 = 你的电机编号 - 1）
+	const float K = 1.0f;
+	float w[4];
+	w[0] = -vx - vy + K * wz;   // 1 左前
+	w[1] = +vx - vy + K * wz;   // 2 右前
+	w[2] = +vx + vy + K * wz;   // 3 右后
+	w[3] = -vx + vy + K * wz;   // 4 左后
+
+	// ③ 下发，顺手限到各自 maxspeed
+	for (int i = 0; i < CHASSIS_MOTOR_NUM; i++)
 	{
-		speedx = 0;
-		speedy = 0;
-		// 底盘旋转至初始相对位置：以电机编码器误差驱动底盘自转
-		float reset_error = DM_motorYaw.pos - DM_motorYaw.initial_pos_yaw;
-		if (reset_error > PI)  reset_error -= 2.0f * PI;
-		if (reset_error < -PI) reset_error += 2.0f * PI;
-		speedz = (int32_t)chassis_reset.Position(-reset_error, 3000.f);
+		if (!ctrl.chassis_motor[i]) continue;
+		float lim = (float)ctrl.chassis_motor[i]->maxspeed;
+		ctrl.chassis_motor[i]->setspeed = (int32_t)std::max(std::min(w[i], lim), -lim);
 	}
-	
-		Keep_Direction();
-	
-	ctrl.chassis.speedCalculate(speedx, speedy, speedz);
 }
 
 void CONTROL::PANTILE::Update()
 {
-	
-	Motor* yaw_motor = ctrl.pantile_motor[PANTILE::YAW];
-	if (yaw_motor != nullptr && yaw_motor->yaw_limit_center_valid)
+	Synchronize_Feedback_Recovery();
+	// 1. 6020yaw
+	if (ctrl.pantile_motor[PANTILE::TYPE::YAW] && !hold_position)
+		ctrl.pantile_motor[PANTILE::TYPE::YAW]->setangle =
+		ClampAngle(ctrl.pantile_motor[PANTILE::TYPE::YAW]->setangle, para.yaw_center, para.yaw_span);// 钳到 ±半宽
+
+	// 2. 达妙 Pitch 保护与更新
+	if (DMmotor[0].DriveReady() && std::isfinite(DMmotor[0].pos))
 	{
-		const float yaw_safe_min = yaw_motor->yaw_limit_center_ref - 70.0f;
-		const float yaw_safe_max = yaw_motor->yaw_limit_center_ref + 70.0f;
-		if (mark_yaw > yaw_safe_max) mark_yaw = yaw_safe_max;
-		if (mark_yaw < yaw_safe_min) mark_yaw = yaw_safe_min;
+		if (!pitch_ready) { mark_pitch = DMmotor[0].pos;pitch0 = mark_pitch; pitch_ready = true; }
+		// Holding a measured pose must not command a return to a soft-limit edge.
+		if (!hold_position) LIMIT_MIN_MAX(mark_pitch, para.dm_pitch_min, para.dm_pitch_max);
+		DMmotor[0].setPos = mark_pitch;
+		DMmotor[0].setSpeed = 1.5f;
+	}
+	else {
+		pitch_ready = hold_pitch_captured = false;
+		Reset_Aim_References();
 	}
 
-	ctrl.pantile_motor[PANTILE::YAW]->setangle = mark_yaw;
-
-	if (DM_motorPitch.set_pitch_pos > DM_motorPitch.DM_pitch_max)
+	// 3. 达妙 Yaw 下发速度指令
+	// 如果上层传 0，这里就会下发 0 rad/s，电机依靠自身的阻尼和速度环稳稳刹住
+	if (DMmotor[1].DriveReady() && std::isfinite(DMmotor[1].pos))
 	{
-		DM_motorPitch.set_pitch_pos = DM_motorPitch.DM_pitch_max;
+		if (!yaw_lock_ready) { yaw_lock_pos = DMmotor[1].pos; yaw_lock_ready = true; }
+		DMmotor[1].setSpeed = yaw_speed_out                                  // 手动微调（rad/s）
+			+ yaw_lock_Kp * (yaw_lock_pos - DMmotor[1].pos); // 软锁回位
 	}
-	if (DM_motorPitch.set_pitch_pos < DM_motorPitch.DM_pitch_min)
-	{
-		DM_motorPitch.set_pitch_pos = DM_motorPitch.DM_pitch_min;
-	}
-	
-	/*float dis[2];
-	if (mark_yaw > 8192.0)mark_yaw -= 8192.0;
-	if (mark_yaw < 0.0)mark_yaw += 8192.0;
+	else { yaw_lock_ready = hold_dm_yaw_captured = false; DMmotor[1].setSpeed = 0.f; }
 
-	if ((mark_yaw > 2015) && (mark_yaw < 6100))
-	{
-		dis[0] = mark_yaw - 2015;
-		dis[1] = 6100 - mark_yaw;
-
-		mark_yaw = (dis[0] <= dis[1]) ? 2015 : 6100 ;
-
-	}*/
-
-	
+}
+void CONTROL::SHOOTER::CancelPendingFeed()
+{
+    Motor* d = ctrl.supply_motor[0];
+    const bool pending = d && d->angle_latched &&
+        std::fabs(d->setangle - float(d->sum_angle)) > 1.f;
+    // Losing authorization after a ready/issued shot requires a new trigger.
+    // Initial wheel spin-up, before any shot was possible, is an ordinary wait.
+    if (feed_permission_was_ready || pending) feed_rearm_required = true;
+    feed_permission_was_ready = false;
+    trig_pre = false; hold_ms = rate_ms = 0;
+    if (d) {
+        taskENTER_CRITICAL();
+        d->CancelPositionTarget();
+        taskEXIT_CRITICAL();
+    }
 }
 
 void CONTROL::SHOOTER::Update()
 {
-	//now_bullet_speed = judgement.data.ext_shoot_data_t.bullet_speed;
- static bool heat_lock_latched = false;
-	static bool heat_lock_permanent = false;
+    if (ctrl.shooter_motor[0]) ctrl.shooter_motor[0]->setspeed = openRub ? shoot_speed : 0;
+    if (ctrl.shooter_motor[1]) ctrl.shooter_motor[1]->setspeed = openRub ? -shoot_speed : 0;
 
-	int16_t heat_limited_supply_speed = ctrl.shooter.supply_speed;
-	const bool auto_sentry_mode =1;
-	const float base_q0 = auto_sentry_mode ? 260.0f : 100.0f;
-	const float cool_per_second = auto_sentry_mode ? 30.0f : 10.0f;
-	const float referee_limit = static_cast<float>(judgement.data.robot_status_t.shooter_barrel_heat_limit);
-	const float q0 = (referee_limit > 0.0f) ? fminf(base_q0, referee_limit) : base_q0;
-	const float q1 = static_cast<float>(judgement.data.power_heat_data_t.shooter_17mm_1_barrel_heat);
-	const float q2 = q0 + 100.0f;
+    const int16_t T_ON = 300, T_OFF = 200;
+    if (!trig && trig_raw > T_ON) trig = true;
+    if (trig && trig_raw < T_OFF) trig = false;
+    const bool trig_eff = trig || auto_shoot;
+    const bool request_level = trig || auto_fire_request_level;
+    if (!request_level) feed_rearm_required = false;
 
-	if (!heat_lock_permanent)
-	{
-		if (q1 > q2)
-		{
-			heat_lock_permanent = true;
-			heat_lock_latched = true;
-		}
-		else if (heat_lock_latched)
-		{
-			if (q1 <= 0.0f)
-			{
-				heat_lock_latched = false;
-			}
-		}
-		else if (q1 > q0)
-		{
-			heat_lock_latched = true;
-		}
-	}
+    Motor* d = ctrl.supply_motor[0];
+    Motor* left = ctrl.shooter_motor[0];
+    Motor* right = ctrl.shooter_motor[1];
+    const uint32_t left_generation = left ? left->FeedbackGeneration() : 0;
+    const uint32_t right_generation = right ? right->FeedbackGeneration() : 0;
+    const uint32_t feeder_generation = d ? d->FeedbackGeneration() : 0;
+    if (left_generation != left_feedback_generation || right_generation != right_feedback_generation ||
+        feeder_generation != feeder_feedback_generation) CancelPendingFeed();
+    left_feedback_generation = left_generation;
+    right_feedback_generation = right_generation;
+    feeder_feedback_generation = feeder_generation;
+    const float threshold = float(shoot_speed) * 0.8f;
+    // Both wheels must be fresh, decoded and turning in their commanded
+    // directions. An average can hide a stalled or reversed wheel.
+    const bool wheels_ready = left && right &&
+        left->FeedbackFresh() && right->FeedbackFresh() &&
+        left->has_feedback && right->has_feedback && left->temperature <= 70 && right->temperature <= 70 &&
+        left->curspeed >= threshold && right->curspeed <= -threshold;
+    const bool allowed_mode = ctrl.mode == CONTROL::AUTO || ctrl.mode == CONTROL::FIRE;
+    const bool allow = allowed_mode && openRub && wheels_ready && d &&
+        d->FeedbackFresh() && d->has_feedback && d->angle_latched;
+    if (!allow) {
+        CancelPendingFeed();
+        // A low trigger observed during the fault already satisfies re-arming.
+        if (!request_level) feed_rearm_required = false;
+        return;
+    }
+    if (feed_rearm_required) {
+        d->CancelPositionTarget();
+        return;
+    }
+    feed_permission_was_ready = true;
 
-	ctrl.shooter.heat_ulimit = heat_lock_latched;
-	ctrl.shooter.fullheat_shoot = heat_lock_permanent;
+    const uint16_t TICK = 5, T_ARM = 300, T_RATE = 125;
+    bool fire_pulse = false, fire_cont = false;
+    if (trig_eff && !trig_pre) { fire_pulse = true; hold_ms = 0; rate_ms = T_RATE; }
+    else if (trig_eff) {
+        if (hold_ms < 60000) hold_ms += TICK;
+        if (hold_ms >= T_ARM) fire_cont = true;
+    }
+    trig_pre = trig_eff;
+    if (fire_pulse) d->setangle -= para.bullet_step;
+    if (fire_cont) {
+        if (rate_ms >= T_RATE) { rate_ms = 0; d->setangle -= para.bullet_step; }
+        else rate_ms += TICK;
+    } else rate_ms = 0;
 
-	if (heat_lock_latched)
-	{
-		heat_limited_supply_speed = 0;
-	}
-	else
-	{
-		const float remain_heat = q0 - q1;
-		const float reserve_heat = cool_per_second * 2.0f;
-		if (remain_heat <= 0.0f)
-		{
-			heat_limited_supply_speed = 0;
-		}
-		else if (remain_heat < reserve_heat)
-		{
-			float ratio = remain_heat / reserve_heat;
-			ratio = fmaxf(0.2f, fminf(ratio, 1.0f));
-			heat_limited_supply_speed = static_cast<int16_t>(ctrl.shooter.supply_speed * ratio);
-		}
-	}
-
-	if (ctrl.mode == RESET)
-	{
-		ctrl.shooter.openRub = false;
-		ctrl.shooter.supply_bullet = false;
-	}
-	if (openRub)
-	{
-		ctrl.shooter_motor[0]->setspeed = -shoot_speed;
-		ctrl.shooter_motor[1]->setspeed = shoot_speed;
-	}
-	else
-	{
-		ctrl.shooter_motor[0]->setspeed = 0;
-		ctrl.shooter_motor[1]->setspeed = 0;
-		;
-	}
-    
-	if (supply_bullet && openRub && xuc.mode_TJ)
-	{
-        ctrl.supply_motor[0]->setspeed = -heat_limited_supply_speed;
-	}
-	else if (ctrl.mode == TD)
-	{
-        ctrl.supply_motor[0]->setspeed = -heat_limited_supply_speed;
-	}
-	else 
-	{
-		ctrl.supply_motor[0]->setspeed = -ctrl.shooter.rc_supply_speed;
-	}
-}
-
-void CONTROL::AUTOMATION::autoMove()
-{
-	ctrl.mode = CONTROL::NAVI;
-
-	constexpr float M3508_RATIO = 19.2f;
-	constexpr float WHEEL_DIAM_M = 0.15184f;
-	constexpr float MS_TO_RPM = M3508_RATIO * 60.0f / (PI * WHEEL_DIAM_M);
-
-	const int32_t nav_x = (int32_t)(xuc.RxNav.linear_x * MS_TO_RPM);
-	const int32_t nav_y = (int32_t)(xuc.RxNav.linear_y * MS_TO_RPM);
-
-	ctrl.chassis.navi_vx = (float)nav_x;
-	ctrl.chassis.navi_vy = (float)nav_y;
-	ctrl.chassis.navi_vz = xuc.RxNav.angular_z;
-	DM_motorYaw.set_speed = xuc.RxNav.angular_z;
-
-	ctrl.chassis.speedx = nav_x;
-	ctrl.chassis.speedy = nav_y;
-	ctrl.chassis.speedz = 0;
-	ctrl.shooter.openRub = false;
-	ctrl.shooter.supply_bullet = false;
-}
-
-void CONTROL::AUTOMATION::stateUpdate()
-{
-	// 检测是否有目标
-	target_detected = (xuc.mode_TJ != 0);
-
-	// 有目标且云台实际角与上位机目标角误差足够小时置true
-	float yaw_err = xuc.yaw_TJ - degreeToRadian(imu_gimbal.angle.yaw);
-	while (yaw_err > PI) yaw_err -= 2.0f * PI;
-	while (yaw_err < -PI) yaw_err += 2.0f * PI;
-	float pitch_err = xuc.pitch_TJ - degreeToRadian(imu_gimbal.angle.pitch);
-	target_angle_aligned = target_detected
-		&& (std::abs(yaw_err) < LOCK_THRESHOLD)
-		&& (std::abs(pitch_err) < LOCK_THRESHOLD);
-	
-	// 状态机转换
-	switch (aim_state)
-	{
-	case IDLE:
-		is_locked = false;
-		stable_count = 0;
-		if (target_detected) {
-			aim_state = TRACK;
-			lost_count = 0;
-		}
-		break;
-		
-	case TRACK:
-		if (target_detected) {
-			lost_count = 0;
-			// 记录最后检测位置（小云台位置）
-			last_yaw_pos = ctrl.pantile.mark_yaw;  // 小Yaw
-			last_pitch_pos = DM_motorPitch.set_pitch_pos;
-			
-			// 检查是否稳定锁定
-			if (target_angle_aligned) {
-				stable_count++;
-				if (stable_count >= LOCK_STABLE_COUNT) {
-					aim_state = LOCKED;
-				}
-			} else {
-				stable_count = 0;
-			}
-		} else {
-			lost_count++;
-			stable_count = 0;
-			if (lost_count > LOST_TIMEOUT) {
-				aim_state = SEARCH;
-				search_count = 0;
-				scan_center_yaw = last_yaw_pos;  // 从丢失位置开始搜索
-			}
-			// 短暂丢失时保持当前位置等待重新捕获
-		}
-		is_locked = false;
-		break;
-		
-	case LOCKED:
-		if (target_detected) {
-			lost_count = 0;
-			// 继续检查是否还锁定
-			if (!target_angle_aligned) {
-				stable_count = 0;
-				aim_state = TRACK;  // 回到跟踪状态
-			}
-		} else {
-			lost_count++;
-			if (lost_count > LOST_TIMEOUT / 2) {  // 锁定状态更快进入搜索
-				aim_state = SEARCH;
-				search_count = 0;
-				scan_center_yaw = last_yaw_pos;
-			}
-		}
-		is_locked = (aim_state == LOCKED);
-		break;
-		
-	case SEARCH:
-		if (target_detected) {
-			aim_state = TRACK;
-			lost_count = 0;
-			stable_count = 0;
-		} else {
-			search_count++;
-			if (search_count > SEARCH_TIMEOUT) {
-				aim_state = IDLE;  // 搜索超时，回到空闲
-			}
-		}
-		is_locked = false;
-		break;
-	}
-	
-	// 兼容旧变量
-	aim_lock = !target_detected && (lost_count > 50);
-	aim_cont = lost_count;
-}
-
-void CONTROL::AUTOMATION::autoAim()
-{
-	// 先更新状态
-	stateUpdate();
-	
-	// 【关键】有目标时禁止扫描，让motor.cpp中的自瞄逻辑接管
-	if (target_detected) {
-		ctrl.g_start_scan = false;
-	}
-	
-	switch (aim_state)
-	{
-	case IDLE:
-		// 空闲状态：保持静止，等待手动控制或目标出现
-		// 可以启用扫描
-		ctrl.g_start_scan = true;
-		break;
-		
-	case TRACK:
-	case LOCKED:
-		// 自瞄状态：禁止扫描，云台由motor.cpp中的自瞄逻辑控制
-		// motor.cpp会根据xuc.mode_TJ和xuc.yaw_TJ直接计算目标角度
-		// 这里不需要手动调整mark_yaw，否则会冲突！
-		ctrl.g_start_scan = false;
-		
-		if (target_detected) {
-			// 记录当前位置，用于丢失后搜索（小云台位置）
-			last_yaw_pos = ctrl.pantile.mark_yaw;  // 小Yaw
-			last_pitch_pos = DM_motorPitch.set_pitch_pos;
-		}
-		// 丢失时短暂保持（不动）
-		break;
-		
-	case SEARCH:
-		// 搜索状态：在丢失位置附近小范围搜索
-		
-		ctrl.g_start_scan = false;  // 不用全局扫描，用局部搜索
-		searchTarget();
-		break;
-	}
-}
-
-void CONTROL::AUTOMATION::searchTarget()
-{
-	// 小范围搜索：以丢失位置为中心，左右摆动
-	// *** 修正：使用 mark_yaw（小云台）而非 DM_motorYaw（大云台）***
-	float current_offset = ctrl.pantile.mark_yaw - scan_center_yaw;
-	
-	// 边界检测
-	if (current_offset >= scan_range) {
-		scan_reversal_yaw = true;   // 向左
-	} else if (current_offset <= -scan_range) {
-		scan_reversal_yaw = false;  // 向右
-	}
-	
-	// 移动（搜索速度慢一些）- 控制小云台
-	
-	
-	// Pitch 小幅度上下扫
-	if (DM_motorPitch.set_pitch_pos >= last_pitch_pos + 0.1f) {
-		scan_reversal_pitch = true;
-	} else if (DM_motorPitch.set_pitch_pos <= last_pitch_pos - 0.1f) {
-		scan_reversal_pitch = false;
-	}
-	
-	if (scan_reversal_pitch) {
-		DM_motorPitch.set_pitch_pos -= scan_speed_pitch;
-	} else {
-		DM_motorPitch.set_pitch_pos += scan_speed_pitch;
-	}
-}
-
-void CONTROL::AUTOMATION::autoControl() 
-{
-	// 调用新的自瞄逻辑
-	autoAim();
-	
-	// 根据状态控制发射
-	if (aim_state == LOCKED || aim_state == TRACK) {
-		ctrl.shooter.openRub = true;
-		// 供弹由RC档位控制，这里不自动开火
-	} else if (aim_state == SEARCH) {
-		ctrl.shooter.openRub = true;
-		ctrl.shooter.supply_bullet = false;
-	} else {
-		// IDLE状态
-		ctrl.shooter.openRub = false;
-		ctrl.shooter.supply_bullet = false;
-	}
-}
-/**
- * @brief 自动扫描函数 (无参数版本)
- * 注意：此函数依赖于 m_current_relative_angle 成员变量
- */
-void CONTROL::AUTOMATION::autoScan()
-{
-	// *** 关键修正：修复反向逻辑 ***
-	// 使用 "电平触发" 逻辑，而不是 "翻转" 逻辑
-	// m_current_relative_angle 必须是您在主循环中解算后的连续相对角度
-
-	Motor* yaw_motor = ctrl.pantile_motor[PANTILE::YAW];
-	const float scan_center = (yaw_motor != nullptr && yaw_motor->yaw_limit_center_valid)
-		? yaw_motor->yaw_limit_center_ref
-		: 0.0f;
-
-	// 1. Yaw 轴扫描（以RESET记录中心为基准）
-	if (ctrl.m_current_relative_angle >= scan_center + 45.0f)
-	{
-		scan_reversal_yaw = false; // 必须向负方向移动
-	}
-	else if (ctrl.m_current_relative_angle <= scan_center - 45.0f)
-	{
-		scan_reversal_yaw = true; // 必须向正方向移动
-	}
-	// (如果介于边界之间，scan_reversal_yaw 保持不变，继续朝当前方向移动)
-
-
-	// 2.1 扫描目标限幅（同样以RESET记录中心为基准）
-	const float scan_limit_min = scan_center - 65.0f;
-	const float scan_limit_max = scan_center + 65.0f;
-	if (ctrl.pantile.mark_yaw > scan_limit_max) ctrl.pantile.mark_yaw = scan_limit_max;
-	if (ctrl.pantile.mark_yaw < scan_limit_min) ctrl.pantile.mark_yaw = scan_limit_min;
-
-	// 3. Pitch 轴扫描 (您的原始逻辑，保持不变)
-	if (DM_motorPitch.set_pitch_pos >= DM_motorPitch.DM_pitch_max)
-	{
-		scan_reversal_pitch = false;
-	}
-	if (DM_motorPitch.set_pitch_pos <= DM_motorPitch.DM_pitch_min)
-	{
-		scan_reversal_pitch = true;
-	}
-	if (scan_reversal_pitch)
-	{
-		DM_motorPitch.set_pitch_pos += scan_speed_pitch;
-	}
-	else if (!scan_reversal_pitch)
-	{
-		DM_motorPitch.set_pitch_pos -= scan_speed_pitch;
-	}
-
-	if (!xuc.mode_TJ)
-	{
-		ctrl.pantile.angle2Keep += YAWstep;
-       ctrl.pantile.angle2Keep = ctrl.GetDelta(ctrl.pantile.angle2Keep);
-	}
-
+    const float lead = d->setangle - float(d->sum_angle);
+    if (lead > para.bullet_lead_max) d->setangle = float(d->sum_angle) + para.bullet_lead_max;
+    if (lead < -para.bullet_lead_max) d->setangle = float(d->sum_angle) - para.bullet_lead_max;
 }
 
 float CONTROL::CHASSIS::Ramp(float setval, float curval, uint32_t RampSlope)
@@ -720,57 +329,19 @@ float CONTROL::CHASSIS::Ramp(float setval, float curval, uint32_t RampSlope)
 
 float CONTROL::GetDelta(float delta)
 {
-    while (delta <= -180.0f)
+	if (delta <= -180.f)
 	{
-		delta += 360.0f;
+		delta += 360.f;
 	}
 
-	while (delta > 180.0f)
+	if (delta > 180.f)
 	{
-		delta -= 360.0f;
+		delta -= 360.f;
 	}
 	return delta;
 }
-
-float CONTROL::Getdelta(float delta)//弧度制
-{
-  while (delta <= -PI)
-	{
-		delta += 2.0f * PI;
-	}
-	while (delta > PI)
-	{
-		delta -= 2.0f * PI;
-	}
-	return delta;
-} //该函数弃用，因为当delta非常大时，单次加减2PI可能无法将其归一化到[-PI, PI]范围内。下面是改进后的版本，使用循环确保无论输入多大，都能正确归一化
-
-//float CONTROL::Getdelta(float delta)
-//{
-//	while (delta < -PI)
-//	{
-//		delta += 2.0f * PI;
-//	}
-//	while (delta >= PI)
-//	{
-//		delta -= 2.0f * PI;
-//	}
-//	return delta;
-//}
 
 int16_t CONTROL::Setrange(const int16_t original, const int16_t range)
 {
 	return fmaxf(fminf(range, original), -range);
-}
-
-extern uint8_t Power_stsRx[];
-
-unsigned int CONTROL::radian_to_mechanical_angle(double radian_angle) {
-	// 核心转换公式：先将输入范围 [-π, π] 平移到 [0, 2π]，
-	// 然后计算其在总范围中的比例，最后乘以目标范围的大小 8192。
-	double mechanical_value = ((radian_angle + M_PI) / (2.0 * M_PI)) * 8192.0;
-
-	// 对计算结果进行四舍五入，并转换为无符号整数类型后返回。
-	// 加 0.5 是实现四舍五入的常用技巧。
-	return (unsigned int)(mechanical_value + 0.5);
 }

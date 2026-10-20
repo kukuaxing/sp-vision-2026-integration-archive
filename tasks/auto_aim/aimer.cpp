@@ -37,22 +37,39 @@ void Aimer::set_delay_adjustment(double adjustment_s)
 
 io::Command Aimer::aim(
   std::list<Target> targets, std::chrono::steady_clock::time_point timestamp, double bullet_speed,
-  bool to_now)
+  bool to_now, AimPredictionTrace * trace, AimGeometry geometry)
 {
+  debug_aim_point = {false, Eigen::Vector4d::Zero()};
+  if (trace) *trace = AimPredictionTrace{};
   if (targets.empty()) return {false, false, 0, 0};
   auto target = targets.front();
 
-  auto ekf = target.ekf();
-  double delay_time =
-    (std::abs(target.ekf_x()[7]) > decision_speed_
-       ? high_speed_delay_time_
-       : low_speed_delay_time_) + delay_adjustment_time_;
+  const auto & raw_state = target.ekf().x;
+  // Decide once at the frame boundary, so all ballistic iterations use the
+  // same model. Stationary/direct-plate and outpost paths retain their model.
+  const bool whole_ekf_geometry = geometry == AimGeometry::whole_ekf &&
+    target.armor_num() == 4 && target.name != ArmorName::outpost &&
+    raw_state.size() == 11 && raw_state.allFinite() &&
+    std::abs(raw_state[7]) > decision_speed_ &&
+    raw_state[8] > 0.05 && raw_state[8] < 0.5 &&
+    raw_state[8] + raw_state[9] > 0.05 && raw_state[8] + raw_state[9] < 0.5;
+  if (trace) trace->whole_ekf_geometry = whole_ekf_geometry;
+  const double delay_motion_rate = whole_ekf_geometry ? raw_state[7] : target.ekf_x()[7];
+  const bool high_speed_delay = std::abs(delay_motion_rate) > decision_speed_;
+  double delay_time = (high_speed_delay ? high_speed_delay_time_ : low_speed_delay_time_) +
+    delay_adjustment_time_;
 
   // Low-speed friction-wheel benches can be well below the competition-speed
   // default.  Preserve the fallback only for missing/invalid telemetry so the
   // trajectory and flight-time predictor can use an explicitly calibrated value.
   if (!std::isfinite(bullet_speed) || bullet_speed < 5 || bullet_speed > 35) {
     bullet_speed = 23;
+  }
+  if (trace) {
+    trace->delay_s = delay_time;
+    trace->high_speed_delay = high_speed_delay;
+    trace->delay_motion_rate_rad_s = delay_motion_rate;
+    trace->speed_mps = bullet_speed;
   }
 
   // 考虑detecor和tracker所消耗的时间，此外假设aimer的用时可忽略不计
@@ -71,7 +88,9 @@ io::Command Aimer::aim(
     target.predict(future);
   }
 
-  auto aim_point0 = choose_aim_point(target);
+  if (trace) trace->base_prediction_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(
+    future.time_since_epoch()).count();
+  auto aim_point0 = choose_aim_point(target, whole_ekf_geometry);
   debug_aim_point = aim_point0;
   if (!aim_point0.valid) {
     // tools::logger()->debug("Invalid aim_point0.");
@@ -100,7 +119,14 @@ io::Command Aimer::aim(
     iteration_target[iter].predict(predict_time);
 
     // 计算瞄准点
-    auto aim_point = choose_aim_point(iteration_target[iter]);
+    auto aim_point = choose_aim_point(
+      iteration_target[iter], whole_ekf_geometry, trace ? &trace->face_id : nullptr);
+    if (trace) {
+      trace->prediction_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(
+        predict_time.time_since_epoch()).count();
+      trace->flight_time_used_s = prev_fly_time;
+      trace->iterations = iter + 1;
+    }
     debug_aim_point = aim_point;
     if (!aim_point.valid) {
       return {false, false, 0, 0};
@@ -132,12 +158,17 @@ io::Command Aimer::aim(
   Eigen::Vector3d final_xyz = debug_aim_point.xyza.head(3);
   double yaw = std::atan2(final_xyz.y(), final_xyz.x()) + yaw_offset_;
   double pitch = -(current_traj.pitch + pitch_offset_);  //世界坐标系下pitch向上为负
+  if (trace) {
+    trace->valid = std::isfinite(yaw) && std::isfinite(pitch);
+    trace->converged = converged;
+    trace->flight_time_s = current_traj.fly_time;
+  }
   return {true, false, yaw, pitch};
 }
 
 io::Command Aimer::aim(
   std::list<Target> targets, std::chrono::steady_clock::time_point timestamp, double bullet_speed,
-  io::ShootMode shoot_mode, bool to_now)
+  io::ShootMode shoot_mode, bool to_now, AimPredictionTrace * trace, AimGeometry geometry)
 {
   double yaw_offset;
   if (shoot_mode == io::left_shoot && left_yaw_offset_.has_value()) {
@@ -148,22 +179,28 @@ io::Command Aimer::aim(
     yaw_offset = yaw_offset_;
   }
 
-  auto command = aim(targets, timestamp, bullet_speed, to_now);
+  auto command = aim(targets, timestamp, bullet_speed, to_now, trace, geometry);
   command.yaw = command.yaw - yaw_offset_ + yaw_offset;
 
   return command;
 }
 
-AimPoint Aimer::choose_aim_point(const Target & target)
+AimPoint Aimer::choose_aim_point(const Target & target, bool whole_ekf_geometry, int * face_id)
 {
-  Eigen::VectorXd ekf_x = target.ekf_x();
+  Eigen::VectorXd ekf_x = whole_ekf_geometry ? target.ekf().x : target.ekf_x();
   const bool prefer_direct_motion =
-    std::abs(ekf_x[7]) <= decision_speed_ && target.name != ArmorName::outpost;
+    !whole_ekf_geometry && std::abs(ekf_x[7]) <= decision_speed_ &&
+    target.name != ArmorName::outpost;
   std::vector<Eigen::Vector4d> armor_xyza_list =
-    target.armor_xyza_list(prefer_direct_motion);
+    whole_ekf_geometry ? target.whole_ekf_armor_xyza_list()
+                       : target.armor_xyza_list(prefer_direct_motion);
   auto armor_num = armor_xyza_list.size();
+  const auto select = [&](bool valid, int id) -> AimPoint {
+    if (face_id) *face_id = valid ? id : -1;
+    return {valid, armor_xyza_list[id]};
+  };
   // 如果装甲板未发生过跳变，则只有当前装甲板的位置已知
-  if (!target.jumped) return {true, armor_xyza_list[0]};
+  if (!target.jumped) return select(true, 0);
 
   // 整车旋转中心的球坐标yaw
   auto center_yaw = std::atan2(ekf_x[2], ekf_x[0]);
@@ -185,7 +222,7 @@ AimPoint Aimer::choose_aim_point(const Target & target)
         target.armor_motion_trusted(target.last_id) &&
         std::abs(delta_angle_list[target.last_id]) <= 75.0 / 57.3) {
       lock_id_ = target.last_id;
-      return {true, armor_xyza_list[target.last_id]};
+      return select(true, target.last_id);
     }
 
     // 选择在可射击范围内的装甲板
@@ -197,7 +234,7 @@ AimPoint Aimer::choose_aim_point(const Target & target)
     // 绝无可能
     if (id_list.empty()) {
       tools::logger()->warn("Empty id list!");
-      return {false, armor_xyza_list[0]};
+      return select(false, 0);
     }
 
     // 锁定模式：防止在两个都呈45度的装甲板之间来回切换
@@ -208,12 +245,12 @@ AimPoint Aimer::choose_aim_point(const Target & target)
       if (lock_id_ != id0 && lock_id_ != id1)
         lock_id_ = (std::abs(delta_angle_list[id0]) < std::abs(delta_angle_list[id1])) ? id0 : id1;
 
-      return {true, armor_xyza_list[lock_id_]};
+      return select(true, static_cast<int>(lock_id_));
     }
 
     // 只有一个装甲板在可射击范围内时，退出锁定模式
     lock_id_ = -1;
-    return {true, armor_xyza_list[id_list[0]]};
+    return select(true, id_list[0]);
   }
 
   double coming_angle, leaving_angle;
@@ -228,11 +265,11 @@ AimPoint Aimer::choose_aim_point(const Target & target)
   // 在小陀螺时，一侧的装甲板不断出现，另一侧的装甲板不断消失，显然前者被打中的概率更高
   for (int i = 0; i < armor_num; i++) {
     if (std::abs(delta_angle_list[i]) > coming_angle) continue;
-    if (ekf_x[7] > 0 && delta_angle_list[i] < leaving_angle) return {true, armor_xyza_list[i]};
-    if (ekf_x[7] < 0 && delta_angle_list[i] > -leaving_angle) return {true, armor_xyza_list[i]};
+    if (ekf_x[7] > 0 && delta_angle_list[i] < leaving_angle) return select(true, i);
+    if (ekf_x[7] < 0 && delta_angle_list[i] > -leaving_angle) return select(true, i);
   }
 
-  return {false, armor_xyza_list[0]};
+  return select(false, 0);
 }
 
 }  // namespace auto_aim

@@ -14,6 +14,7 @@
 
 #include "io/command.hpp"
 #include "io/sentinel/protocol.hpp"
+#include "io/sentinel/pose_history.hpp"
 
 namespace io
 {
@@ -53,6 +54,24 @@ static_assert(offsetof(XucTxPacket, crc16) == 18, "XucTxPacket CRC offset must b
 class XucSender
 {
 public:
+  using Clock = std::chrono::steady_clock;
+  static constexpr int default_sentinel_fire_interval_ms = 1000;
+  struct PoseSnapshot : sentinel::PoseEstimate {
+    uint8_t mode = 0;
+    bool lower_yaw_armed = false;
+    bool control_ready = false;
+  };
+  enum class SendStatus { sent, throttled, rejected, io_failed, disabled };
+  struct SendResult {
+    SendStatus status = SendStatus::rejected;
+    bool control_sent = false;
+    bool friction_sent = false;
+    bool fire_sent = false;
+    bool fire_expired = false;
+    bool fire_rate_limited = false;
+    int64_t tx_time_ns = 0;
+    uint16_t seq = 0;
+  };
   struct FeederFeedback
   {
     bool active = false;
@@ -66,6 +85,7 @@ public:
 
   bool enabled() const { return enabled_; }
   bool is_sentinel() const { return sentinel_; }
+  int64_t fire_min_interval_ms() const { return sentinel_fire_min_interval_ns_ / 1000000; }
   // A valid wire packet is not proof of a valid/fresh gimbal IMU.
   bool feedback_link_valid() const;
   sentinel::Feedback sentinel_feedback() const;
@@ -73,22 +93,20 @@ public:
   double imu_roll() const;
   double raw_imu_pitch() const;
   std::array<double, 3> imu_angles_rad() const;
-  std::array<double, 3> gimbal_gyro_rad_s() const {
-    const auto imu = sentinel_feedback().gimbal;
-    return {(sentinel_swap_roll_pitch_ ? imu.gy_dps : imu.gx_dps) * sentinel::deg_to_rad,
-            imu_pitch_sign_ * (sentinel_swap_roll_pitch_ ? imu.gx_dps : imu.gy_dps) * sentinel::deg_to_rad,
-            imu_yaw_sign_ * imu.gz_dps * sentinel::deg_to_rad};
-  }
-  bool lower_yaw_armed() const {
-    return sentinel_ ? control_ready() : (rx_valid() && mode() == 1 && (robot_id() & 0x40));
-  }
-  void send(const Command & cmd);
-  bool control_ready() const
-  {
-    return allow_control_ && (!sentinel_ || rx_valid()) &&
-           (!require_feedback_for_control_ || rx_valid()) &&
-           (!require_auto_mode_for_control_ || mode() == 1);
-  }
+  std::array<double, 3> gimbal_gyro_rad_s() const;
+  bool lower_yaw_armed() const;
+  // Capture lookup never extrapolates. A bounded wait may obtain the next IMU
+  // bracket; failure must cause a missed measurement, never an invented pose.
+  PoseSnapshot pose_now() const;
+  PoseSnapshot pose_at_capture(Clock::time_point capture,
+    std::chrono::milliseconds wait = std::chrono::milliseconds(0)) const;
+  // A qualified fire request bypasses normal TX throttling. A nonzero deadline
+  // suppresses an expired fire while still sending an ordinary safe update.
+  // sent means complete serial write, NOT an MCU ACK or an actual projectile.
+  SendResult send(const Command & cmd, Clock::time_point fire_deadline = Clock::time_point{},
+    uint64_t expected_generation = 0);
+  SendResult stop(); // Explicit shutdown/fault cancellation; bypasses the detection-loss hold.
+  bool control_ready() const;
 
   // 下位机回传数据（接收线程更新；rx_valid() 为 false 时这些值不可信）
   bool rx_valid() const;
@@ -149,22 +167,28 @@ public:
 private:
   void recv_loop();
   void recv_sentinel_loop();
-  void send_sentinel(const Command & cmd);
+  SendResult send_sentinel(const Command & cmd, bool stop = false,
+    Clock::time_point fire_deadline = Clock::time_point{}, uint64_t expected_generation = 0);
+  PoseSnapshot pose_snapshot_locked(int64_t query_ns, int64_t now_ns, bool capture) const;
 
   serial::Serial serial_;
   bool enabled_ = false;
   bool sentinel_ = false;
-  bool sentinel_swap_roll_pitch_ = true;
+  bool sentinel_allow_friction_ = false;
+  bool sentinel_require_verified_pose_ = true;
+  bool sentinel_tx_failed_ = false;
+  uint16_t sentinel_valid_for_ms_ = 100;
+  uint64_t sentinel_output_generation_ = 0;
   int64_t sentinel_tx_interval_ns_ = 10000000; // 100 Hz; MCU queue/DecodeTask max 200 Hz.
   int64_t sentinel_last_tx_ns_ = 0;
-  int64_t sentinel_sensor_timeout_ns_ = 250000000;
+  int64_t sentinel_fire_min_interval_ns_ = int64_t(default_sentinel_fire_interval_ms) * 1000000;
+  int64_t sentinel_sensor_timeout_ns_ = 100000000;
   bool sentinel_output_active_ = false;
+  uint8_t sentinel_last_sent_flags_ = 0;
   mutable std::mutex sentinel_mutex_;
-  sentinel::Feedback sentinel_feedback_{};
-  int64_t sentinel_last_sample_ns_ = 0;
-  bool sentinel_have_sample_ = false;
-  uint32_t sentinel_last_sample_time_ms_ = 0;
-  bool sentinel_reset_level_ = false;
+  sentinel::State sentinel_state_;
+  sentinel::PoseHistory sentinel_pose_history_;
+  sentinel::DetectionFrictionHold sentinel_friction_hold_;
   std::atomic<bool> tracker_reset_{false};
   double yaw_sign_ = 1.0;     // 目标 yaw 符号
   double pitch_sign_ = -1.0;  // 目标 pitch 符号（与现有 CAN 发送 -command.pitch 一致）

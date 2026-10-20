@@ -3,6 +3,8 @@
 
 #include <Eigen/Dense>
 #include <chrono>
+#include <cstdint>
+#include <limits>
 #include <list>
 
 #include "io/shoot_mode.hpp"
@@ -18,6 +20,23 @@ struct AimPoint
   Eigen::Vector4d xyza;
 };
 
+enum class AimGeometry { existing, whole_ekf };
+
+// Optional observer of the existing iterations. Never used for control.
+struct AimPredictionTrace
+{
+  bool valid = false, converged = false;
+  bool whole_ekf_geometry = false;
+  bool high_speed_delay = false;
+  int face_id = -1, iterations = 0;
+  int64_t base_prediction_ns = 0, prediction_ns = 0;
+  double delay_s = std::numeric_limits<double>::quiet_NaN();
+  double delay_motion_rate_rad_s = std::numeric_limits<double>::quiet_NaN();
+  double speed_mps = std::numeric_limits<double>::quiet_NaN();
+  double flight_time_used_s = std::numeric_limits<double>::quiet_NaN();
+  double flight_time_s = std::numeric_limits<double>::quiet_NaN();
+};
+
 class Aimer
 {
 public:
@@ -25,11 +44,13 @@ public:
   explicit Aimer(const std::string & config_path);
   io::Command aim(
     std::list<Target> targets, std::chrono::steady_clock::time_point timestamp, double bullet_speed,
-    bool to_now = true);
+    bool to_now = true, AimPredictionTrace * trace = nullptr,
+    AimGeometry geometry = AimGeometry::existing);
 
   io::Command aim(
     std::list<Target> targets, std::chrono::steady_clock::time_point timestamp, double bullet_speed,
-    io::ShootMode shoot_mode, bool to_now = true);
+    io::ShootMode shoot_mode, bool to_now = true, AimPredictionTrace * trace = nullptr,
+    AimGeometry geometry = AimGeometry::existing);
 
   // Applies the same bounded runtime correction to both speed branches.  Their
   // calibrated base values remain unchanged and are restored with zero.
@@ -47,7 +68,8 @@ private:
   double delay_adjustment_time_ = 0.0;
   double decision_speed_;
 
-  AimPoint choose_aim_point(const Target & target);
+  AimPoint choose_aim_point(
+    const Target & target, bool whole_ekf_geometry, int * face_id = nullptr);
 };
 
 }  // namespace auto_aim

@@ -4,7 +4,9 @@
 本分支只跟踪源码、配置、构建脚本和文档；模型、SDK库、固件镜像等只在本机保留。
 只维护一份工程，源码变更通过 Git 提交记录，不建立带后缀的工程副本或归档分支。
 
-2026-10-14 更新：正式运行通信已适配 [Hohokamk/Sentinel_robot `b6f4697`](https://github.com/Hohokamk/Sentinel_robot/tree/b6f4697756eb8b7c61a6868e450f8d0cda2752ae) 的 UART4 固定帧（上行64字节、下行40字节、921600波特率）。保留旧RMV标定和诊断源码，正式 `standard.yaml` 选择 `SENTINEL`；控制/发射开关仍关闭，供接板只读核对。新接口与虚拟串口已离线验证，尚未部署到当前无法通过SSH连接的小电脑；实际在车二进制、IMU有效性及安装方向未验证。见 [固定帧接口说明](docs/sentinel_protocol.md) 与 [当前状态](docs/status.md)。
+2026-10-20 当前成果已整理：Sentinel V2 通信配套、NAV 坐标修复、跟踪连续性与 ROI 重捕获、统一预测几何、固定/旋转开火参考修复，以及1000ms发射请求限频。当前高低速预测延迟均为330ms，实际机械延迟与最新固定靶连续出弹效果仍待现场复测。完整参数、部署哈希与验证边界见[当前成果归档](docs/status.md#2026-10-20-当前成果归档)。
+
+当前运行配置开启视觉控制、摩擦轮与自动开火。双上=AUTO许可，检测敌方装甲后预转6500rpm、连续丢失5秒停轮，左上右中=STOP；STOP持续上传心跳，启动默认STOP、遥控失联撤权。上下位机接口见[通信说明](docs/sentinel_protocol.md)。
 
 ## 从这里开始
 
@@ -16,7 +18,7 @@
 - [统一记录与真实检测回放](docs/replay.md)
 - [估计器基准与规划时间修复](docs/offline_benchmark.md)
 - [回到实车后的接续验收](docs/field_acceptance.md)
-- [当前 Sentinel 固定帧通信](docs/sentinel_protocol.md)
+- [当前 Sentinel V2 通信](docs/sentinel_protocol.md)
 - [既有 RMV 标定与调试协议](docs/rmv_protocol.md)
 - [固件选择](firmware/README.md)
 - [格式塔仿真](simulation/README.md)

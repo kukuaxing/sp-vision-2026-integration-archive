@@ -29,8 +29,28 @@ int main()
   }
   assert(after < before * 0.45);
 
+  // A neutral panel joins both bars in intensity, but must not change the
+  // physical endpoints or force a switch to shorter network keypoints.
+  cv::Mat panel(image.size(), image.type(), cv::Scalar::all(8));
+  cv::rectangle(panel, {98, 70}, {220, 174}, cv::Scalar::all(180), -1);
+  cv::line(panel, {104, 74}, {98, 166}, cv::Scalar(15, 55, 245), 8);
+  cv::line(panel, {214, 78}, {220, 170}, cv::Scalar(15, 55, 245), 8);
+  using Mode = auto_aim::AdaptiveCornerRefiner::ChannelMode;
+  assert(!refiner.refine(panel, noisy).has_value());
+  const auto colored = refiner.refine(panel, noisy, Mode::red_blue_contrast);
+  assert(colored.has_value());
+  for (std::size_t i = 0; i < truth.size(); ++i)
+    assert(cv::norm(colored->points[i] - truth[i]) < 7.0);
+  cv::Mat swapped;
+  cv::cvtColor(panel, swapped, cv::COLOR_RGB2BGR);
+  const auto same = refiner.refine(swapped, noisy, Mode::red_blue_contrast);
+  assert(same.has_value());
+  for (std::size_t i = 0; i < truth.size(); ++i)
+    assert(cv::norm(same->points[i] - colored->points[i]) < 1e-4);
+
   cv::Mat blank(image.size(), image.type(), cv::Scalar::all(0));
   assert(!refiner.refine(blank, noisy).has_value());
+  assert(!refiner.refine(blank, noisy, Mode::red_blue_contrast).has_value());
   std::cout << "adaptive_corner_refiner_test: PASS before=" << before
             << " after=" << after << std::endl;
   return 0;

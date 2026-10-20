@@ -15,6 +15,8 @@
 #include "tasks/auto_aim/detector.hpp"
 #include "tasks/auto_aim/yolo.hpp"
 
+namespace YAML { class Node; }
+
 namespace auto_aim
 {
 
@@ -25,10 +27,31 @@ public:
 
   std::list<Armor> detect(const cv::Mat & bgr_img, int frame_count) override;
 
+  std::list<Armor> detect(const cv::Mat & img, int count, bool full_frame) override;
+  DetectionDiagnostics diagnostics() const override { return diagnostics_; }
+
   std::list<Armor> postprocess(
     double scale, cv::Mat & output, const cv::Mat & bgr_img, int frame_count) override;
 
 private:
+  struct BarColorStats
+  {
+    double score = 0.0;  // normalized red-vs-blue chroma, range [-100, 100]
+    double agreement = 0.0;
+    int count = 0;
+  };
+
+  BarColorStats sample_lightbar(
+    const cv::Mat & rgb_img, const cv::Point2f & p0, const cv::Point2f & p1,
+    int thickness) const;
+
+  void load_detection_settings(const YAML::Node & yaml);
+  void configure_corner_refiner(const YAML::Node & yaml);
+  std::vector<int> configure_runtime_cpu(const YAML::Node & yaml);
+  void configure_input_area(const YAML::Node & yaml);
+  int initialize_model(const YAML::Node & yaml, const std::vector<int> & big_cores);
+  void log_runtime_settings(int infer_threads) const;
+
   std::string device_, model_path_;
   std::string save_path_;
   bool debug_, use_roi_, swap_rb_, refine_color_, refine_corners_, save_samples_;
@@ -65,7 +88,8 @@ private:
   cv::Mat input_image_;       // 640x640 RGB图像
   ov::Tensor input_tensor_;   // 预绑定的tensor
 
-  cv::Rect roi_;
+  cv::Rect roi_, active_roi_;
+  DetectionDiagnostics diagnostics_;
   cv::Point2f offset_;
   cv::Mat tmp_img_, color_converted_;
 
