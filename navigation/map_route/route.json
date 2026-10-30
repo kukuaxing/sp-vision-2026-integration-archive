@@ -1,0 +1,19 @@
+{
+  "schema": "registered_two_leg_route_v1",
+  "physical_entry_enabled": false,
+  "physical_entry_block_reason": "User confirmed newly flashed Sentinel_robot-main(1); old raw159 control needs firmware-specific adaptation",
+  "frame": "course_start",
+  "waypoints_m": [[0.0, 0.0], [1.10, 0.0], [1.10, -1.25]],
+  "heading_deg": 0.0,
+  "speed_ceiling_m_s": 0.45,
+  "deadline_s": 300,
+  "operator_geometry": {
+    "first_leg_m": 1.10,
+    "second_leg_range_m": [1.20, 1.30],
+    "second_leg_selected_m": 1.25,
+    "second_leg_user_statement": "右移可以到1.2——1.3m左右",
+    "full_course_geometry_verified": false
+  },
+  "automatic_obstacle_avoidance": false,
+  "physical_tracking_validated": false
+}

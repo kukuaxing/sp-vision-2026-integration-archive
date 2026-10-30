@@ -129,6 +129,29 @@ std::optional<Eigen::Vector2d> Solver::image_angular_delta(
   }
 }
 
+std::optional<Eigen::Vector2d> Solver::image_point_delta(
+  const Eigen::Vector3d & from_world, const Eigen::Vector3d & to_world,
+  const Eigen::Matrix3d & rotation, const cv::Size & size) const
+{
+  const double fx=camera_matrix_.at<double>(0,0),fy=camera_matrix_.at<double>(1,1);
+  if (!from_world.allFinite() || !to_world.allFinite() || !rotation.allFinite() ||
+      size.width<=0 || size.height<=0 || fx<=0 || fy<=0) return {};
+  std::vector<cv::Point3d> points;
+  for(const auto * world : {&from_world,&to_world}) {
+    const Eigen::Vector3d camera=R_camera2gimbal_.transpose()*(rotation.transpose()*(*world)-t_camera2gimbal_);
+    if(!camera.allFinite() || camera.z()<=0)return {};
+    points.emplace_back(camera.x(),camera.y(),camera.z());
+  }
+  try {
+    std::vector<cv::Point2d> pixels;
+    cv::projectPoints(points,cv::Vec3d(0,0,0),cv::Vec3d(0,0,0),camera_matrix_,distort_coeffs_,pixels);
+    const Eigen::Vector2d result(
+      std::atan2(pixels[1].x-.5*size.width,fx)-std::atan2(pixels[0].x-.5*size.width,fx),
+      std::atan2(pixels[1].y-.5*size.height,fy)-std::atan2(pixels[0].y-.5*size.height,fy));
+    return result.allFinite() ? std::optional<Eigen::Vector2d>(result) : std::nullopt;
+  }catch(const cv::Exception&){return {};}
+}
+
 //solvePnP（获得姿态）
 namespace
 {
@@ -464,6 +487,18 @@ void Solver::optimize_yaw(Armor & armor) const
     if (error < min_error) {
       min_error = error;
       best_yaw = yaw;
+    }
+  }
+
+  // Refine only inside the coarse winner's 1-degree neighbourhood. A global
+  // ternary search would assume an unproven unimodal reprojection objective.
+  const double coarse_yaw = best_yaw;
+  for (int step = -9; step <= 9; ++step) {
+    const double candidate = tools::limit_rad(coarse_yaw + step * 0.1 * CV_PI / 180.0);
+    const double error = armor_reprojection_error(armor, candidate, 0.0);
+    if (std::isfinite(error) && error < min_error) {
+      min_error = error;
+      best_yaw = candidate;
     }
   }
 

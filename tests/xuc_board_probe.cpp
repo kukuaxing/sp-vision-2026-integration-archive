@@ -293,6 +293,12 @@ int main(int argc, char ** argv)
             f.chassis.time_us,unsigned(f.chassis.id),unsigned(f.chassis.flags),
             unsigned(f.link.aim_last_seq),unsigned(f.link.state),unsigned(f.link.last_reject),
             unsigned(f.link.aim_age_ms));
+          const auto feed=xuc.sentinel_feed_diagnostic();
+          std::printf("[FEED DIAGNOSTIC] received=%u flags=0x%02x sample_us=%u "
+                      "rpm=%d issue_count=%u issue_seq=%u motion_count=%u motion_seq=%u "
+                      "muzzle=UNMEASURED\n",unsigned(feed.received),unsigned(feed.flags),
+            feed.sample_us,int(feed.feeder_rpm),feed.issue_count,unsigned(feed.issue_seq),
+            feed.motion_count,unsigned(feed.motion_seq));
         } else {
         std::printf(
           "[RX] valid=1 mode=%u robot_id=%u bullet_speed=%.3f bullet_count=%u "

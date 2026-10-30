@@ -124,7 +124,12 @@ Json detection(const auto_aim::Armor & armor)
           {"class_id", armor.class_id}, {"confidence", armor.confidence},
           {"keypoint_confidence", armor.keypoint_confidence},
           {"color_score", armor.color_score}, {"color_source", armor.color_source},
-          {"corners_px", corners}};
+          {"corners_px", corners},
+          {"pose_observation_valid", armor.pose_observation_valid},
+          {"box_px", {armor.box.x, armor.box.y, armor.box.width, armor.box.height}},
+          {"center_px", {armor.center.x, armor.center.y}},
+          {"center_norm", {armor.center_norm.x, armor.center_norm.y}},
+          {"priority", static_cast<int>(armor.priority)}};
 }
 }  // namespace
 
@@ -136,13 +141,9 @@ int main(int argc, char ** argv)
     if (config["yolo_name"].as<std::string>() != "yolo26")
       throw std::invalid_argument("this replay executable requires the formal YOLO26 configuration");
     const auto model = absolute_asset(config, "yolo26_model_path", args.root);
-    const auto classifier = absolute_asset(config, "classify_model", args.root);
     config["yolo26_model_path"] = model.generic_string();
-    config["classify_model"] = classifier.generic_string();
     config["device"] = "CPU";
     config["infer_threads"] = 1;
-    config["classifier_device"] = "CPU";
-    config["classifier_infer_threads"] = 1;
     config["yolo26_bind_big_cores"] = false;
     config["yolo26_save_samples"] = false;
     config["detector_debug"] = false;
@@ -198,7 +199,7 @@ int main(int argc, char ** argv)
 #endif
     }
 
-    Json models = Json::array({model.generic_string(), classifier.generic_string()});
+    Json models = Json::array({model.generic_string()});
     if (model.extension() == ".xml") {
       auto weights = model;
       weights.replace_extension(".bin");

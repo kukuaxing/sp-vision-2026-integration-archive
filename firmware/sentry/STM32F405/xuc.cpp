@@ -77,6 +77,7 @@ void XUC::Init(UART* huart, USART_TypeDef* Instance, uint32_t BaudRate)
 	rx_total = rx_count = crc_err = resync_cnt = 0;
 	last_reject = XUC_OK;
 	seq_gimbal = seq_chassis = seq_link = 0;
+    seq_feed=0; feed_diagnostic={};
 	aim_seq_init = false;
 	nav_seq_init = false;
 	nav_last_seq = 0;
@@ -363,6 +364,11 @@ void XUC::HandleAim(const uint8_t* pl, uint16_t frame_seq, uint32_t f_boot)
 #else
 	last_reject = XUC_OK;
 #endif
+    if (last_reject==XUC_OK && aim_fire_req) {
+        taskENTER_CRITICAL();
+        feed_diagnostic.Request(frame_seq, frame_time_us);
+        taskEXIT_CRITICAL();
+    }
 }
 
 /* ==========================================================================
@@ -569,6 +575,21 @@ uint8_t XUC::ChassisFlags()
 	return f;
 }
 
+void XUC::ObserveFeeder(const uint8_t* bytes, uint32_t arrival_us)
+{
+    // Called only for the validated, configured feeder CAN feedback in its ISR.
+    const uint16_t angle=(uint16_t(bytes[0])<<8)|bytes[1];
+    const int16_t rpm=int16_t((uint16_t(bytes[2])<<8)|bytes[3]);
+    feed_diagnostic.Feedback(angle,rpm,arrival_us);
+}
+
+void XUC::RecordFeedIssue(bool automatic, int16_t direction)
+{
+    taskENTER_CRITICAL();
+    feed_diagnostic.Issue(automatic ? feed_diagnostic.request_seq:0,TIM::NowUs(),automatic,direction);
+    taskEXIT_CRITICAL();
+}
+
 void XUC::Encode()
 {
 	if (!m_uart || !m_uart->TxIdle()) return; // Do not overwrite bytes still read by DMA.
@@ -632,7 +653,30 @@ void XUC::Encode()
 		w += BuildFrame(XUC_T_LINK_STATUS, pl, XUC_PL_LINK_STATUS, seq, tx_buf + w);
 	}
 
-	/* 三帧拼成一段连续缓冲，一次 DMA 发出（DMATransmit 不可重入） */
+    // Separate diagnostic message: existing IMU/status layouts are untouched.
+    // Latched event timestamps survive short motor pulses and 50 Hz packaging.
+    {
+        uint8_t pl[XUC_PL_FEED_DIAGNOSTIC]{};
+        taskENTER_CRITICAL();
+        const uint32_t now_us=TIM::NowUs();
+        W1(pl,1u); W1(pl+1,feed_diagnostic.Flags(now_us));
+        W2(pl+2,feed_diagnostic.request_seq); W4(pl+4,feed_diagnostic.request_us);
+        W2(pl+8,feed_diagnostic.issue_seq); W2(pl+10,feed_diagnostic.motion_seq);
+        W4(pl+12,feed_diagnostic.issue_us); W4(pl+16,feed_diagnostic.motion_us);
+        W4(pl+20,feed_diagnostic.issue_count); W4(pl+24,feed_diagnostic.motion_count);
+        W4(pl+28,now_us); W4(pl+32,feed_diagnostic.feedback_us);
+        W2(pl+36,uint16_t(feed_diagnostic.rpm));
+#ifndef SENTINEL_HOST_TEST
+        W2(pl+38,ctrl.shooter_motor[0] ? uint16_t(ctrl.shooter_motor[0]->curspeed):0);
+        W2(pl+40,ctrl.shooter_motor[1] ? uint16_t(ctrl.shooter_motor[1]->curspeed):0);
+        W4(pl+44,ctrl.supply_motor[0] ? uint32_t(ctrl.supply_motor[0]->sum_angle):0);
+        WF(pl+48,ctrl.supply_motor[0] ? ctrl.supply_motor[0]->setangle:0.f);
+#endif
+        taskEXIT_CRITICAL();
+        w+=BuildFrame(XUC_T_FEED_DIAGNOSTIC,pl,sizeof(pl),seq_feed++,tx_buf+w);
+    }
+
+	/* 四帧一次DMA发送。诊断不参与许可、参考新鲜度或电机控制。 */
     if (m_uart->DMATransmit(tx_buf, w)) {
         // Cache only a frame actually submitted, using exactly its serialized values.
         const uint8_t* pl = tx_buf + XUC_HDR_LEN;

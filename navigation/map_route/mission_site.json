@@ -1,0 +1,11 @@
+{
+  "source_capture": "mapping_20261025_022124",
+  "registration_id": "f8ea6b9df1ba4cbf8f0b513a1a67aaf6",
+  "task_goal_m": [7.208212611441998, 1.8416703648426733],
+  "task_point_label_field_confirmed": true,
+  "confirmation_method": "direct_user_chat_with_route_preview",
+  "user_confirmation": "是，就是这个任务点，但是因为中途车开的有点歪，你得自己规划一下直线和纠偏",
+  "straight_line_planning_requested": true,
+  "route_clearance_surveyed": false,
+  "motion_authorized": false
+}

@@ -2,12 +2,43 @@
 #include "tasks/auto_aim/aimer.hpp"
 #include "tasks/auto_aim/detection_search.hpp"
 #include "tasks/auto_aim/rotation_fire_window.hpp"
+#include "src/standard_settings.hpp"
 #include <cassert>
 #include <iostream>
 #include <yaml-cpp/yaml.h>
 
 int main() {
   using namespace auto_aim;
+  // A one-second native-prediction cooldown skips visual opportunities. It
+  // must not be rejected by the inactive legacy ~344 ms periodic cadence.
+  auto settings_yaml = YAML::LoadFile("configs/standard.yaml");
+  settings_yaml["xuc_periodic_fire_enabled"] = true;
+  settings_yaml["xuc_event_phase_window_only"] = true;
+  settings_yaml["xuc_event_fixed_range_m"] = 3.0;
+  settings_yaml["xuc_event_fixed_omega_rad_s"] = 4.56;
+  settings_yaml["xuc_periodic_every_n_faces"] = 1;
+  settings_yaml["sentinel_fire_min_interval_ms"] = 1000;
+  settings_yaml["xuc_high_speed_strategy"] = "teammate_prediction";
+  const auto settings_allowed = [&]() {
+    try { const StandardSettings settings(settings_yaml, true); return true; }
+    catch (const std::invalid_argument &) { return false; }
+  };
+  assert(settings_allowed());
+  settings_yaml["xuc_high_speed_strategy"] = "periodic";
+  assert(!settings_allowed()); // active legacy schedule still needs its margin
+  settings_yaml["xuc_periodic_every_n_faces"] = 3;
+  assert(settings_allowed());
+  settings_yaml["xuc_high_speed_strategy"] = "teammate_prediction";
+  settings_yaml["sentinel_fire_min_interval_ms"] = 5000;
+  assert(settings_allowed());
+  settings_yaml["sentinel_fire_min_interval_ms"] = 199;
+  assert(!settings_allowed());
+  settings_yaml["sentinel_fire_min_interval_ms"] = 5001;
+  assert(!settings_allowed());
+  settings_yaml["sentinel_fire_min_interval_ms"] = 1000;
+  settings_yaml["xuc_periodic_phase_offset_ms"] = 2001;
+  assert(!settings_allowed()); // other existing validity guards remain active
+
   DetectionSearch search;
   const cv::Rect roi(420,50,600,600);
   std::vector<cv::Point2f> plate{{650,250},{720,250},{720,280},{650,280}};
@@ -65,6 +96,19 @@ int main() {
   const auto faces = predicted.whole_ekf_armor_xyza_list();
   assert((faces.at(trace.face_id) - aimer.debug_aim_point.xyza).norm() < 1e-8);
   assert(predicted.center_acceleration_variance() == 100.); // untrusted spin never stiffens center
+  // A qualified high-speed whole model must retain its own phase/face geometry
+  // through all flight-time iterations, in either rotation direction.
+  for (double rate : {-4.33, 4.33}) {
+    Target fast(3., rate, .26, .04);
+    const auto fast_command = aimer.aim(
+      {fast}, start, 19.36, false, &trace, AimGeometry::whole_ekf);
+    assert(fast_command.control && trace.valid && trace.converged && trace.whole_ekf_geometry);
+    assert(trace.high_speed_delay && std::abs(trace.delay_motion_rate_rad_s-rate)<1e-9);
+    auto future_fast = fast;
+    future_fast.predict(std::chrono::steady_clock::time_point(std::chrono::nanoseconds(trace.prediction_ns)));
+    const auto fast_faces = future_fast.whole_ekf_armor_xyza_list();
+    assert((fast_faces.at(trace.face_id)-aimer.debug_aim_point.xyza).norm()<1e-8);
+  }
   aimer.aim({}, start, 19.36, false, &trace, AimGeometry::whole_ekf);
   assert(!trace.valid && !aimer.debug_aim_point.valid);
   Target stationary(3., 0., .2, .04);

@@ -323,7 +323,7 @@ def main(argv: list[str] | None = None) -> int:
             if sha256_file(Path(path)) != expected:
                 raise RecordingError(f"input/config/executable changed during replay: {path}")
         sources = ["tests/offline/detector_replay.cpp", "tasks/auto_aim/yolos/yolo26.cpp",
-                   "tasks/auto_aim/armor.cpp", "tasks/auto_aim/detector.cpp", "tasks/auto_aim/classifier.cpp",
+                   "tasks/auto_aim/armor.cpp", "tasks/auto_aim/yolos/yolo26.hpp",
                    "tasks/auto_aim/adaptive_corner_refiner.cpp"]
         metadata = {"revision": revision(), "executable": {"path": str(executable), "sha256": before[str(executable)]},
                     "input": None if source is None else {"path": str(source), "sha256": before[str(source)]},

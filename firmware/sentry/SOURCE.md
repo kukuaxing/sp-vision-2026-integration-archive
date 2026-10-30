@@ -1,5 +1,7 @@
 # 当前哨兵固件来源
 
+2026-10-31：以下来源和烧录记录属于本仓库参考固件的历史。用户现在使用独立的 `H:/rm/Sentinel_robot-main(1)/Sentinel_robot-main` 工程并由队友更新PID/电机ID，当前镜像不能按下文旧哈希或0x82诊断功能推定。此次GitHub归档没有合并覆盖该独立工程，没有重新烧录。以当前 `docs/status.md` 和 `firmware/README.md` 的范围说明为准。
+
 来源：用户2026-10-15提供的 `D:/下载/Sentinel_robot-main (2).zip`。
 SHA256：`c93e6e85afa33fbc012e00c91d255332c33f03d02258b0348b6a510e4ff283a0`。
 

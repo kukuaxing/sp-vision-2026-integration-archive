@@ -2,6 +2,7 @@
 #include "tasks/auto_aim/detection_search.hpp"
 
 #include <fmt/chrono.h>
+#include <fmt/ranges.h>
 #include <yaml-cpp/yaml.h>
 
 #include <algorithm>
@@ -92,7 +93,7 @@ bool bind_current_thread_to_cores(const std::vector<int> & cores)
 }
 }  // namespace
 YOLO26::YOLO26(const std::string & config_path, bool debug)
-: debug_(debug), detector_(config_path, false)
+: debug_(debug)
 {
   const auto yaml = YAML::LoadFile(config_path);
   load_detection_settings(yaml);
@@ -173,6 +174,8 @@ void YOLO26::configure_corner_refiner(const YAML::Node & yaml)
 {
   AdaptiveCornerRefiner::Config corner_config;
   corner_config.binary_threshold = static_cast<int>(binary_threshold_);
+  if(yaml["corner_refine_brightness_invariant_subpixel"])
+    corner_config.brightness_invariant_subpixel=yaml["corner_refine_brightness_invariant_subpixel"].as<bool>();
   if (yaml["corner_refine_roi_length_scale"])
     corner_config.roi_length_scale = yaml["corner_refine_roi_length_scale"].as<double>();
   if (yaml["corner_refine_roi_width_scale"])
@@ -195,10 +198,19 @@ std::vector<int> YOLO26::configure_runtime_cpu(const YAML::Node & yaml)
 {
   // 🚀 优化1: 大核绑定，提升推理性能
   std::vector<int> big_cores;
-  const bool bind_big_cores = !yaml["yolo26_bind_big_cores"] ||
-    yaml["yolo26_bind_big_cores"].as<bool>();
+  const bool bind_big_cores = device_ == "CPU" &&
+    (!yaml["yolo26_bind_big_cores"] || yaml["yolo26_bind_big_cores"].as<bool>());
   const auto big_info = bind_big_cores ? get_big_core_info() : BigCoreInfo{};
   big_cores = big_info.ids;
+  if (bind_big_cores && yaml["yolo26_cpu_ids"]) {
+    big_cores = yaml["yolo26_cpu_ids"].as<std::vector<int>>();
+    const auto count = static_cast<int>(std::thread::hardware_concurrency());
+    if (big_cores.empty() || std::any_of(big_cores.begin(), big_cores.end(),
+        [count](int id){return id < 0 || id >= count;}))
+      throw std::invalid_argument("yolo26_cpu_ids contains unavailable CPU ids");
+    std::sort(big_cores.begin(), big_cores.end());
+    big_cores.erase(std::unique(big_cores.begin(), big_cores.end()), big_cores.end());
+  }
   const int cpu_cores = static_cast<int>(std::thread::hardware_concurrency());
 
   tools::logger()->info(
@@ -241,7 +253,7 @@ void YOLO26::configure_input_area(const YAML::Node & yaml)
   offset_ = cv::Point2f(x, y);
 
   save_path_ = "imgs";
-  std::filesystem::create_directory(save_path_);
+  if (save_samples_) std::filesystem::create_directory(save_path_);
 
 }
 
@@ -279,13 +291,15 @@ int YOLO26::initialize_model(const YAML::Node & yaml, const std::vector<int> & b
 
   tools::logger()->info("[YOLO26] Compiling model with {} threads (LATENCY mode)", infer_threads);
 
-  compiled_model_ = core_.compile_model(
-    model, device_,
+  ov::AnyMap properties{
     ov::hint::performance_mode(ov::hint::PerformanceMode::LATENCY),
-    ov::streams::num(1),
-    ov::hint::num_requests(1),
-    ov::inference_num_threads(infer_threads)
-  );
+    ov::streams::num(1), ov::hint::num_requests(1)};
+  // CPU thread properties are not GPU properties. Keep GPU initialization
+  // possible without silently falling back or changing image/model precision.
+  if (device_ == "CPU") properties.insert(ov::inference_num_threads(infer_threads));
+  compiled_model_ = core_.compile_model(model, device_, properties);
+  tools::logger()->info("[YOLO26] actual execution devices: {}",
+    fmt::join(compiled_model_.get_property(ov::execution_devices), ","));
 
   // 🚀 优化5: 预分配输入图像和tensor，避免每帧重新分配
   infer_request_ = compiled_model_.create_infer_request();
@@ -345,8 +359,6 @@ std::list<Armor> YOLO26::detect(const cv::Mat & raw_img, int frame_count, bool f
     model_img = color_converted_;
   }
 
-  diagnostics_ = {};
-  if (raw_img.empty()) return {};
   active_roi_ = use_roi_ && !full_frame
     ? clipped_detection_roi(roi_, raw_img.size()) : cv::Rect(0, 0, raw_img.cols, raw_img.rows);
   diagnostics_.roi = active_roi_;
@@ -401,6 +413,9 @@ std::list<Armor> YOLO26::detect(const cv::Mat & raw_img, int frame_count, bool f
   auto t_postprocess_end = std::chrono::high_resolution_clock::now();
   auto duration_postprocess = std::chrono::duration_cast<std::chrono::microseconds>(
     t_postprocess_end - t_postprocess_start).count();
+  diagnostics_.preprocess_ms = duration_preprocess / 1000.0;
+  diagnostics_.inference_ms = duration_infer / 1000.0;
+  diagnostics_.postprocess_ms = duration_postprocess / 1000.0;
 
   // ========== 性能统计 ==========
   auto t_total_end = std::chrono::high_resolution_clock::now();

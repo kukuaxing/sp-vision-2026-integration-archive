@@ -11,9 +11,11 @@ void deliver(UART& port,const Bytes& bytes){port.rx=bytes;xuc.Decode();}
 int main(){
   UART port;xuc.Init(&port,nullptr,921600);
   imu_chassis.arrival=998000;port.arrival=12; // host arrival must NOT appear in IMU telemetry.
-  xuc.Encode();assert(port.tx.size()==106);
+  xuc.Encode();assert(port.tx.size()==172);
   std::vector<Frame> telemetry;Decoder d;d.feed(port.tx.data(),port.tx.size(),1,[&](const Frame& f){telemetry.push_back(f);});
-  assert(telemetry.size()==3);
+  assert(telemetry.size()==4);
+  FeedDiagnostic feed;assert(decode_feed_diagnostic(telemetry[3],feed));
+  assert(feed.issue_count==0 && feed.motion_count==0 && feed.flags==0);
   assert(u32(telemetry[0].payload.data()+4)==imu_pantile.arrival);
   assert(u32(telemetry[1].payload.data()+4)==imu_chassis.arrival);
   // Merely entering AUTO must not spin wheels before an accepted host lease.

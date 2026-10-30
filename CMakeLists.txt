@@ -262,6 +262,7 @@ add_executable(
 add_executable(
   gyro_phase_log_replay_test
   tasks/auto_aim/gyro_phase_log_replay_test.cpp)
+add_executable(periodic_clock_replay tasks/auto_aim/periodic_clock_replay.cpp)
 add_executable(
   rotation_model_manager_test
   tasks/auto_aim/rotation_model_manager_test.cpp)
@@ -390,6 +391,8 @@ endif()
 # endif()
 
 # XUC virtual lower-board serial integration test
+add_executable(mission_link_probe tests/mission_link_probe.cpp)
+target_link_libraries(mission_link_probe fmt::fmt yaml-cpp tools io)
 add_executable(xuc_link_test tests/xuc_link_test.cpp)
 target_link_libraries(
   xuc_link_test

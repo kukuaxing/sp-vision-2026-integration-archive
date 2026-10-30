@@ -11,6 +11,7 @@ struct DetectionDiagnostics {
   cv::Rect roi;
   int rows = 0, candidates = 0, nms = 0, accepted = 0;
   int rejected_keypoints = 0, rejected_label_shape = 0, rejected_refinement = 0;
+  double preprocess_ms = 0, inference_ms = 0, postprocess_ms = 0;
 };
 
 class YOLOBase

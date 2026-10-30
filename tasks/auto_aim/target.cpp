@@ -122,6 +122,10 @@ void Target::predict(std::chrono::steady_clock::time_point t)
 
 void Target::predict(double dt)
 {
+  if (fixed_center_prediction_) {
+    ekf_.x[6] = tools::limit_rad(ekf_.x[6] + ekf_.x[7] * dt);
+    return;
+  }
   yaw_eskf_.predict(dt);
   for (auto & filter : armor_motion_filters_) filter.predict(dt);
 
@@ -488,26 +492,94 @@ bool Target::federated_phase_consistent() const
 
 bool Target::whole_rotation_trusted() const
 {
+  return whole_rotation_rejection_mask() == 0;
+}
+
+std::uint32_t Target::whole_rotation_rejection_mask() const
+{
   // This qualifies only the whole-state geometry. It never licenses inserting
   // an inconsistent independent yaw into its radii/face labels. A rotating
   // vehicle needs actual face diversity and a mature, bounded covariance.
-  if (armor_num_ != 4 || !jumped || update_count_ < 20 || ekf_.x.size() != 11 ||
-      ekf_.P.rows() != 11 || ekf_.P.cols() != 11 ||
-      !ekf_.x.allFinite() || !ekf_.P.allFinite() || diverged() ||
-      std::abs(ekf_.x[7]) > 8.0) return false;
+  std::uint32_t rejected = 0;
+  if (armor_num_ != 4) rejected |= wrong_layout;
+  if (!jumped) rejected |= no_face_diversity;
+  if (update_count_ < 20) rejected |= immature;
+  if (ekf_.x.size() != 11 || ekf_.P.rows() != 11 || ekf_.P.cols() != 11)
+    return rejected | invalid_dimensions;
+  if (!ekf_.x.allFinite() || !ekf_.P.allFinite())
+    return rejected | nonfinite_state;
+  if (diverged()) rejected |= divergent;
+  if (std::abs(ekf_.x[7]) > 8.0) rejected |= excessive_rate;
   const auto bounded_variance = [](double variance, double maximum) {
     return std::isfinite(variance) && variance >= 0.0 && variance <= maximum;
   };
-  const double second_radius_variance = ekf_.P(8,8) + ekf_.P(9,9) + 2.0 * ekf_.P(8,9);
-  return bounded_variance(ekf_.P(6,6), std::pow(15.0 * M_PI / 180.0, 2)) &&
-    bounded_variance(ekf_.P(7,7), 1.0) &&
-    bounded_variance(ekf_.P(0,0), 0.01) && bounded_variance(ekf_.P(2,2), 0.01) &&
-    bounded_variance(ekf_.P(8,8), 0.0025) && bounded_variance(second_radius_variance, 0.0025);
+  const double second_radius_var = ekf_.P(8,8) + ekf_.P(9,9) + 2.0 * ekf_.P(8,9);
+  if (!bounded_variance(ekf_.P(6,6), std::pow(15.0 * M_PI / 180.0, 2)))
+    rejected |= phase_variance;
+  if (!bounded_variance(ekf_.P(7,7), 1.0)) rejected |= rate_variance;
+  // Field comparison: 12cm centre standard deviation instead of 10cm.
+  // Phase, rate and both radius confidence limits are unchanged.
+  if (!bounded_variance(ekf_.P(0,0), 0.0144)) rejected |= center_x_variance;
+  if (!bounded_variance(ekf_.P(2,2), 0.0144)) rejected |= center_z_variance;
+  if (!bounded_variance(ekf_.P(8,8), 0.0025)) rejected |= radius_variance;
+  if (!bounded_variance(second_radius_var, 0.0025)) rejected |= second_radius_variance;
+  return rejected;
 }
 
 bool Target::yaw_eskf_trusted() const
 {
   return yaw_eskf_.trusted() && federated_phase_consistent();
+}
+
+Target::PriorInnovation Target::prior_innovation(const Armor & measurement, int face) const
+{
+  PriorInnovation out;
+  if (!measurement.pose_valid || face < 0 || face >= armor_num_ ||
+      !ekf_.x.allFinite() || !ekf_.P.allFinite()) return out;
+  const auto xyz = h_armor_xyz(ekf_.x, face);
+  const auto ypd = tools::xyz2ypd(xyz);
+  out.residual << measurement.ypd_in_world - ypd,
+    measurement.ypr_in_world[0] - ekf_.x[6] - face * 2.0 * M_PI / armor_num_;
+  for (int i : {0, 1, 3}) out.residual[i] = tools::limit_rad(out.residual[i]);
+  const double incidence = tools::limit_rad(measurement.ypr_in_world[0] -
+    std::atan2(measurement.xyz_in_world[1], measurement.xyz_in_world[0]));
+  const auto variances = measurement_variances(measurement, incidence);
+  const Eigen::Vector4d diagonal(variances.data());
+  const auto H = h_jacobian(ekf_.x, face);
+  const Eigen::Matrix4d S = H * ekf_.P * H.transpose() + diagonal.asDiagonal().toDenseMatrix();
+  Eigen::LDLT<Eigen::Matrix4d> decomposition(S);
+  if (decomposition.info() != Eigen::Success || !decomposition.isPositive()) return out;
+  out.variance = S.diagonal();
+  out.nis = out.residual.dot(decomposition.solve(out.residual));
+  out.valid = out.residual.allFinite() && out.variance.allFinite() &&
+    std::isfinite(out.nis) && out.nis >= 0.0;
+  return out;
+}
+
+std::optional<Eigen::Vector4d> Target::fixed_center_armor_at(
+  int face, std::chrono::steady_clock::time_point time) const
+{
+  if (!fixed_center_prediction_ || face < 0 || face >= armor_num_) return {};
+  const auto & x = ekf_.x;
+  const double phase = tools::limit_rad(x[6] + x[7] * tools::delta_time(time, t_));
+  const double angle = tools::limit_rad(phase + face * 2 * CV_PI / armor_num_);
+  const bool alternate = armor_num_ == 4 && (face == 1 || face == 3);
+  const double radius = alternate ? x[8] + x[9] : x[8];
+  return Eigen::Vector4d{x[0] - radius * std::cos(angle), x[2] - radius * std::sin(angle),
+    alternate ? x[4] + x[10] : x[4], angle};
+}
+
+std::optional<Target> Target::with_fixed_center_prediction(const Eigen::VectorXd & state) const
+{
+  if (armor_num_ != 4 || state.size() != 11 || !state.allFinite() ||
+      state[8] <= 0.05 || state[8] >= 0.5 ||
+      state[8] + state[9] <= 0.05 || state[8] + state[9] >= 0.5) return {};
+  Target out = *this;
+  out.ekf_.x = state;
+  for (int index : {1, 3, 5}) out.ekf_.x[index] = 0.0;
+  out.fixed_center_prediction_ = true;
+  out.jumped = true;
+  return out;
 }
 
 double Target::yaw_eskf_angle() const { return yaw_eskf_.angle(); }

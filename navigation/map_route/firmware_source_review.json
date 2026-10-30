@@ -1,0 +1,43 @@
+{
+  "source_directory": "H:\\rm\\Sentinel_robot-main(1)\\Sentinel_robot-main",
+  "user_confirmed_flashed": true,
+  "files": {
+    "STM32F405/xuc.cpp": "36d1951e0a5f6ed98a02eb26e8cfc84aa0e14dea8c56b00ce288524983b096f0",
+    "STM32F405/xuc.h": "e095a6299c8d74f5165b491f7b7bc08aba70b9c2e5b871b48165ab56040ed03e",
+    "STM32F405/RC.cpp": "cc4230dcc6d1b2e1ab50b92dc20e009fdab57062d64224410c05dad897862186",
+    "STM32F405/RC.h": "d5d93820912c67684d08ebc1bd6fef16a59c28e87c061ddc57f065f3e936800e",
+    "STM32F405/label.cpp": "245d70bccd9a4c0bf0ed092124a0e67c86ed2ae2919f16d469f260c9a388f1db",
+    "STM32F405/label.h": "81f972eb9d52212fe65fc6dc6f83528b5b1ea2ef3308c3663d0ad4b5bd0979f6",
+    "STM32F405/control.cpp": "32d0eb6568312cb69b8c19e0cab1622856718fc562eb508853cc56b75136e544",
+    "STM32F405/control.h": "0cbd8a79c1e8b17c3e6383e8d087076927b275d79e52e9e0df447119b0b5ece5",
+    "STM32F405/STM32F405.cpp": "2a061127861f9694bee03746c5ac863906509c0931c330c1367b61de28577425"
+  },
+  "firmware_modified": false,
+  "firmware_flashed": false,
+  "flash_readback_performed": false,
+  "gain_rpm_per_unit": 3859.9,
+  "yaw_lever_m": 0.35,
+  "yaw_sign": -1.0,
+  "native_conversion_ratio": 0.04119277701494857,
+  "nav_wire_layout_compatible": true,
+  "old_speed_numeric_contract_compatible": false,
+  "previous_wheel_geometry_theoretical_gain": 2409.6863849691,
+  "yaw_parameter_patch_applied": true,
+  "user_confirmation": "已经完成，准备开始",
+  "confirmation_scope": "User reply after instructions to modify parameters and flash; no agent flash/readback performed",
+  "reviewed_unix": 1792873601.2444422,
+  "changes_reviewed": [
+    "PARAMETER::Init sets lever0.350 and sign-1; gain3859.9 unchanged"
+  ],
+  "previous_source_sha256": {
+    "STM32F405/xuc.cpp": "36d1951e0a5f6ed98a02eb26e8cfc84aa0e14dea8c56b00ce288524983b096f0",
+    "STM32F405/xuc.h": "e095a6299c8d74f5165b491f7b7bc08aba70b9c2e5b871b48165ab56040ed03e",
+    "STM32F405/RC.cpp": "cc4230dcc6d1b2e1ab50b92dc20e009fdab57062d64224410c05dad897862186",
+    "STM32F405/RC.h": "d5d93820912c67684d08ebc1bd6fef16a59c28e87c061ddc57f065f3e936800e",
+    "STM32F405/label.cpp": "69ffc993ce4b21dff7151b9a1224f579578591c4bfa663e1730dc25edf4d0108",
+    "STM32F405/label.h": "81f972eb9d52212fe65fc6dc6f83528b5b1ea2ef3308c3663d0ad4b5bd0979f6",
+    "STM32F405/control.cpp": "32d0eb6568312cb69b8c19e0cab1622856718fc562eb508853cc56b75136e544",
+    "STM32F405/control.h": "0cbd8a79c1e8b17c3e6383e8d087076927b275d79e52e9e0df447119b0b5ece5",
+    "STM32F405/STM32F405.cpp": "2a061127861f9694bee03746c5ac863906509c0931c330c1367b61de28577425"
+  }
+}

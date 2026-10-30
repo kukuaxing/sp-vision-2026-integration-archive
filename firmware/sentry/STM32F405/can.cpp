@@ -3,6 +3,11 @@
 #include "string.h"
 #include "HTmotor.h"
 #include "motor.h"
+#ifndef SENTINEL_ACTUATOR_HOST_TEST
+#include "xuc.h"
+#include "tim.h"
+#include "control.h"
+#endif
 
 #ifndef SENTINEL_ACTUATOR_HOST_TEST
 /*
@@ -143,6 +148,9 @@ bool CAN::ReceiveFeedback(uint32_t id, const uint8_t* bytes, uint8_t length,
 		for (uint8_t i = 0; i < count; ++i) {
 			if (id == 0x201u + motors[i].ID - ID1 && motors[i].OnFeedbackFrame(bytes)) {
 				memcpy(data[id - 0x201u], bytes, 8);
+#ifndef SENTINEL_ACTUATOR_HOST_TEST
+                if (&motors[i]==ctrl.supply_motor[0]) xuc.ObserveFeeder(bytes,TIM::NowUs());
+#endif
 				return true;
 			}
 		}

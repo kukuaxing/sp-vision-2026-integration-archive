@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <stdexcept>
 #include <yaml-cpp/yaml.h>
 #include "tasks/auto_aim/robust_range_filter.hpp"
 #include "tasks/auto_aim/shot_delay_adapter.hpp"
@@ -11,7 +12,28 @@
 struct StandardSettings
 {
   explicit StandardSettings(const YAML::Node & yaml, bool sentinel)
-  : integration_yaml(yaml), sentinel_protocol(sentinel) {}
+  : integration_yaml(yaml), sentinel_protocol(sentinel)
+  {
+    if (xuc_periodic_fire_enabled) {
+      const int minimum_ms = yaml["sentinel_fire_min_interval_ms"]
+        ? yaml["sentinel_fire_min_interval_ms"].as<int>() : 1000;
+      const bool teammate_prediction = yaml["xuc_high_speed_strategy"] &&
+        yaml["xuc_high_speed_strategy"].as<std::string>() == "teammate_prediction";
+      if (!sentinel || !xuc_event_phase_window_only ||
+          !std::isfinite(xuc_event_fixed_range_m) || xuc_event_fixed_range_m <= 0.0 ||
+          !std::isfinite(xuc_event_fixed_omega_rad_s) || xuc_event_fixed_omega_rad_s <= 0.0 ||
+          !std::isfinite(xuc_periodic_phase_offset_s) ||
+          std::abs(xuc_periodic_phase_offset_s) > 2.0 ||
+          xuc_periodic_every_n_faces < 1 || xuc_periodic_every_n_faces > 16 ||
+          minimum_ms < 200 || minimum_ms > 5000 ||
+          // Native prediction skips opportunities during the transport cooldown;
+          // its cadence is not scheduled by this legacy periodic face divider.
+          (!teammate_prediction &&
+            xuc_periodic_every_n_faces * (M_PI/2.0) / xuc_event_fixed_omega_rad_s * 1000.0
+              < minimum_ms + 5.0))
+        throw std::invalid_argument("Periodic fire requires Sentinel fixed-centre phase mode, finite offset +/-2000ms, faces 1..16, and period >= fire minimum + 5ms");
+    }
+  }
 
   const YAML::Node integration_yaml;
   const bool sentinel_protocol;
@@ -336,23 +358,43 @@ struct StandardSettings
       : 0.6;
   // Event-clock fire timing. The calibrated nominal remains the fallback;
   // receive-thread feeder timing may add a small, bounded runtime correction.
+  // Positive fixed range enables the explicit stationary-centre bench policy.
+  // Zero preserves the ordinary measured-range event clock.
+  const double xuc_event_fixed_range_m = integration_yaml["xuc_event_fixed_range_m"]
+    ? std::clamp(integration_yaml["xuc_event_fixed_range_m"].as<double>(), 0.0, 20.0) : 0.0;
+  const double xuc_event_fixed_omega_rad_s = integration_yaml["xuc_event_fixed_omega_rad_s"]
+    ? std::clamp(integration_yaml["xuc_event_fixed_omega_rad_s"].as<double>(), 0.0, 8.0) : 0.0;
+  const double xuc_event_command_phase_tolerance_rad =
+    (integration_yaml["xuc_event_command_phase_tolerance_deg"]
+      ? std::clamp(integration_yaml["xuc_event_command_phase_tolerance_deg"].as<double>(), 0.2, 5.0)
+      : 2.0) * M_PI / 180.0;
+  const bool xuc_event_phase_window_only = integration_yaml["xuc_event_phase_window_only"] &&
+    integration_yaml["xuc_event_phase_window_only"].as<bool>();
+  const bool xuc_event_phase_after_only = integration_yaml["xuc_event_phase_after_only"] &&
+    integration_yaml["xuc_event_phase_after_only"].as<bool>();
+  const bool xuc_periodic_fire_enabled = integration_yaml["xuc_periodic_fire_enabled"] &&
+    integration_yaml["xuc_periodic_fire_enabled"].as<bool>();
+  const double xuc_periodic_phase_offset_s = integration_yaml["xuc_periodic_phase_offset_ms"]
+    ? integration_yaml["xuc_periodic_phase_offset_ms"].as<double>() / 1000.0 : 0.0;
+  const int xuc_periodic_every_n_faces = integration_yaml["xuc_periodic_every_n_faces"]
+    ? integration_yaml["xuc_periodic_every_n_faces"].as<int>() : 1;
   const double xuc_event_fire_delay_s =
     integration_yaml["xuc_event_fire_delay_s"]
       ? std::clamp(
-          integration_yaml["xuc_event_fire_delay_s"].as<double>(), 0.0, 0.5)
+          integration_yaml["xuc_event_fire_delay_s"].as<double>(), 0.0, 2.0)
       : 0.10;
   const double xuc_event_fire_delay_min_s =
     integration_yaml["xuc_event_fire_delay_min_ms"]
       ? std::clamp(
-          integration_yaml["xuc_event_fire_delay_min_ms"].as<double>(), 0.0, 500.0) /
+          integration_yaml["xuc_event_fire_delay_min_ms"].as<double>(), 0.0, 2000.0) /
           1000.0
       : std::max(0.0, xuc_event_fire_delay_s - 0.020);
   const double xuc_event_fire_delay_max_s =
     integration_yaml["xuc_event_fire_delay_max_ms"]
       ? std::clamp(
-          integration_yaml["xuc_event_fire_delay_max_ms"].as<double>(), 0.0, 500.0) /
+          integration_yaml["xuc_event_fire_delay_max_ms"].as<double>(), 0.0, 2000.0) /
           1000.0
-      : std::min(0.5, xuc_event_fire_delay_s + 0.020);
+      : std::min(2.0, xuc_event_fire_delay_s + 0.020);
   const auto_aim::ShotDelayAdapter::Config shot_delay_config = make_shot_delay_config();
   const double xuc_event_flight_time_uncertainty_s =
     integration_yaml["xuc_event_flight_time_uncertainty_ms"]

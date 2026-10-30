@@ -11,6 +11,8 @@ namespace tools {
 class VisionDiagnostics {
 public:
   explicit VisionDiagnostics(const YAML::Node & config) {
+    stride_ = config["vision_diagnostics_stride"]
+      ? std::clamp(config["vision_diagnostics_stride"].as<int>(), 1, 50) : 1;
     if (!config["vision_diagnostics_enabled"] ||
         !config["vision_diagnostics_enabled"].as<bool>()) return;
     limit_ = config["vision_diagnostics_max_frames"]
@@ -25,7 +27,8 @@ public:
     if (!output_) { logger()->warn("[DIAGNOSTICS] cannot open {}", path_); return; }
     logger()->info("[DIAGNOSTICS] {} max_frames={}", path_, limit_);
   }
-  bool enabled() const { return output_.is_open() && count_ < limit_; }
+  void begin_frame() { selected_ = (frame_++ % stride_ == 0); }
+  bool enabled() const { return selected_ && output_.is_open() && count_ < limit_; }
   void write(const nlohmann::json & frame) {
     if (!enabled()) return;
     output_ << frame.dump(-1, ' ', false, nlohmann::json::error_handler_t::replace) << '\n';
@@ -38,5 +41,8 @@ private:
   std::ofstream output_;
   std::string path_;
   int count_ = 0, limit_ = 0;
+  int stride_ = 1;
+  std::uint64_t frame_ = 0;
+  bool selected_ = true;
 };
 }  // namespace tools

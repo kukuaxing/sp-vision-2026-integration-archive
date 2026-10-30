@@ -1,0 +1,25 @@
+[Unit]
+Description=RM27 boot mission: remote AUTO, navigation, task, return
+Wants=rm27-navigation.service
+After=rm27-navigation.service
+StartLimitIntervalSec=0
+
+[Service]
+Type=exec
+User=rcsdart
+Group=rcsdart
+SupplementaryGroups=dialout video
+WorkingDirectory=/home/rcsdart/rm27
+RuntimeDirectory=rm27-mission
+RuntimeDirectoryMode=0700
+Environment=HOME=/home/rcsdart
+Environment=RM27_MISSION_DIR=/run/rm27-mission
+ExecStart=/usr/bin/python3 /home/rcsdart/rm27/navigation/mission/supervisor.py
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=15
+KillMode=control-group
+NotifyAccess=main
+
+[Install]
+WantedBy=multi-user.target

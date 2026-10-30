@@ -20,6 +20,9 @@ public:
   struct Config
   {
     int binary_threshold = 100;
+    // Use Otsu without an absolute-brightness blend, then trace the same
+    // isophote to subpixel boundaries. No fixed pixel/range compensation.
+    bool brightness_invariant_subpixel = false;
     double roi_length_scale = 1.8;
     double roi_width_scale = 0.9;
     double max_center_error_ratio = 0.65;
@@ -36,6 +39,7 @@ public:
     // Current project order: left-top, right-top, right-bottom, left-bottom.
     std::array<cv::Point2f, 4> points;
     double score = 0.0;
+    bool single_broad_light = false;
   };
 
   AdaptiveCornerRefiner() = default;
@@ -57,11 +61,12 @@ private:
     double length = 0.0;
     double angle_deg = 0.0;
     double score = 0.0;
+    bool broad = false;
   };
 
   std::optional<LightCandidate> refine_light(
     const cv::Mat & gray, const cv::Point2f & expected_top,
-    const cv::Point2f & expected_bottom) const;
+    const cv::Point2f & expected_bottom, bool allow_broad = false) const;
 
   Config config_;
 };

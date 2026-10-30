@@ -15,7 +15,9 @@ for action, title, script, icon, extra in [
     target.chmod(0o755)
     # Desktop Exec escaping is distinct from shell quoting.
     quoted = str(target).replace('\\', '\\\\').replace('"', '\\"').replace('`', '\\`').replace('$', '\\$').replace('%', '%%')
-    entry = desktop / f'rm27-autoaim-{action}.desktop'
+    entry = desktop / f'{root.name}-autoaim-{action}.desktop'
+    if root.name != 'rm27':
+        title += f' ({root.name})'
     entry.write_text(
         '[Desktop Entry]\nType=Application\nVersion=1.0\n'
         f'Name={title}\nComment=rm27 自瞄\n'

@@ -81,6 +81,57 @@ int main()
   assert(result.mode == Manager::Mode::armor);
   assert(result.phase_reset);
 
+  // A live target can briefly fail geometry covariance checks at face
+  // hand-over. Keep earned clock/mode agreement, but require currently trusted
+  // geometry/rate before fire trust returns. An expired gap destroys the clock.
+  Manager::Config geometry_config = dropout_config;
+  geometry_config.rate_agreement_updates = 3;
+  Manager geometry(geometry_config);
+  geometry.update(0.00, true, 4.5);
+  geometry.update(0.11, true, 4.5);
+  for (int i = 0; i < 3; ++i)
+    result = geometry.update(.12 + .01*i, true, 4.5, true, 4.5, true);
+  assert(result.phase_fire_trusted);
+  for (double t : {.20, .35, .50}) {
+    result = geometry.update(t, false, 4.5, true, 4.5, true);
+    assert(result.mode == Manager::Mode::high_speed_phase);
+    assert(result.geometry_held);
+    assert(!result.phase_reset && !result.tracker_trusted && !result.phase_fire_trusted);
+  }
+  result = geometry.update(.52, true, 4.5, true, 4.5, true);
+  assert(result.phase_fire_trusted);
+  result = geometry.update(.53, true, 4.5, true, 7.0, true);
+  assert(!result.phase_fire_trusted);  // Old agreement cannot hide a new mismatch.
+  for (int i = 0; i < 3; ++i) {
+    result = geometry.update(.54 + .01*i, true, 4.5, true, 4.5, true);
+    assert(result.phase_fire_trusted == (i == 2));
+  }
+  result = geometry.update(1.30, false, 4.5, true, 4.5, true);
+  assert(result.phase_reset);
+  assert(result.mode == Manager::Mode::armor && !result.phase_fire_trusted);
+
+  // A missing observation keeps the original 250ms limit, even though the
+  // caller supplies the longer geometry-only retention policy.
+  Manager missing(geometry_config);
+  missing.update(0., true, 4.5);
+  missing.update(.11, true, 4.5);
+  result = missing.update(.40, false, 4.5, true, 4.5, false);
+  assert(result.phase_reset && result.mode == Manager::Mode::armor);
+
+  // Absolute speeds can agree during reversal. A sign change must still
+  // invalidate the old phase clock instead of borrowing its lock.
+  Manager reverse(geometry_config);
+  reverse.update(0., true, 4.5);
+  reverse.update(.11, true, 4.5);
+  for (int i = 0; i < 3; ++i)
+    reverse.update(.12 + .01*i, true, 4.5, true, 4.5, true);
+  result = reverse.update(.20, true, -4.5, true, 4.5, true);
+  assert(result.phase_reset && !result.phase_fire_trusted);
+  reverse.update(.21, true, -.2, true, 4.5, true);
+  reverse.update(.22, true, +.2, true, 4.5, true);
+  result = reverse.update(.23, true, +4.5, true, 4.5, true);
+  assert(result.phase_reset && !result.phase_fire_trusted);
+
   std::cout << "rotation_model_manager_test: PASS\n";
   return 0;
 }

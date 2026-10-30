@@ -1,0 +1,21 @@
+[Unit]
+Description=RM27 navigation sensors and passive map localization
+After=NetworkManager.service
+StartLimitIntervalSec=0
+
+[Service]
+Type=exec
+User=rcsdart
+Group=rcsdart
+WorkingDirectory=/home/rcsdart/rm27/navigation
+ExecStart=/bin/bash /home/rcsdart/rm27/navigation/boot/start_navigation.sh
+Environment=HOME=/home/rcsdart
+TimeoutStartSec=10
+TimeoutStopSec=30
+Restart=on-failure
+RestartSec=10
+KillMode=control-group
+NotifyAccess=main
+
+[Install]
+WantedBy=multi-user.target

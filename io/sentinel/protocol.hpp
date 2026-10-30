@@ -13,6 +13,8 @@ using Bytes=std::vector<uint8_t>;
 constexpr double pi=3.14159265358979323846, deg_to_rad=pi/180.0;
 constexpr std::size_t header_size=12,max_payload=128,max_frame=142;
 constexpr uint8_t gimbal_type=1,chassis_type=2,aim_type=0x10,status_type=0x81;
+constexpr uint8_t feed_diagnostic_type=0x82; // optional paired extension; never authorizes control.
+constexpr uint8_t mission_status_type=0x83;
 constexpr uint8_t orient_valid=1,gyro_valid=2,sample_valid=4,axes_verified=8;
 constexpr uint8_t control_enable=1,target_valid=2,friction_enable=4,fire_request=8;
 constexpr uint8_t auto_mode=0x80; // paired firmware extension; telemetry also runs in STOP.
@@ -62,6 +64,56 @@ struct LinkStatus {
   uint8_t state=0,last_reject=0;bool received=false;
 };
 struct Feedback {uint32_t boot_id=0;bool received=false;Imu gimbal,chassis;LinkStatus link;};
+struct FeedDiagnostic {
+  uint8_t flags=0;
+  uint16_t request_seq=0,issue_seq=0,motion_seq=0,seq=0;
+  uint32_t request_us=0,issue_us=0,motion_us=0,issue_count=0,motion_count=0;
+  uint32_t sample_us=0,feedback_us=0;
+  int16_t feeder_rpm=0,left_rpm=0,right_rpm=0;
+  int32_t encoder_sum=0;
+  float target_encoder=0;
+  uint32_t boot_id=0;
+  int64_t received_ns=0;
+  bool received=false;
+};
+// Paired mission telemetry: completed encoder steps, RC freshness and NAV sequence.
+struct MissionStatus {
+  uint8_t flags=0; uint16_t seq=0,nav_last_seq=0;
+  uint32_t generation=0,count=0,sample_us=0,feedback_us=0,boot_id=0;
+  float step_counts=0; int64_t received_ns=0; bool received=false;
+};
+inline bool decode_mission_status(const Frame& f,MissionStatus& out){
+  if(f.type!=mission_status_type || f.payload.size()!=28 || f.payload[0]!=1 ||
+     (f.payload[1]&~7) || u16(f.payload.data()+2) || u16(f.payload.data()+26))return false;
+  const auto* p=f.payload.data(); MissionStatus d;
+  d.flags=p[1];d.seq=f.seq;d.boot_id=f.boot_id;d.received=true;
+  d.generation=u32(p+4);d.count=u32(p+8);d.sample_us=u32(p+12);
+  d.feedback_us=u32(p+16);d.step_counts=f32(p+20);d.nav_last_seq=u16(p+24);
+  if(!std::isfinite(d.step_counts)||d.step_counts<=1)return false;
+  out=d;return true;
+}
+inline Bytes encode_nav(float vx,float vy,float wz,bool enabled,uint16_t seq,uint32_t boot){
+  if(!std::isfinite(vx)||!std::isfinite(vy)||!std::isfinite(wz)||
+     (!enabled&&(vx||vy||wz)))throw std::invalid_argument("Invalid NAV");
+  Bytes p(24,0);put16(p.data()+8,100);p[10]=enabled?1:0;
+  put_float(p.data()+12,vx);put_float(p.data()+16,vy);put_float(p.data()+20,wz);
+  return encode({0x11,seq,boot,p});
+}
+inline bool decode_feed_diagnostic(const Frame& f,FeedDiagnostic& out){
+  if(f.type!=feed_diagnostic_type || f.payload.size()!=52 || f.payload[0]!=1 ||
+     (f.payload[1]&0x80) || u16(f.payload.data()+42)!=0) return false;
+  const auto* p=f.payload.data();FeedDiagnostic d;
+  d.flags=p[1];d.seq=f.seq;d.boot_id=f.boot_id;d.received=true;
+  d.request_seq=u16(p+2);d.request_us=u32(p+4);
+  d.issue_seq=u16(p+8);d.motion_seq=u16(p+10);
+  d.issue_us=u32(p+12);d.motion_us=u32(p+16);
+  d.issue_count=u32(p+20);d.motion_count=u32(p+24);
+  d.sample_us=u32(p+28);d.feedback_us=u32(p+32);
+  d.feeder_rpm=int16_t(u16(p+36));d.left_rpm=int16_t(u16(p+38));d.right_rpm=int16_t(u16(p+40));
+  d.encoder_sum=int32_t(u32(p+44));d.target_encoder=f32(p+48);
+  if(!std::isfinite(d.target_encoder))return false;
+  out=d;return true;
+}
 inline bool decode_imu(const Frame& f,Imu& out){
   const bool g=f.type==gimbal_type;
   if((!g && f.type!=chassis_type)||f.payload.size()!=(g?32u:20u))return false;
@@ -122,9 +174,11 @@ private:
         ++crc_errors;pending_.erase(pending_.begin());since_=0;continue;
       }
       Frame f{pending_[3],u16(pending_.data()+6),u32(pending_.data()+8),Bytes(pending_.begin()+12,pending_.begin()+12+n)};
-      Imu imu;LinkStatus status;
-      if(f.type!=gimbal_type && f.type!=chassis_type && f.type!=status_type)++unknown_types;
-      else if(!(decode_imu(f,imu)||decode_status(f,status)))++field_errors;
+      Imu imu;LinkStatus status;FeedDiagnostic diagnostic;MissionStatus mission;
+      if(f.type!=gimbal_type && f.type!=chassis_type && f.type!=status_type &&
+         f.type!=feed_diagnostic_type && f.type!=mission_status_type)++unknown_types;
+      else if(!(decode_imu(f,imu)||decode_status(f,status)||decode_feed_diagnostic(f,diagnostic)||
+                decode_mission_status(f,mission)))++field_errors;
       else accept(f);
       pending_.erase(pending_.begin(),pending_.begin()+total);since_=0;
     }

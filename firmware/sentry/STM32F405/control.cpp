@@ -2,6 +2,7 @@
 #ifndef SENTINEL_ACTUATOR_HOST_TEST
 #include "tim.h"
 #include "judgement.h"
+#include "xuc.h"
 #endif
 #include "HTmotor.h"
 #include "motor.h"
@@ -299,9 +300,18 @@ void CONTROL::SHOOTER::Update()
         if (hold_ms >= T_ARM) fire_cont = true;
     }
     trig_pre = trig_eff;
-    if (fire_pulse) d->setangle -= para.bullet_step;
+    if (fire_pulse) {
+        d->setangle -= para.bullet_step;
+#if !defined(SENTINEL_ACTUATOR_HOST_TEST) && !defined(SENTINEL_HOST_TEST)
+        xuc.RecordFeedIssue(auto_shoot && !trig, para.bullet_step>0 ? -1:1);
+#endif
+    }
     if (fire_cont) {
-        if (rate_ms >= T_RATE) { rate_ms = 0; d->setangle -= para.bullet_step; }
+        if (rate_ms >= T_RATE) { rate_ms = 0; d->setangle -= para.bullet_step;
+#if !defined(SENTINEL_ACTUATOR_HOST_TEST) && !defined(SENTINEL_HOST_TEST)
+            xuc.RecordFeedIssue(auto_shoot && !trig, para.bullet_step>0 ? -1:1);
+#endif
+        }
         else rate_ms += TICK;
     } else rate_ms = 0;
 

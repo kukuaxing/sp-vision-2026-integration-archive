@@ -1,0 +1,77 @@
+{
+  "schema": 1,
+  "name": "Fujian stationary rotating target - geometry baseline",
+  "target": {
+    "center_m": [3.0, 0.0, 0.03],
+    "radii_m": [0.26, 0.28, 0.26, 0.28],
+    "height_delta_m": 0.0,
+    "omega_rad_s": 4.56,
+    "directions": [-1, 1],
+    "initial_phases_rad": [0.0, 0.7853981633974483, 1.5707963267948966, 2.356194490192345],
+    "armor_width_m": 0.135,
+    "armor_hit_height_m": 0.055,
+    "lightbar_length_m": 0.056,
+    "armor_pitch_deg": 15.0,
+    "hp": 300,
+    "damage_per_hit": 10,
+    "ammo": 50
+  },
+  "sampling": {
+    "fps": 50.0,
+    "processing_age_s": 0.00836,
+    "keypoint_noise_px": 0.0,
+    "visible_half_angle_deg": 55.0,
+    "duration_s": 60.0,
+    "seed": 27,
+    "seeds": [27],
+    "frame_dropout_probability": 0.0,
+    "frame_age_jitter_s": 0.0,
+    "timestamp_bias_s": 0.0,
+    "keypoint_bias_px": [0.0, 0.0],
+    "pose_yaw_bias_deg": 0.0,
+    "pose_pitch_bias_deg": 0.0
+  },
+  "plant": {
+    "projectile_speed_mps": 22.0,
+    "muzzle_delay_s": 0.330,
+    "muzzle_delay_jitter_s": 0.0,
+    "speed_stddev_mps": 0.0,
+    "yaw_spread_stddev_deg": 0.0,
+    "pitch_spread_stddev_deg": 0.0,
+    "barrel_yaw_bias_deg": 0.0,
+    "barrel_pitch_bias_deg": 0.0,
+    "servo_time_constant_s": 0.0,
+    "servo_max_rate_deg_s": 120.0,
+    "servo_max_acceleration_deg_s2": 720.0,
+    "min_normal_speed_mps": 0.0,
+    "gravity_mps2": 9.7833,
+    "collision_step_s": 0.0005,
+    "flight_timeout_s": 0.5,
+    "gimbal": "center-lock angle command; optional finite response, camera follows actual virtual servo; calibrated virtual barrel",
+    "hit_model": "front-facing finite plate, projectile center crossing; no referee sensor model"
+  },
+  "provenance": {
+    "rule_pdf": "2026年福建省大学生机器人大赛任务规则_V1.0 (1).pdf",
+    "rule_confirmed": {
+      "distance": "Appendix A p12: shooting area to target distance 3m; center-reference interpretation is provisional",
+      "shooting_area": "Appendix A p12: 800mm x 800mm",
+      "motion": "1.1 p3 and 3.1 p7: center fixed, rotation about vertical Z",
+      "ammo_hp_damage": "17mm, 50 rounds, 10 damage; early PDF HP310 superseded by user's field clarification: HP300",
+      "match_limit": "1.2.3 p4: entire out-and-back mission <=300 seconds"
+    },
+    "prior_investigation": {
+      "omega": "configs/standard.yaml xuc_event_fixed_omega_rad_s: prior stable-run observed median, not official rule",
+      "speed": "configs/standard.yaml: prior optical gate record 21.8-22.2m/s, nominal22; not a new measurement",
+      "geometry": "2026-10-24 diagnostic logs, whole_rotation_trusted samples: radius0 median .258/.260m, delta .017/.025m; height relative to gimbal about .03m, delta about0; estimates, not caliper measurements",
+      "armor": "production Solver uses 135mm width, 56mm lightbar length and +15deg pitch; prior hit-window height55mm; official active-hit dimensions unconfirmed",
+      "fps": "historical main-loop around50FPS; not camera hardware maximum or post-optimization live FPS",
+      "processing_age": "8.36ms isolated detector benchmark only; total capture-to-command age remains unmeasured"
+    },
+    "assumptions": {
+      "muzzle_delay": "330ms is the current predictor parameter, NOT measured command-to-muzzle time; plant baseline assumes it matches, sweep independently",
+      "idealizations": "default baseline has zero errors; stress distributions are explicit synthetic hypotheses, not measured hardware; no drag, misfeed or calibrated referee electronics; synthetic detections bypass YOLO",
+      "direction_phase": "rule TBD; cover both directions and four phases, not one officially confirmed direction/phase"
+    },
+    "user_field_clarification": "HP300, damage10, ammo50: at least30 hits (60 percent of total budget). This newer direct instruction supersedes early PDF HP310. Evaluate full50 budget without HP feedback to controller."
+  }
+}

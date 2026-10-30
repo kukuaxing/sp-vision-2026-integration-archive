@@ -245,119 +245,143 @@ class _Validator:
 
     def _data(self, kind: str, data: dict, timestamp: dict, host_us: int) -> None:
         if kind == "image":
-            _keys(data, {"image_id", "path", "sha256", "width", "height", "encoding"}, "image")
-            identity = _text(data["image_id"], "image_id")
-            if identity in self.images:
-                raise RecordingError("duplicate image_id")
-            width, height = _uint(data["width"], "width", 65535), _uint(data["height"], "height", 65535)
-            if not width or not height:
-                raise RecordingError("image dimensions must be positive")
-            encoding = _choice(data["encoding"], {"pgm", "ppm", "png", "jpeg"}, "encoding")
-            _digest(data["sha256"])
-            path = relative_file(self.root, data["path"])
-            if not path.is_file() or sha256_file(path) != data["sha256"]:
-                raise RecordingError(f"missing image or image hash mismatch: {data['path']}")
-            # The portable fixture format is fully checked. PNG/JPEG are integrity-checked
-            # opaque payloads; their pixel decoding belongs to the consuming image backend.
-            if encoding in {"pgm", "ppm"}:
-                _check_pnm(path, encoding, width, height)
+            self._validate_image(data, timestamp, host_us)
         elif kind == "detections":
-            _keys(data, {"image_id", "objects"}, "detections")
-            width, height = self._image(data["image_id"])
-            image_stamp = self.image_stamps[data["image_id"]]
-            if (image_stamp["domain"], image_stamp["epoch"]) == (timestamp["domain"], timestamp["epoch"]):
-                if image_stamp["time_us"] != timestamp["time_us"]:
-                    raise RecordingError("detection stamp must refer to its image measurement time")
-            elif image_stamp["mapped_host_us"] is None or timestamp["mapped_host_us"] is None:
-                raise RecordingError("cannot relate image/detection clocks without explicit mapping")
-            elif abs(image_stamp["mapped_host_us"] - timestamp["mapped_host_us"]) > (
-                    image_stamp["uncertainty_us"] + timestamp["uncertainty_us"]):
-                raise RecordingError("detection/image mapped measurement times disagree")
-            if not isinstance(data["objects"], list):
-                raise RecordingError("detection objects must be a list")
-            for obj in data["objects"]:
-                _keys(obj, {"label", "color", "confidence", "corners_px"}, "detection")
-                _text(obj["label"], "detection label")
-                _choice(obj["color"], {"red", "blue", "unknown"}, "color")
-                _confidence(obj["confidence"])
-                if not isinstance(obj["corners_px"], list) or len(obj["corners_px"]) != 4:
-                    raise RecordingError("detection must have four image corners")
-                for corner in obj["corners_px"]:
-                    x, y = _vector(corner, 2, "corner")
-                    if not 0 <= x < width or not 0 <= y < height:
-                        raise RecordingError("corner outside referenced image")
+            self._validate_detections(data, timestamp, host_us)
         elif kind == "target":
-            _keys(data, {"target_id", "image_id", "frame", "position_m", "velocity_mps",
-                         "yaw_rad", "yaw_rate_rad_s", "confidence"}, "target")
-            _text(data["target_id"], "target_id")
-            self._image(data["image_id"])
-            _choice(data["frame"], FRAMES, "target frame")
-            _vector(data["position_m"], 3, "position_m")
-            _vector(data["velocity_mps"], 3, "velocity_mps")
-            _number(data["yaw_rad"], "yaw_rad")
-            _number(data["yaw_rate_rad_s"], "yaw_rate_rad_s")
-            _confidence(data["confidence"])
+            self._validate_target(data, timestamp, host_us)
         elif kind == "pose":
-            _keys(data, {"sensor_id", "from_frame", "to_frame", "quaternion_wxyz",
-                         "angular_velocity_rad_s"}, "pose")
-            _text(data["sensor_id"], "sensor_id")
-            _choice(data["from_frame"], FRAMES, "pose from_frame")
-            _choice(data["to_frame"], FRAMES, "pose to_frame")
-            if data["from_frame"] == data["to_frame"]:
-                raise RecordingError("pose source and destination frames must differ")
-            q = _vector(data["quaternion_wxyz"], 4, "quaternion_wxyz")
-            if abs(math.sqrt(sum(x*x for x in q)) - 1) > 1e-3:
-                raise RecordingError("pose quaternion must already be normalized")
-            if data["angular_velocity_rad_s"] is not None:
-                _vector(data["angular_velocity_rad_s"], 3, "angular_velocity_rad_s")
+            self._validate_pose(data, timestamp, host_us)
         elif kind == "command":
-            _keys(data, {"command_id", "session_id", "reference", "yaw_rad", "pitch_rad",
-                         "valid_until_host_us", "control", "fire_requested"}, "command")
-            identity = _text(data["command_id"], "command_id")
-            if identity in self.commands:
-                raise RecordingError("duplicate command_id; raw retransmissions belong in wire journal")
-            _uint(data["session_id"], "session_id", (1 << 32) - 1)
-            _choice(data["reference"], REFERENCES, "command reference")
-            _number(data["yaw_rad"], "yaw_rad")
-            _number(data["pitch_rad"], "pitch_rad")
-            deadline = _uint(data["valid_until_host_us"], "valid_until_host_us")
-            if timestamp["domain"] != HOST or deadline < timestamp["time_us"]:
-                raise RecordingError("command generation and deadline must use host clock in order")
-            _boolean(data["control"], "control")
-            _boolean(data["fire_requested"], "fire_requested")
+            self._validate_command(data, timestamp, host_us)
         elif kind == "feedback":
-            _keys(data, {"session_id", "reference", "accepted_command_id", "applied_command_id",
-                         "yaw_rad", "pitch_rad", "mode", "fault_bits", "fire_permit",
-                         "shots_fired_total"}, "feedback")
-            session = _uint(data["session_id"], "session_id", (1 << 32) - 1)
-            _choice(data["reference"], REFERENCES, "feedback reference")
-            _number(data["yaw_rad"], "yaw_rad")
-            _number(data["pitch_rad"], "pitch_rad")
-            _choice(data["mode"], {"safe", "manual", "vision", "calibration", "fault"}, "mode")
-            _uint(data["fault_bits"], "fault_bits", (1 << 32) - 1)
-            _boolean(data["fire_permit"], "fire_permit")
-            if data["shots_fired_total"] is not None:
-                _uint(data["shots_fired_total"], "shots_fired_total", (1 << 32) - 1)
-            for field in ("accepted_command_id", "applied_command_id"):
-                identity = data[field]
-                if identity is not None:
-                    _text(identity, field)
-                    if identity not in self.commands or self.commands[identity]["session_id"] != session:
-                        raise RecordingError(f"{field}: missing prior command or session mismatch")
+            self._validate_feedback(data, timestamp, host_us)
         elif kind == "clock_epoch":
-            _keys(data, {"domain", "previous_epoch", "epoch", "reason"}, "clock_epoch")
-            domain = _text(data["domain"], "clock domain")
-            epoch = _text(data["epoch"], "clock epoch")
-            _text(data["reason"], "clock transition reason")
-            if timestamp["domain"] != HOST or domain == HOST or domain not in self.clocks:
-                raise RecordingError("epoch transitions require a known non-host domain and host timestamp")
-            if self.clocks[domain] != data["previous_epoch"] or epoch in self.epochs[domain]:
-                raise RecordingError("epoch transition must retire current epoch and introduce a new epoch")
+            self._validate_clock_epoch(data, timestamp, host_us)
         elif kind == "health":
-            _keys(data, {"component", "status", "detail"}, "health")
-            _text(data["component"], "component")
-            _choice(data["status"], {"ok", "degraded", "failed"}, "health status")
-            _text(data["detail"], "health detail")
+            self._validate_health(data, timestamp, host_us)
+
+    def _validate_image(self, data: dict, timestamp: dict, host_us: int) -> None:
+        _keys(data, {"image_id", "path", "sha256", "width", "height", "encoding"}, "image")
+        identity = _text(data["image_id"], "image_id")
+        if identity in self.images:
+            raise RecordingError("duplicate image_id")
+        width, height = _uint(data["width"], "width", 65535), _uint(data["height"], "height", 65535)
+        if not width or not height:
+            raise RecordingError("image dimensions must be positive")
+        encoding = _choice(data["encoding"], {"pgm", "ppm", "png", "jpeg"}, "encoding")
+        _digest(data["sha256"])
+        path = relative_file(self.root, data["path"])
+        if not path.is_file() or sha256_file(path) != data["sha256"]:
+            raise RecordingError(f"missing image or image hash mismatch: {data['path']}")
+        # The portable fixture format is fully checked. PNG/JPEG are integrity-checked
+        # opaque payloads; their pixel decoding belongs to the consuming image backend.
+        if encoding in {"pgm", "ppm"}:
+            _check_pnm(path, encoding, width, height)
+
+    def _validate_detections(self, data: dict, timestamp: dict, host_us: int) -> None:
+        _keys(data, {"image_id", "objects"}, "detections")
+        width, height = self._image(data["image_id"])
+        image_stamp = self.image_stamps[data["image_id"]]
+        if (image_stamp["domain"], image_stamp["epoch"]) == (timestamp["domain"], timestamp["epoch"]):
+            if image_stamp["time_us"] != timestamp["time_us"]:
+                raise RecordingError("detection stamp must refer to its image measurement time")
+        elif image_stamp["mapped_host_us"] is None or timestamp["mapped_host_us"] is None:
+            raise RecordingError("cannot relate image/detection clocks without explicit mapping")
+        elif abs(image_stamp["mapped_host_us"] - timestamp["mapped_host_us"]) > (
+                image_stamp["uncertainty_us"] + timestamp["uncertainty_us"]):
+            raise RecordingError("detection/image mapped measurement times disagree")
+        if not isinstance(data["objects"], list):
+            raise RecordingError("detection objects must be a list")
+        for obj in data["objects"]:
+            _keys(obj, {"label", "color", "confidence", "corners_px"}, "detection")
+            _text(obj["label"], "detection label")
+            _choice(obj["color"], {"red", "blue", "unknown"}, "color")
+            _confidence(obj["confidence"])
+            if not isinstance(obj["corners_px"], list) or len(obj["corners_px"]) != 4:
+                raise RecordingError("detection must have four image corners")
+            for corner in obj["corners_px"]:
+                x, y = _vector(corner, 2, "corner")
+                if not 0 <= x < width or not 0 <= y < height:
+                    raise RecordingError("corner outside referenced image")
+
+    def _validate_target(self, data: dict, timestamp: dict, host_us: int) -> None:
+        _keys(data, {"target_id", "image_id", "frame", "position_m", "velocity_mps",
+                     "yaw_rad", "yaw_rate_rad_s", "confidence"}, "target")
+        _text(data["target_id"], "target_id")
+        self._image(data["image_id"])
+        _choice(data["frame"], FRAMES, "target frame")
+        _vector(data["position_m"], 3, "position_m")
+        _vector(data["velocity_mps"], 3, "velocity_mps")
+        _number(data["yaw_rad"], "yaw_rad")
+        _number(data["yaw_rate_rad_s"], "yaw_rate_rad_s")
+        _confidence(data["confidence"])
+
+    def _validate_pose(self, data: dict, timestamp: dict, host_us: int) -> None:
+        _keys(data, {"sensor_id", "from_frame", "to_frame", "quaternion_wxyz",
+                     "angular_velocity_rad_s"}, "pose")
+        _text(data["sensor_id"], "sensor_id")
+        _choice(data["from_frame"], FRAMES, "pose from_frame")
+        _choice(data["to_frame"], FRAMES, "pose to_frame")
+        if data["from_frame"] == data["to_frame"]:
+            raise RecordingError("pose source and destination frames must differ")
+        q = _vector(data["quaternion_wxyz"], 4, "quaternion_wxyz")
+        if abs(math.sqrt(sum(x*x for x in q)) - 1) > 1e-3:
+            raise RecordingError("pose quaternion must already be normalized")
+        if data["angular_velocity_rad_s"] is not None:
+            _vector(data["angular_velocity_rad_s"], 3, "angular_velocity_rad_s")
+
+    def _validate_command(self, data: dict, timestamp: dict, host_us: int) -> None:
+        _keys(data, {"command_id", "session_id", "reference", "yaw_rad", "pitch_rad",
+                     "valid_until_host_us", "control", "fire_requested"}, "command")
+        identity = _text(data["command_id"], "command_id")
+        if identity in self.commands:
+            raise RecordingError("duplicate command_id; raw retransmissions belong in wire journal")
+        _uint(data["session_id"], "session_id", (1 << 32) - 1)
+        _choice(data["reference"], REFERENCES, "command reference")
+        _number(data["yaw_rad"], "yaw_rad")
+        _number(data["pitch_rad"], "pitch_rad")
+        deadline = _uint(data["valid_until_host_us"], "valid_until_host_us")
+        if timestamp["domain"] != HOST or deadline < timestamp["time_us"]:
+            raise RecordingError("command generation and deadline must use host clock in order")
+        _boolean(data["control"], "control")
+        _boolean(data["fire_requested"], "fire_requested")
+
+    def _validate_feedback(self, data: dict, timestamp: dict, host_us: int) -> None:
+        _keys(data, {"session_id", "reference", "accepted_command_id", "applied_command_id",
+                     "yaw_rad", "pitch_rad", "mode", "fault_bits", "fire_permit",
+                     "shots_fired_total"}, "feedback")
+        session = _uint(data["session_id"], "session_id", (1 << 32) - 1)
+        _choice(data["reference"], REFERENCES, "feedback reference")
+        _number(data["yaw_rad"], "yaw_rad")
+        _number(data["pitch_rad"], "pitch_rad")
+        _choice(data["mode"], {"safe", "manual", "vision", "calibration", "fault"}, "mode")
+        _uint(data["fault_bits"], "fault_bits", (1 << 32) - 1)
+        _boolean(data["fire_permit"], "fire_permit")
+        if data["shots_fired_total"] is not None:
+            _uint(data["shots_fired_total"], "shots_fired_total", (1 << 32) - 1)
+        for field in ("accepted_command_id", "applied_command_id"):
+            identity = data[field]
+            if identity is not None:
+                _text(identity, field)
+                if identity not in self.commands or self.commands[identity]["session_id"] != session:
+                    raise RecordingError(f"{field}: missing prior command or session mismatch")
+
+    def _validate_clock_epoch(self, data: dict, timestamp: dict, host_us: int) -> None:
+        _keys(data, {"domain", "previous_epoch", "epoch", "reason"}, "clock_epoch")
+        domain = _text(data["domain"], "clock domain")
+        epoch = _text(data["epoch"], "clock epoch")
+        _text(data["reason"], "clock transition reason")
+        if timestamp["domain"] != HOST or domain == HOST or domain not in self.clocks:
+            raise RecordingError("epoch transitions require a known non-host domain and host timestamp")
+        if self.clocks[domain] != data["previous_epoch"] or epoch in self.epochs[domain]:
+            raise RecordingError("epoch transition must retire current epoch and introduce a new epoch")
+
+    def _validate_health(self, data: dict, timestamp: dict, host_us: int) -> None:
+        _keys(data, {"component", "status", "detail"}, "health")
+        _text(data["component"], "component")
+        _choice(data["status"], {"ok", "degraded", "failed"}, "health status")
+        _text(data["detail"], "health detail")
 
     def _image(self, identity: Any) -> tuple[int, int]:
         _text(identity, "image_id")

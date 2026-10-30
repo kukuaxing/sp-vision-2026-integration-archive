@@ -56,6 +56,7 @@ void RC::OnPC()
 	/* 只在 AUTO 模式接管。RC_Control() 先跑并写入摇杆值，
 	 * 本函数后跑 ⇒ 天然覆盖顺序正确，不需要额外插旗标。*/
 	if (ctrl.mode != CONTROL::AUTO) {
+		nav_turn_rpm = 0.f;
         ctrl.shooter.auto_fire_request_level = false;
         xuc.RevokeAim();
         xuc.nav_accepted = xuc.nav_enable = false;
@@ -69,7 +70,9 @@ void RC::OnPC()
 }
 
 /* ==========================================================================
- * 底盘：视觉导航速度（m/s）→ 轮速给定（rpm）
+ * 底盘：NAV原始幅值 → 轮速给定（rpm），不是经过实测标定的SI速度。
+ * wz与平移沿用159增益，正值为四轮混控的正向旋转分量；实车左右符号待核验。
+ * 转向单独限200 motor rpm，每5ms控制周期最多变化10 rpm。
  *
  * 口径：三个量级 —— ① 限目标 ② 限增量 ③ 下发。
  *   限幅的对象是【目标】而不是【输出】，prespeed 因此被夹在 tgt 附近，
@@ -101,18 +104,31 @@ void RC::ApplyNav()
 		// ③ 下发（int32_t 赋值即隐式取整；prespeed 不越界，无须再钳）
 		ctrl.chassis.speedx = (int32_t)xuc.prespeedx;
 		ctrl.chassis.speedy = (int32_t)xuc.prespeedy;
-		ctrl.chassis.speedz = 0;   // nav_wz 首版未启用：转向仍由遥控/策略决定
+		// Bound before multiplication, including finite but extremely large packets.
+		constexpr float turn_gain = 159.f;
+		constexpr float turn_limit_rpm = 200.f;
+		constexpr float turn_step_rpm = 10.f;
+		const float turn_raw = std::max(-turn_limit_rpm / turn_gain,
+			std::min(xuc.nav_wz, turn_limit_rpm / turn_gain));
+		const float target_turn = turn_raw * turn_gain;
+		const float delta_turn = std::max(-turn_step_rpm,
+			std::min(target_turn - nav_turn_rpm, turn_step_rpm));
+		nav_turn_rpm = std::max(-turn_limit_rpm,
+			std::min(nav_turn_rpm + delta_turn, turn_limit_rpm));
+		ctrl.chassis.speedz = (int32_t)nav_turn_rpm;
 		return;
 	}
 
 	/* --- 无有效导航许可 --- */
 	xuc.prespeedx = 0.f;      // 复位平滑量，避免许可恢复瞬间从残值暴冲
 	xuc.prespeedy = 0.f;
+	nav_turn_rpm = 0.f; // RC_Control has already supplied this cycle's manual command.
 	if (rc_lost) StopChassis();
 }
 
 void RC::StopChassis()
 {
+	nav_turn_rpm = 0.f;
 	ctrl.chassis.speedx = 0;
 	ctrl.chassis.speedy = 0;
 	ctrl.chassis.speedz = 0;

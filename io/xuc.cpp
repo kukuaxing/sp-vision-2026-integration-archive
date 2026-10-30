@@ -6,6 +6,9 @@
 #include <cstddef>
 #include <cstring>
 #include <vector>
+#include <sys/file.h>
+#include <fcntl.h>
+#include <unistd.h>
 
 #include "tools/crc.hpp"
 #include "tools/logger.hpp"
@@ -92,6 +95,14 @@ XucSender::XucSender(const std::string & config_path)
   }
 
   try {
+    if(sentinel_){
+      sentinel_owner_fd_=::open("/tmp/rm27-sentinel-serial.lock",O_CREAT|O_RDWR|O_CLOEXEC,0600);
+      if(sentinel_owner_fd_<0||flock(sentinel_owner_fd_,LOCK_EX|LOCK_NB)!=0){
+        if(sentinel_owner_fd_>=0)::close(sentinel_owner_fd_);
+        sentinel_owner_fd_=-1;
+        throw std::runtime_error("Another Sentinel process owns the serial link");
+      }
+    }
     serial_.setPort(port);
     serial_.setBaudrate(baud);
     serial_.setFlowcontrol(serial::flowcontrol_none);
@@ -148,6 +159,7 @@ XucSender::~XucSender()
   if (serial_.isOpen()) {
     serial_.close();
   }
+  if(sentinel_owner_fd_>=0)::close(sentinel_owner_fd_);
 }
 
 namespace {
@@ -203,6 +215,53 @@ sentinel::Feedback XucSender::sentinel_feedback() const
 {
   std::lock_guard<std::mutex> lock(sentinel_mutex_);
   return sentinel_state_.feedback;
+}
+
+sentinel::FeedDiagnostic XucSender::sentinel_feed_diagnostic() const
+{
+  std::lock_guard<std::mutex> lock(sentinel_mutex_);
+  return sentinel_feed_diagnostic_;
+}
+
+sentinel::MissionStatus XucSender::mission_status() const {
+  std::lock_guard<std::mutex> lock(sentinel_mutex_);return mission_status_;
+}
+uint32_t XucSender::fire_requests_sent() const {
+  std::lock_guard<std::mutex> lock(sentinel_mutex_);return host_fire_requests_sent_;
+}
+bool XucSender::mission_link_fresh() const {
+  std::lock_guard<std::mutex> lock(sentinel_mutex_);
+  return !sentinel_tx_failed_ && sentinel_state_.status_valid(steady_ns());
+}
+void XucSender::mission_task_until(int64_t ns,uint32_t limit,uint32_t generation) {
+  mission_count_limit_.store(limit);mission_count_generation_.store(generation);
+  mission_task_until_ns_.store(ns,std::memory_order_release);
+}
+bool XucSender::send_navigation(float vx,float vy,float wz,bool enabled) {
+  std::lock_guard<std::mutex> tx(tx_mutex_);
+  sentinel::Bytes bytes;
+  {
+    std::lock_guard<std::mutex> lock(sentinel_mutex_);
+    const auto now=steady_ns();const auto& m=mission_status_;
+    const auto boot=sentinel_state_.feedback.boot_id;
+    if(!mission_mode_.load()||sentinel_tx_failed_||!sentinel_state_.status_valid(now))return false;
+    if(enabled&&!(sentinel_state_.feedback.link.state&0x80))return false;
+    if(nav_boot_!=boot){
+      nav_boot_=boot;
+      // Optional telemetry only seeds NAV sequence on a host-only restart.
+      // Neither its encoder count nor its availability gates this mission.
+      nav_sequence_=(m.received&&m.boot_id==boot&&now>=m.received_ns&&now-m.received_ns<=100000000)
+        ?uint16_t(m.nav_last_seq+1):0;
+    }
+    bytes=sentinel::encode_nav(vx,vy,wz,enabled,nav_sequence_++,nav_boot_);
+  }
+  try {
+    if(serial_.write(bytes.data(),bytes.size())!=bytes.size())throw std::runtime_error("Incomplete NAV");
+    return true;
+  }catch(const std::exception& e){
+    std::lock_guard<std::mutex> lock(sentinel_mutex_);sentinel_tx_failed_=true;
+    tools::logger()->error("[MISSION] NAV write failed: {}",e.what());return false;
+  }
 }
 
 double XucSender::imu_roll() const { return sentinel_ ? sentinel_feedback().gimbal.roll : 0.0; }
@@ -280,6 +339,7 @@ XucSender::SendResult XucSender::stop()
 XucSender::SendResult XucSender::send_sentinel(
   const Command & cmd, bool stop, Clock::time_point fire_deadline, uint64_t expected_generation)
 {
+  std::lock_guard<std::mutex> tx(tx_mutex_);
   const auto now_ns = steady_ns();
   SendResult result;
   sentinel::Bytes bytes;
@@ -299,7 +359,10 @@ XucSender::SendResult XucSender::send_sentinel(
       sentinel_friction_hold_.reset();
       sentinel_output_generation_ = sentinel_state_.generation;
     }
-    const bool ready = !stop && allow_control_ && rx_valid_.load(std::memory_order_relaxed) &&
+    const bool mission_allowed=!mission_mode_.load() ||
+      (now_ns<mission_task_until_ns_.load(std::memory_order_acquire) &&
+       mission_count_generation_.load()==0 && host_fire_requests_sent_<mission_count_limit_.load());
+    const bool ready = mission_allowed && !stop && allow_control_ && rx_valid_.load(std::memory_order_relaxed) &&
       sentinel_pose_history_.latest(now_ns).valid &&
       sentinel_state_.reference_ready(now_ns,sentinel_require_verified_pose_);
     const bool angular = ready && cmd.control &&
@@ -368,8 +431,11 @@ XucSender::SendResult XucSender::send_sentinel(
     result.control_sent=(transmitted_flags&sentinel::target_valid)!=0;
     result.friction_sent=(transmitted_flags&sentinel::friction_enable)!=0;
     result.fire_sent=(transmitted_flags&sentinel::fire_request)!=0;
-    if (result.fire_sent)
+    if (result.fire_sent) {
       last_shoot_tx_ns_.store(result.tx_time_ns,std::memory_order_release);
+      std::lock_guard<std::mutex> lock(sentinel_mutex_);
+      if(host_fire_requests_sent_!=UINT32_MAX)++host_fire_requests_sent_;
+    }
   } catch (const std::exception& error) {
     { std::lock_guard<std::mutex> lock(sentinel_mutex_); sentinel_tx_failed_=true; }
     sentinel_output_active_=false;
@@ -395,11 +461,37 @@ void XucSender::recv_sentinel_loop()
     decoder.feed(scratch,count,now_ns,[this,now_ns](const sentinel::Frame& frame) {
       {
         std::lock_guard<std::mutex> lock(sentinel_mutex_);
+        if(frame.type==sentinel::mission_status_type){
+          sentinel::MissionStatus m;
+          if(!sentinel_state_.feedback.received||frame.boot_id!=sentinel_state_.feedback.boot_id||
+             !sentinel::decode_mission_status(frame,m))return;
+          if(mission_status_.received&&!sentinel::newer(m.seq,mission_status_.seq))return;
+          m.received_ns=now_ns;mission_status_=m;return;
+        }
+        if(frame.type==sentinel::feed_diagnostic_type){
+          sentinel::FeedDiagnostic d;
+          if(!sentinel_state_.feedback.received || frame.boot_id!=sentinel_state_.feedback.boot_id ||
+             !sentinel::decode_feed_diagnostic(frame,d))return;
+          const auto& prev=sentinel_feed_diagnostic_;
+          if(prev.received && prev.boot_id==d.boot_id && !sentinel::newer(d.seq,prev.seq))return;
+          d.received_ns=now_ns;
+          if((d.flags&4) && (!prev.received || prev.issue_count!=d.issue_count))
+            tools::logger()->info("[FEED_DIAG] issue_count={} seq={} mcu_us={} auto={} already_moving={}",
+              d.issue_count,d.issue_seq,d.issue_us,bool(d.flags&16),bool(d.flags&64));
+          if((d.flags&8) && (!prev.received || prev.motion_count!=d.motion_count))
+            tools::logger()->info("[FEED_DIAG] motion_count={} seq={} mcu_us={} issue_to_motion_ms={:.3f}",
+              d.motion_count,d.motion_seq,d.motion_us,
+              d.motion_seq==d.issue_seq ? uint32_t(d.motion_us-d.issue_us)*.001:-1.0);
+          sentinel_feed_diagnostic_=d;
+          return; // Diagnostics never renew the link/pose/control watchdogs.
+        }
         const auto generation=sentinel_state_.generation;
         if (!sentinel_state_.apply(frame,now_ns)) return;
         if (generation!=sentinel_state_.generation) {
           tracker_reset_.store(true);
           sentinel_pose_history_.reset();
+          sentinel_feed_diagnostic_={};
+          mission_status_={};nav_boot_=0;
         }
         const auto& imu=sentinel_state_.feedback.gimbal;
         if (frame.type==sentinel::gimbal_type)

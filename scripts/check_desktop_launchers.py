@@ -2,6 +2,7 @@
 """Exercise launcher lifecycle in a temporary fake project; never use real hardware."""
 from pathlib import Path
 import os
+import signal
 import shutil
 import subprocess
 import tempfile
@@ -28,7 +29,7 @@ with tempfile.TemporaryDirectory(prefix='rm27-desktop-test-') as td:
     for name in ['field_start_autoaim.sh', 'field_stop_autoaim.sh']:
         shutil.copy2(ROOT / 'tools' / name, root / 'tools' / name)
     shutil.copy2(ROOT / 'scripts/check_deployment.py', root / 'scripts/deployment_protocol_check.py')
-    (root / 'configs/standard.yaml').write_text('enemy_color: "blue"\nxuc_allow_control: false\nxuc_allow_shoot: false\nauto_fire: false\nsentinel_use_detect_color: true\n')
+    (root / 'configs/standard.yaml').write_text('enemy_color: "blue"\nxuc_allow_control: false\nxuc_allow_shoot: false\nauto_fire: false\nsentinel_use_detect_color: true\ncompetition_headless: true\n')
     (root / 'scripts/runtime_env.sh').write_text(f'export PATH="{root}/fakebin:/usr/bin:/bin"\n')
     (root / 'scripts/check_deployment.py').write_text('''import json, os, sys
 from deployment_protocol_check import protocol_report
@@ -73,7 +74,19 @@ int main(void) {
     dialogs = root / 'dialogs.log'
 
     def run(args, extra=None):
-        return subprocess.run(args, env=dict(env, **(extra or {})), capture_output=True, text=True, timeout=25)
+        p = subprocess.Popen(args, env=dict(env, **(extra or {})), stdout=subprocess.PIPE,
+                             stderr=subprocess.PIPE, text=True, start_new_session=True)
+        try:
+            stdout, stderr = p.communicate(timeout=25)
+            return subprocess.CompletedProcess(args, p.returncode, stdout, stderr)
+        finally:
+            if p.poll() is None:
+                os.killpg(p.pid, signal.SIGTERM)
+                try:
+                    p.communicate(timeout=5)
+                except subprocess.TimeoutExpired:
+                    os.killpg(p.pid, signal.SIGKILL)
+                    p.communicate()
 
     r = run(start + ['--select-color'], {'FAIL_CHECK': '1'})
     assert r.returncode != 0 and not state.exists() and not runtime.exists()
@@ -96,15 +109,22 @@ int main(void) {
     assert not state.exists() and not pidfile.exists()
     print('PASS: check-only and cancellation leave saved color unchanged')
 
-    def cycle(args, color, extra=None, duplicate=False):
+    def cycle(args, color, extra=None, duplicate=False,
+              startup_marker='[启动成功]', startup_timeout=12):
         log = root / 'launcher.log'
         with log.open('w') as output:
             p = subprocess.Popen(start + args, env=dict(env, **(extra or {})), stdout=output, stderr=subprocess.STDOUT)
             try:
-                wait_for(lambda: '[启动成功]' in log.read_text(), p)
+                wait_for(lambda: startup_marker in log.read_text(), p, timeout=startup_timeout)
+                if extra and extra.get('NO_HEARTBEAT'):
+                    assert '[启动成功]' not in log.read_text()
+                    assert '等待电控通信恢复' in log.read_text()
                 assert state.read_text().strip() == color
                 assert f'enemy_color: "{color}"' in runtime.read_text()
                 assert 'xuc_allow_control: false' in runtime.read_text()
+                session_env = dict(env, **(extra or {}))
+                headless = bool(session_env.get('RM27_MISSION_DIR')) or not session_env.get('DISPLAY')
+                assert f'competition_headless: {str(headless).lower()}' in runtime.read_text()
                 assert ('sentinel_use_detect_color: false' if args else 'sentinel_use_detect_color: true') in runtime.read_text()
                 if duplicate:
                     r = run(start + ['--color', 'blue'])
@@ -132,9 +152,12 @@ int main(void) {
     print('PASS: remembered defaults, blue selection, unattended restart without dialog')
     cycle(['--color', 'red'], 'red', {'BOARD_PROTOCOL': 'SENTINEL'})
     print('PASS: Sentinel preflight and explicit manual color override')
-    r = run(start, {'NO_HEARTBEAT': '1'})
-    assert r.returncode != 0 and not pidfile.exists()
-    print('PASS: no heartbeat stops child and reports failure')
+    cycle([], 'red', {'RM27_MISSION_DIR': str(root / 'mission-ipc')})
+    cycle([], 'red', {'DISPLAY': ''})
+    print('PASS: manual desktop preview enabled; mission and display-less sessions remain headless')
+    cycle([], 'red', {'NO_HEARTBEAT': '1'},
+          startup_marker='[视觉持续运行]', startup_timeout=18)
+    print('PASS: no heartbeat keeps vision running without claiming link success; explicit stop cleans up')
     unrelated = subprocess.Popen(['sleep', '30'])
     try:
         pidfile.write_text(str(unrelated.pid))

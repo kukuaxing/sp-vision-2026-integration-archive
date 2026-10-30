@@ -12,7 +12,6 @@
 
 #include "tasks/auto_aim/armor.hpp"
 #include "tasks/auto_aim/adaptive_corner_refiner.hpp"
-#include "tasks/auto_aim/detector.hpp"
 #include "tasks/auto_aim/yolo.hpp"
 
 namespace YAML { class Node; }
@@ -93,7 +92,6 @@ private:
   cv::Point2f offset_;
   cv::Mat tmp_img_, color_converted_;
 
-  Detector detector_;
   AdaptiveCornerRefiner corner_refiner_;
   std::uint64_t corner_refine_attempted_ = 0;
   std::uint64_t corner_refine_accepted_ = 0;

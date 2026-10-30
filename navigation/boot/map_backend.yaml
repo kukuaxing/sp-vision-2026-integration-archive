@@ -1,0 +1,243 @@
+/**:
+  ros__parameters:
+    common:
+      frontend: legacy
+      descriptor_type: scan_context
+      odom_frame: odom
+      sensor_frame: lio_imu
+      frame_topic: /frontend/frame
+      prediction_topic: /frontend/odometry
+      session_topic: /frontend/session
+      input_cloud_in_local_frame: false
+      body:
+        frame: base_link
+        rotation:
+          roll_deg: 0.0
+          pitch_deg: 0.0
+          yaw_deg: -90.0
+        offset:
+          x: -0.02329
+          y: 0.211
+          z: -0.44788
+      scan_context:
+        enabled: true
+        num_rings: 30
+        num_sectors: 90
+        max_radius: 20.0
+        downsample: 0.2
+        lidar_height: 0.52288
+        min_bin_points: 1
+        augment_count: 1
+        lateral_shift: 0.0
+        search_ratio: 1.0
+        exclude_recent: 15
+        candidates: 15
+        distance_threshold: 0.8
+        level_with_odom_roll_pitch: true
+      map_frame: motion_plane_candidate
+      maintenance_period: 0.2
+      odom_topic: /lio/odometry
+      sync_odom_topic: /lio/odometry
+      cloud_topic: /lio/cloud_registered
+    prior_map:
+      enabled: true
+      directory: /home/rcsdart/rm27/navigation/data/mapping_20261025_022124/localization_candidate/prior
+      voxel_resolution: 0.15
+    trajectory:
+      save_directory: pcd/runtime_zlio
+      keyframe:
+        distance: -1.0
+        angle_deg: -1.0
+        min_interval: 0.0
+        max_interval: 0.5
+      save_on_shutdown: false
+      save_global_pcd: true
+      map_voxel_resolution: 0.15
+    registration:
+      voxel_resolution: 0.2
+      max_iterations: 16
+      max_correspondence_distance: 1.0
+      max_plane_neighbor_distance: 1.2
+      min_correspondence_ratio: 0.5
+      coarse_trigger_min_correspondence_ratio: 0.35
+      max_rmse: 0.25
+      huber_delta: 0.25
+      plane_knn: 8
+      max_plane_eigenvalue_ratio: 0.2
+      min_plane_middle_eigenvalue_ratio: 0.08
+      min_correspondences: 80
+      residual_std_floor: 0.03
+      measurement_translation_std_floor: 0.005
+      measurement_rotation_std_floor_deg: 0.02
+      min_coverage_sectors: 6
+      degeneracy_condition_threshold: 10.0
+    tracking:
+      target_keyframes: 11
+      target_radius: 8.0
+      nearest_reference_radius: 7.0
+      source:
+        max_frames: 5
+        max_time: 0.5
+        max_rotation_deg: 0.0
+        min_frames: 1
+        max_translation: 1.5
+      correction_period: 0.5
+      target_hysteresis_distance: 0.5
+      max_translation_correction: 1.5
+      max_rotation_correction_deg: 15.0
+      suspicious_linear_speed: 10.0
+      suspicious_angular_speed: 30.0
+    recovery:
+      suspect_search_radius: 30.0
+      lost_search_radius: 35.0
+      source:
+        min_frames: 2
+        max_frames: 5
+        max_time: 0.5
+        max_translation: 1.5
+        max_rotation_deg: 0.0
+      initial_max_descriptor_distance: 0.8
+      descriptor_distance_limit: 0.8
+      yaw_sweep_count: 6
+      parallel_candidates: 4
+      max_candidates: 15
+      target_keyframes: 11
+      target_radius: 8.0
+      period: 0.2
+      global_fallback_candidates: 5
+      suspect_failures_before_lost: 3
+      automatic_when_lost: true
+    uwb:
+      enabled: false
+      use_z: false
+      estimate_zero_pose_online: false
+      time_offset_seconds: -0.15
+      antenna_position_body:
+        x: -0.245
+        y: -0.0
+        z: 0.0
+      position_std_xy: 0.15
+      topic: /uwb_pose
+      frame: uwb
+      zero_pose:
+        x: 0.0
+        y: 0.0
+        z: 0.0
+        yaw_deg: 0.0
+      effective_rate_hz: 1.0
+      estimate_time_offset_online: false
+      time_offset_prior_std_seconds: 0.1
+      time_jitter_std_seconds: 0.05
+      max_age: 0.25
+      odom_sync_tolerance: 0.25
+      recovery_search_radius: 2.0
+      recovery_candidates: 8
+      position_std_z: 0.3
+      bootstrap:
+        max_pairs: 120
+        min_pairs: 5
+        min_baseline: 3.0
+        inlier_threshold: 0.75
+        max_rmse: 0.45
+        max_yaw_std_deg: 10.0
+        stable_solutions: 2
+        stable_translation_delta: 0.25
+        stable_yaw_delta_deg: 3.0
+        gravity_alignment_std_deg: 1.0
+    loop:
+      enabled: false
+      target_keyframes: 17
+      target_radius: 12.0
+      cooldown_keyframes: 5
+      candidate_max_distance: 7.0
+      descriptor_ratio_threshold: 1.0
+      source:
+        min_frames: 1
+        max_frames: 4
+        max_time: 0.0
+        max_translation: 0.0
+        max_rotation_deg: 0.0
+      max_parallel_verifications: 4
+      history_size: 200
+      validation:
+        max_translation: 3.0
+        max_z: 0.5
+        max_roll_pitch_deg: 10.0
+        max_yaw_residual_deg: 60.0
+        overlap_distance: 0.5
+        min_overlap_ratio: 0.45
+      pcm:
+        enabled: true
+        translation_threshold: 1.0
+        rotation_threshold_deg: 15.0
+        min_consistent_loops: 1
+        min_candidate_clique_size: 1
+    graph:
+      odom_noise:
+        rotation_variance_per_second: 1.0e-06
+        translation_variance_per_second: 0.0005
+        rotation_variance_per_radian: 3.0e-07
+        translation_variance_per_meter: 0.0002
+      fixed_lag_seconds: 30.0
+      prior_rotation_variance: 0.0001
+      prior_translation_variance: 0.01
+      robust:
+        enabled: true
+        kernel: cauchy
+        size: 0.5
+    reset:
+      service: /navigation/unsupported_frontend_reset
+      response_timeout: 5.0
+      min_gap: 10.0
+      stationary_translation_std: 0.05
+      stationary_rotation_std_deg: 1.0
+    startup_hint:
+      enabled: false
+      force_until_matched: false
+      x: 4.6
+      y: 7.5
+      z: 0.15
+      yaw_deg: 0.0
+    innovation:
+      rejection_probability: 0.001
+      conflicts_before_suspect: 7
+    pure_odometry:
+      origin_x: 0.0
+      origin_y: 0.0
+    visualization:
+      enabled: false
+      publish_prior_map: false
+      publish_runtime_map: false
+      publish_map_axes: false
+      publish_paths: false
+      publish_debug_registration: false
+      map_publish_period: 2.0
+    services:
+      save_map: ~/save_map
+      relocalize: ~/relocalize
+      reset: /navigation/map_candidate_reset
+    output:
+      legacy:
+        enabled: false
+        publish_pose: true
+        publish_twist: true
+        publish_path: false
+        publish_tf: false
+        publish_initializing: false
+        publish_untrusted: false
+        pose_topic: /tdt_lio_pose
+        twist_topic: /tdt_lio_twist
+        path_topic: /tdt_lio_path
+        danger_topic: /LAM_danger_situation
+        path_period: 0.1
+        path_max_size: 2000
+      world_cloud:
+        enabled: false
+        publish_period: 0.0
+        publish_initializing: false
+        publish_untrusted: false
+        topic: /localization/lio_world_cloud
+    storage:
+      cloud_cache_mb: 64
+      submap_cache_mb: 64
+    use_sim_time: false

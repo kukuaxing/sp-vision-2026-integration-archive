@@ -54,6 +54,9 @@ public:
     const Eigen::Matrix3d & from_R_gimbal2world,
     const Eigen::Matrix3d & to_R_gimbal2world,
     const cv::Size & image_size) const;
+  std::optional<Eigen::Vector2d> image_point_delta(
+    const Eigen::Vector3d & from_world, const Eigen::Vector3d & to_world,
+    const Eigen::Matrix3d & R_gimbal2world, const cv::Size & image_size) const;
 
   std::vector<cv::Point2f> reproject_armor(
     const Eigen::Vector3d & xyz_in_world, double yaw, ArmorType type, ArmorName name) const;

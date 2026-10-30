@@ -1,0 +1,48 @@
+{
+  "schema": "p00_map_registration_v1",
+  "registration_id": "f8ea6b9df1ba4cbf8f0b513a1a67aaf6",
+  "created_unix": 1792870791.2466788,
+  "map_frame": "motion_plane_candidate",
+  "course_frame": "course_start",
+  "body_frame": "base_link",
+  "course_definition": "P00=(0,0); +X along the first-leg centreline toward P01; +Y left",
+  "reference_map_xy_m": [
+    -0.0010450395583691818,
+    -0.10587499788347654
+  ],
+  "reference_map_yaw_deg": 91.41315492192787,
+  "transform_course_from_map": [
+    [
+      -0.024661705670192616,
+      0.9996958538842885,
+      0.1058170239561171
+    ],
+    [
+      -0.9996958538842885,
+      -0.024661705670192616,
+      -0.0036557797492813033
+    ],
+    [
+      0.0,
+      0.0,
+      1.0
+    ]
+  ],
+  "map_source_signature": {
+    "prior_directory": "/home/rcsdart/rm27/navigation/data/mapping_20261025_022124/localization_candidate/prior",
+    "prior_sha256": "c7c35a7ccb7be190e6fa8f3cbc114bc02748d6d597974e17c614ef2d7be722fe",
+    "geometry_sha256": "db646546d3d87ccb378d392000fdae00c70dc93d54ec462e31bbfabde1f299ba"
+  },
+  "source_sample": "/home/rcsdart/rm27/navigation/logs/live_map_check_20261025_033550/stationary_pose.json",
+  "source_sample_sha256": "585b6daa518adc7b33cfbd43525bc6ab4239372cffcf856fd59d44d76541df8e",
+  "physical_p00_and_heading_confirmed": true,
+  "confirmation_method": "direct_user_chat",
+  "operator_confirmation": "\u662f\uff0cP00\u53ca\u8f66\u5934\u65b9\u5411\u5747\u5df2\u5bf9\u9f50",
+  "source_boot_id": "8c9cad3c-b383-475a-bb99-44efd56052ed",
+  "source_localization_instance": "948155c90b9d457bba6bdb51b3202ae6",
+  "geometric_accuracy_surveyed": false,
+  "full_route_geometry_verified": false,
+  "motion_authorized": false,
+  "vertical_reference_registered": false,
+  "requires_same_map_and_sensor_geometry": true
+}

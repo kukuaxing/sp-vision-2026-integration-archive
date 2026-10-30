@@ -35,6 +35,8 @@ struct AimPredictionTrace
   double speed_mps = std::numeric_limits<double>::quiet_NaN();
   double flight_time_used_s = std::numeric_limits<double>::quiet_NaN();
   double flight_time_s = std::numeric_limits<double>::quiet_NaN();
+  bool final_point_selection = false;
+  int high_speed_rotation_sign = 0;
 };
 
 class Aimer
@@ -43,14 +45,20 @@ public:
   AimPoint debug_aim_point;
   explicit Aimer(const std::string & config_path);
   io::Command aim(
-    std::list<Target> targets, std::chrono::steady_clock::time_point timestamp, double bullet_speed,
+    const std::list<Target> & targets, std::chrono::steady_clock::time_point timestamp, double bullet_speed,
     bool to_now = true, AimPredictionTrace * trace = nullptr,
-    AimGeometry geometry = AimGeometry::existing);
+    AimGeometry geometry = AimGeometry::existing, bool rigid_high_speed = false);
 
   io::Command aim(
-    std::list<Target> targets, std::chrono::steady_clock::time_point timestamp, double bullet_speed,
+    const std::list<Target> & targets, std::chrono::steady_clock::time_point timestamp, double bullet_speed,
     io::ShootMode shoot_mode, bool to_now = true, AimPredictionTrace * trace = nullptr,
     AimGeometry geometry = AimGeometry::existing);
+
+  // Single selected target; null means no target. No temporary owning list.
+  io::Command aim_target(
+    const Target * target, std::chrono::steady_clock::time_point timestamp, double bullet_speed,
+    bool to_now = true, AimPredictionTrace * trace = nullptr,
+    AimGeometry geometry = AimGeometry::existing, bool rigid_high_speed = false);
 
   // Applies the same bounded runtime correction to both speed branches.  Their
   // calibrated base values remain unchanged and are restored with zero.
@@ -64,6 +72,7 @@ private:
   double leaving_angle_;
   double lock_id_ = -1;
   double high_speed_delay_time_;
+  double high_speed_delay_time_cw_, high_speed_delay_time_ccw_;
   double low_speed_delay_time_;
   double delay_adjustment_time_ = 0.0;
   double decision_speed_;

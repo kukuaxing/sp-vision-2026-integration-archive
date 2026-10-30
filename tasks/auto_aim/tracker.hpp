@@ -7,6 +7,7 @@
 #include <list>
 #include <limits>
 #include <memory>
+#include <optional>
 #include <string>
 #include <tuple>
 #include <vector>
@@ -38,12 +39,16 @@ public:
 
   struct FrameDiagnostics {
     bool rebuilt = false, batch_update = false;
+    bool rate_alias_reset = false;
     int invalid_pose = 0, identity_rejected = 0, position_rejected = 0;
     int cost_rejected = 0, candidates = 0, size_correction_rejected = 0;
     double best_cost = std::numeric_limits<double>::infinity();
     double center_error = 0, corner_error = 0, angle_error = 0, range_error = 0;
+    // Shadow only: pre-update S/NIS of the lowest geometric-cost candidate.
+    Target::PriorInnovation association_innovation;
   };
   const FrameDiagnostics & diagnostics() const { return diagnostics_; }
+  void set_association_diagnostics_enabled(bool enabled) { association_diagnostics_enabled_ = enabled; }
   int temp_lost_count() const { return temp_lost_count_; }
   const Armor * primary_observation() const {
     return measurement_updated() && primary_observation_ ? &*primary_observation_ : nullptr;
@@ -102,6 +107,7 @@ private:
     const std::vector<AssociationCandidate> & candidates, int detection_index,
     std::size_t face_count) const;
   bool has_rigid_pair(const std::vector<AssociationCandidate> & selected) const;
+  bool recover_bench_rate_alias(std::chrono::steady_clock::time_point t, bool updated);
 
   Solver & solver_;
   Color enemy_color_;
@@ -124,7 +130,13 @@ private:
   YawESKF::Config yaw_eskf_config_;
   Target::IteratedUpdateConfig iterated_update_config_;
   Target::CenterProcessConfig center_process_config_;
+  double bench_reference_rate_ = 0.0;
+  double bench_rate_tolerance_ = 1.2;
+  std::optional<std::chrono::steady_clock::time_point> rate_mismatch_since_;
+  std::chrono::steady_clock::time_point rate_mismatch_last_sample_{};
+  int rate_mismatch_samples_ = 0;
   FrameDiagnostics diagnostics_;
+  bool association_diagnostics_enabled_ = true;
   std::optional<Armor> primary_observation_;
   std::vector<ArmorAssociation> last_associations_;
   int primary_detection_index_;

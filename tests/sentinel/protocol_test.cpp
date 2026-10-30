@@ -1,7 +1,40 @@
 #include "io/sentinel/protocol.hpp"
+#include "firmware/sentry/STM32F405/feed_diagnostics.h"
 #include <cassert>
 #include <iostream>
 using namespace io::sentinel;
+void feed_diagnostic_checks(){
+  FeedDiagnostics d;
+  d.Feedback(4,0,0xffffff00u);d.Request(65535,0xffffff10u);
+  d.Issue(65535,0xffffff20u,true,-1);
+  d.Feedback(1,-99,0xffffff30u);assert(d.motion_count==0);
+  d.Feedback(8190,-120,0xffffff40u);assert(d.motion_count==0); // only 6 ticks
+  d.Feedback(8188,-120,0x00000010u); // encoder + us clock wrap
+  assert(d.motion_count==1 && d.motion_seq==65535 && d.motion_us==16);
+  assert(uint32_t(d.motion_us-d.issue_us)==240 && !d.pending);
+  d.Feedback(8180,-400,30);assert(d.motion_count==1);
+  d.Issue(0,40,true,-1);assert(d.already_moving && !d.pending);
+  d.Feedback(8170,0,100);d.Issue(1,110,true,-1);
+  d.Feedback(8150,-500,101000);assert(d.motion_count==1 && !d.pending); // CAN gap
+  d.Feedback(8150,0,101100);d.Issue(2,101110,true,-1);
+  d.Feedback(8170,500,101120);assert(d.motion_count==1); // opposite direction
+  d.Feedback(8130,-500,101130);assert(d.motion_count==2 && d.motion_seq==2);
+  Frame f{feed_diagnostic_type,3,123,Bytes(52)};
+  auto* p=f.payload.data();p[0]=1;p[1]=d.Flags(101140);
+  put16(p+2,2);put16(p+8,2);put16(p+10,2);
+  put32(p+12,101110);put32(p+16,101130);put32(p+20,4);put32(p+24,2);
+  put32(p+28,101140);put16(p+36,uint16_t(-500));put16(p+40,uint16_t(-6500));
+  put32(p+44,uint32_t(-1234));put_float(p+48,-2345);
+  FeedDiagnostic decoded;assert(decode_feed_diagnostic(f,decoded));
+  assert(decoded.feeder_rpm==-500 && decoded.right_rpm==-6500 && decoded.encoder_sum==-1234);
+  const auto wire=encode(f);Decoder decoder;int accepted=0;
+  decoder.feed(wire.data(),wire.size(),1,[&](const Frame& x){assert(x.type==feed_diagnostic_type);++accepted;});
+  assert(accepted==1);
+  State state;assert(!state.apply(f,1) && !state.feedback.received); // cannot authorize/renew link
+  f.payload[0]=2;assert(!decode_feed_diagnostic(f,decoded));f.payload[0]=1;
+  f.payload[42]=1;assert(!decode_feed_diagnostic(f,decoded));f.payload[42]=0;
+  f.payload.pop_back();assert(!decode_feed_diagnostic(f,decoded));
+}
 Frame imu(uint16_t seq,uint32_t time,uint8_t flags=15,uint32_t boot=0x11223344,uint16_t epoch=1){
   Bytes p(32,0);p[0]=1;p[1]=flags;put16(p.data()+2,epoch);put32(p.data()+4,time);
   put_float(p.data()+8,.1f);put_float(p.data()+12,.2f);put_float(p.data()+16,3.1f);
@@ -108,6 +141,7 @@ void startup_recovery_boundaries(){
   std::cout<<"PASS startup recovery: whole cached group, reseed, frozen/duplicate/replay, source high water, timeout, invalid/epoch/boot guards\n";
 }
 int main(){
+  feed_diagnostic_checks();
   startup_half_range_probe();
   startup_recovery_boundaries();
   assert(crc16(reinterpret_cast<const uint8_t*>("123456789"),9)==0x6f91);

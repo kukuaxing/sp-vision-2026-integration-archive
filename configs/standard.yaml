@@ -1,3 +1,4 @@
+# 2026-10-25: restore pre-mission vision policy; keep complete navigation mission and proven fixes.
 # 当前参数基线：2026-10-18 从 /home/rcsdart/rm27 继承，数值未改变。
 # 唯一正式参数源；适用分支、单位和测量状态见 docs/current_parameters.md。
 # 当前后端为 SENTINEL V2；RMV 字段仅用于对应旧后端，不作为本后端生效值。
@@ -12,7 +13,7 @@ inference_backend: openvino
 # 装甲板识别后端：yolov8 | yolo11 | yolov5 | yolo26
 yolo_name: yolo26
 
-# 数字/字迹分类器模型路径
+# 传统检测器的分类器路径；当前 YOLO26 不加载此模型
 classify_model: assets/tiny_resnet.onnx
 
 #####-----OpenVINO模型路径-----#####
@@ -24,6 +25,11 @@ yolo26_model_path: assets/yolo26.xml
 
 # OpenVINO推理设备：CPU | GPU | AUTO
 device: CPU
+# i7-1280P: one logical CPU from each of its six P cores. The old maximum-
+# turbo-only fallback selected just two physical cores (4/5 and 6/7).
+yolo26_cpu_ids: [0, 2, 4, 6, 8, 10]
+# After removing the unused classifier, CPU6 is faster with lower P95 than CPU4.
+infer_threads: 6
 
 #####-----TensorRT模型路径-----#####
 yolo11_engine_path: assets/engines/yolo11.engine
@@ -63,6 +69,9 @@ use_traditional: true
 # refiner now uses it as the default enable and safely keeps network corners
 # whenever no geometrically consistent image candidate is found.
 yolo26_refine_corners: true
+# Candidate compiled and geometrically improved, but 600-shot holdout regressed.
+# Keep disabled pending independent timing/real-image validation.
+corner_refine_brightness_invariant_subpixel: false
 corner_refine_roi_length_scale: 1.8
 corner_refine_roi_width_scale: 0.9
 corner_refine_max_center_error_ratio: 0.65
@@ -168,7 +177,7 @@ vid_pid: "2bdf:0001"
 
 debug: false
 # 现场调参时保留投影画面；正式压力测试可改回 true 以减少显示开销。
-competition_headless: false
+competition_headless: true
 
 # 相机硬触发（与电控 CAN 命令同步触发曝光）
 trigger_enable: false
@@ -220,11 +229,11 @@ xuc_max_yaw_excursion_rad: 0.0          # legacy SP only; Sentinel motor limits 
 xuc_lock_pitch_for_control: false       # legacy SP only; Sentinel uses current-to-target error
 xuc_allow_control: true
 xuc_allow_shoot: true
-sentinel_fire_min_interval_ms: 1000 # maximum 1 fire request/s; cooldown clears fire, never queues shots
+sentinel_fire_min_interval_ms: 300 # mechanical single-feed stop trial: allow adjacent ~350 ms face opportunities; no catch-up
 xuc_fire_guard_enabled: true       # require fresh measured armor in both axes
 xuc_fire_stable_ms: 120.0 # [当前调参值] field request: require 120 ms continuous alignment
 xuc_fire_yaw_tolerance_deg: 0.8 # 2026-10-20: further tighten angular tolerance by 20 percent
-xuc_fire_pitch_tolerance_deg: 0.4 # 2026-10-20: further tighten angular tolerance by 20 percent
+xuc_fire_pitch_tolerance_deg: 0.25 # recover narrow pitch opportunities; retain rotating yaw/quality gates
 xuc_gyro_center_follow_enabled: true
 xuc_gyro_omega_threshold_rad_s: 0.8
 # Trust-aware armor -> vehicle -> phase-clock model selection.
@@ -245,22 +254,22 @@ xuc_rotation_rate_agreement_updates: 3
 xuc_rotation_rate_disagreement_updates: 18
 xuc_gyro_center_hold_ms: 3000.0
 xuc_fire_require_tracker_converged: true
-xuc_one_face_once_fire: true
+xuc_one_face_once_fire: true # restored pre-mission vision policy; verified fixes retained
 xuc_one_face_limit_deg: 15.0
 xuc_one_face_rearm_deg: 34.0
 xuc_gyro_fire_stable_ms: 30.0
 # Fixed targets use the configured xuc_fire_stable_ms alignment window.
 # Gyro mode keeps the current-frame pixel error only as a broad visibility
 # guard; the exact shot instant is selected by the physical phase event clock.
-xuc_gyro_predicted_fire_enabled: true
+xuc_gyro_predicted_fire_enabled: true # restored pre-mission vision policy; verified fixes retained
 # High-speed rotation must not fall back to an instantaneous yaw-error shot
 # while the physical phase event clock is unlocked.  This prevents event=0,
 # cycle=-1 rounds such as shots 1-20 in the 2026-09-11 23:34 field log.
 xuc_gyro_require_event_lock_for_fire: true
-xuc_gyro_predicted_yaw_tolerance_deg: 1.2 # 2026-10-20: further tighten rotating-target tolerance by 20 percent
+xuc_gyro_predicted_yaw_tolerance_deg: 0.6 # first frequency trial: wider yaw window after mechanical single-feed stop
 xuc_gyro_predicted_yaw_trim_deg: 0.0
 xuc_gyro_visibility_yaw_tolerance_deg: 8.0
-xuc_gyro_fire_min_consecutive_frames: 2
+xuc_gyro_fire_min_consecutive_frames: 3
 # The lower board starts each new feed about 0.59 s after the previous feed stops
 # (2026-09-12 log, 124 matched shots). Waiting 0.55 s here avoids stale queued
 # commands while preserving the lower board's actual maximum repeat cadence.
@@ -271,8 +280,8 @@ xuc_gyro_post_feed_recovery_ms: 550.0
 xuc_gyro_candidate_max_phase_step_deg: 20.0
 xuc_direct_yaw_guard: true              # 当前以稳定测量为主；保留预测接口供 EKF 调稳后启用
 xuc_direct_yaw_boresight_correction_deg: -1.30  # measured camera/gimbal zero, 2026-09-05
-xuc_direct_yaw_impact_correction_deg: -0.727668  # 2026-10-20: additional 7 cm left at 2.88 m (+1.392332 deg)
-xuc_yaw_tracking_pi_enabled: true      # re-enabled: close sentinel yaw static bias; integral bounded +/-0.8 deg
+xuc_direct_yaw_impact_correction_deg: -1.95 # restored pre-mission vision policy; verified fixes retained
+xuc_yaw_tracking_pi_enabled: true # restored pre-mission vision policy; verified fixes retained
 xuc_yaw_tracking_kp: 0.0                # disable fast outer proportional loop; lower board already owns position P
 xuc_yaw_tracking_ki_per_s: 0.18         # slow static-bias learner; about 0.2 deg/s at the observed residual
 xuc_yaw_tracking_integral_limit_deg: 0.8
@@ -289,7 +298,7 @@ xuc_direct_pitch_filter_tau_ms: 60.0     # retain post-shot noise damping withou
 xuc_direct_pitch_hold_ms: 180.0          # 已保存双轴验收值：短丢帧保持
 xuc_direct_pitch_max_rate_dps: 45.0      # midpoint between the stable-but-slow 25 and previously validated 80 deg/s
 xuc_direct_pitch_error_gain: 1.35        # recover steady-state authority; below the previously validated 1.65 gain
-xuc_projectile_speed_mps: 19.36 # [当前调参值] 6500rpm初值：9.53m/s * 6500/3200；必须以测速/落点复核
+xuc_projectile_speed_mps: 22.0 # 2026-10-24 optical gate 21.8-22.2 m/s; nominal measured speed
 xuc_ballistic_reference_projectile_speed_mps: 10.0  # 0.91m/17cm实弹基准采集于2500rpm，禁止随当前转速重算
 xuc_ballistic_pitch_enabled: true
 xuc_camera_forward_of_muzzle_m: 0.06     # 实测：相机中心在炮口前方 6 cm
@@ -297,7 +306,7 @@ xuc_camera_above_muzzle_m: 0.04          # 实测：相机中心在炮口上方 
 xuc_ballistic_reference_camera_range_m: 0.91
 xuc_ballistic_reference_total_drop_m: 0.08639  # physical 10m/s reference; zero fixed boresight bias
 xuc_ballistic_max_compensation_deg: 20.0    # 低弹速远距离补偿上限；下位机另保留25°/28°双层保护
-xuc_ballistic_pitch_trim_deg: -2.394618 # 2026-10-20: additional 5 cm down at 2.88 m (-0.994618 deg)
+xuc_ballistic_pitch_trim_deg: -1.248740 # 2026-10-24: raise impact another 3 cm at 3 m (+0.572939 deg)
 # Robust shared range for ballistic elevation and gyro time-of-flight.  The
 # rigid-body near-face range is authoritative; raw PnP depth contributes only a
 # bounded 5% correction so oblique plates cannot move the aim by metres.
@@ -308,9 +317,20 @@ xuc_range_filter_max_raw_residual_m: 0.40
 # Commands are now issued only near the lower board's physical ready time.  Use
 # the resulting short, repeatable launch path instead of predicting against the
 # 20--746 ms queue delay observed when recovery was disabled.
-xuc_event_fire_delay_s: 0.085 # [当前调参值]
-xuc_event_fire_delay_min_ms: 65
-xuc_event_fire_delay_max_ms: 105
+xuc_event_fire_delay_s: 0.640 # diagnostic impact preview only in periodic mode; tune periodic_phase_offset_ms for TX
+xuc_event_fixed_range_m: 3.0 # explicit 3 m stationary-centre bench; 0 restores estimated-range timing
+xuc_event_fixed_omega_rad_s: 4.56 # 2026-10-21: previous stable-run observed median; direction from vision
+xuc_event_phase_window_only: true # restored pre-mission vision policy; verified fixes retained
+# Fixed command cadence: one feeder step per N face passages, anchored by vision.
+# Offset is time AFTER a front-centre crossing, modulo one face period.
+# 256.92 ms preserves the former 640ms+3m/22m/s phase approximately; tune by hits.
+xuc_periodic_fire_enabled: true # restored pre-mission vision policy; verified fixes retained
+xuc_periodic_phase_offset_ms: 388 # restored pre-mission vision policy; verified fixes retained
+xuc_periodic_every_n_faces: 1 # restored pre-mission vision policy; verified fixes retained
+xuc_event_phase_after_only: true # along rotation: reach/pass target phase; early samples wait before TX
+xuc_event_command_phase_tolerance_deg: 4.0 # TX allowed from 0 to +4 deg of directed progress; rearm outside +/-8 deg
+xuc_event_fire_delay_min_ms: 630
+xuc_event_fire_delay_max_ms: 650 # legacy event policy delay bound; periodic cadence uses phase offset
 # Observe the feeder threshold in the serial RX thread, learn a fresh session
 # baseline from five matched shots, then compensate only subsequent mechanical
 # drift. The 85 ms calibration is unchanged during warm-up. A median/MAD window,
@@ -364,12 +384,11 @@ xuc_event_model_phase_uncertainty_deg: 0.7
 # budget rejects most otherwise usable faces.  Keep lock and face identity
 # mandatory while allowing a wider physical opportunity window.
 xuc_event_phase_grace_deg: 4.0
-# Fire from the directly observed phase clock once its temporal interval is safe.
-# Future-face consistency remains diagnostic, but no longer vetoes an otherwise
-# valid event: field logs show that hand-over ambiguity was the dominant source
-# of missed opportunities.  Event lock, fresh vision, pitch, gimbal tracking,
-# one-shot-per-cycle and feeder recovery gates remain mandatory.
-xuc_event_require_face_consistency: false
+# Require the coherent future vehicle geometry as well as the phase clock.
+# 2026-10-21: four of 35 transmitted requests had no valid future face;
+# the unified high-speed whole model now supports this consistency check.
+# Keep delay, phase budget and gimbal tolerances unchanged for the next trial.
+xuc_event_require_face_consistency: true
 # Commit the future physical armor face for each event cycle, then hand over to
 # the next face. A shot also requires the gimbal to be following its command.
 xuc_event_face_max_alignment_deg: 15.0
@@ -420,3 +439,16 @@ rmv_fire_delay_s: 0.085
 rmv_fire_delay_min_s: 0.065
 rmv_fire_delay_max_s: 0.105
 rmv_flight_time_uncertainty_s: 0.050 # wide initial uncertainty for estimated speed
+
+# Adapted high-speed vision; Sentinel V2/MCU and navigation contracts unchanged.
+# periodic retains the previous strategy for a controlled A/B test.
+xuc_high_speed_strategy: teammate_prediction
+xuc_high_speed_prediction_quality_enabled: true
+xuc_high_speed_prediction_quality_max_error_deg: 0.25
+xuc_high_speed_pitch_variation_deg: 0.15
+# These are prediction horizons BEFORE flight time, not measured muzzle delay.
+# Preserve OUR 330ms baseline, do not import the teammate's 385/325ms tuning.
+high_speed_delay_time_cw: 0.200
+high_speed_delay_time_ccw: 0.330
+vision_plot_enabled: false
+vision_diagnostics_stride: 3

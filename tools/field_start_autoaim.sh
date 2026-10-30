@@ -109,8 +109,16 @@ select_color() {
 prepare_runtime_config() {
   local temp="$RUNTIME_CONFIG.tmp.$$"
   mkdir -p -- "$(dirname "$RUNTIME_CONFIG")"
-  if ! awk -v color="$LOCK_COLOR" -v override="$OVERRIDE_BOARD_COLOR" -v follow_only="$FOLLOW_ONLY" '
-      BEGIN { updated = 0 }
+  if ! awk -v color="$LOCK_COLOR" -v override="$OVERRIDE_BOARD_COLOR" -v follow_only="$FOLLOW_ONLY" -v mission_dir="${RM27_MISSION_DIR:-}" '
+      BEGIN { updated = 0; headless_updated = 0 }
+      /^[[:space:]]*competition_headless[[:space:]]*:/ {
+        headless_updated = 1
+        if (mission_dir != "" || ENVIRON["DISPLAY"] == "")
+          print "competition_headless: true # mission or terminal without a display"
+        else
+          print "competition_headless: false # manual desktop visual test"
+        next
+      }
       /^[[:space:]]*enemy_color[[:space:]]*:/ && !updated {
         print "enemy_color: \"" color "\""
         updated = 1
@@ -131,6 +139,10 @@ prepare_runtime_config() {
       { print }
       END {
         if (!updated) exit 42
+        if (!headless_updated) {
+          if (mission_dir != "" || ENVIRON["DISPLAY"] == "") print "competition_headless: true"
+          else print "competition_headless: false"
+        }
         if (follow_only == "true") {
           if (!disabled["auto_fire"]) print "auto_fire: false"
           if (!disabled["xuc_allow_shoot"]) print "xuc_allow_shoot: false"
@@ -175,6 +187,7 @@ while (($#)); do
       printf 'RMV 默认只识别和记录；--rmv-follow 开启大 Y/P 跟踪，小 Y 保持、取消相对角度限幅，不发射。\n'
       printf '%s\n' '--rmv-rotate 开启四装甲旋转试算；--rmv-fire 显式接入单发，双上预转就绪后由上位机触发，无需操作摇杆。'
       printf '无参数及开机自启动：沿用上次保存的颜色，不弹出选择窗口。\n'
+      printf '手动桌面测试显示图像；开机任务及无DISPLAY终端保持无窗口。\n'
       exit 0
       ;;
     *)
@@ -338,6 +351,15 @@ else:
     print('控制：' + ('开启' if c['xuc_allow_control'] else '关闭') +
           '；发射：' + ('开启' if c['xuc_allow_shoot'] and c['auto_fire'] else '关闭'))
     if c.get('board_protocol') == 'SENTINEL':
+        if c.get('xuc_high_speed_strategy') == 'teammate_prediction':
+            print('高速策略：固定中心联合估计 + 同面未来几何；旧周期相位参数不决定发令时刻。')
+            print('分旋向预测延迟：顺时针 %.0f ms / 逆时针 %.0f ms，另算飞行时间；不是已测出膛延迟。' %
+                  (1000*c.get('high_speed_delay_time_cw',c['high_speed_delay_time']),
+                   1000*c.get('high_speed_delay_time_ccw',c['high_speed_delay_time'])))
+        elif c.get('xuc_event_fixed_range_m', 0) > 0:
+            print('周期台架：距离 %.2f m；弹速 %.2f m/s；给定转速 %.2f rad/s；诊断假定延迟 %.0f ms（未实测出膛）' %
+                  (c['xuc_event_fixed_range_m'], c['xuc_projectile_speed_mps'],
+                   c.get('xuc_event_fixed_omega_rad_s', 0), 1000*c['xuc_event_fire_delay_s']))
         print('预测延迟：高速 %.0f ms / 低速 %.0f ms；切换转速 %.2f rad/s' %
               (1000*c['high_speed_delay_time'], 1000*c['low_speed_delay_time'], c['decision_speed']))
         print('开火容差：水平 ±%.2f° / 俯仰 ±%.2f° / 旋转预测 ±%.2f°；请求间隔 %d ms' %
@@ -370,18 +392,16 @@ for _ in $(seq 1 100); do
 done
 
 if [[ "$connected" != true ]]; then
-  startup_failure="10秒内未收到下位机心跳，程序已自动停止。"
-  stop_failure="未收到下位机心跳，且进程没有正常退出；请保持安全档并检查终端。"
   if grep -Eq '\[SYNC\]\[SENTINEL( V2)?\][[:space:]]+link=true[[:space:]]+pose=0([[:space:]]|$)' "$LOG_FILE"; then
-    startup_failure="已收到下位机数据，但云台姿态未通过新鲜度检查，程序已自动停止。"
-    stop_failure="已收到下位机数据，但云台姿态未通过新鲜度检查，且进程没有正常退出；请保持安全档并检查终端。"
+    printf '[视觉持续运行] 已收到下位机数据，云台姿态暂不可用；继续检测和显示，等待姿态恢复。\n'
+  else
+    printf '[视觉持续运行] 暂未收到下位机心跳；继续检测和显示，等待电控通信恢复。\n'
   fi
-  stop_child || fail "$stop_failure"
-  tail -n 80 "$LOG_FILE" || true
-  fail "$startup_failure"
+  printf '控制/发射仍受有效数据与许可校验约束；若串口读取已退出，需要重建进程。开机任务监管会自动重建准备中的会话，已开始任务则故障锁定。\n'
+else
+  printf '[启动成功] 已与下位机建立通信，PID=%s。\n' "$CHILD_PID"
 fi
 
-printf '[启动成功] 已与下位机建立通信，PID=%s。\n' "$CHILD_PID"
 printf '确认现场安全后，才可由遥控器拨入 AUTO。\n'
 printf '关闭本窗口或双击“关闭自瞄”可结束程序。\n\n'
 tail -n 40 -F --pid="$CHILD_PID" "$LOG_FILE" &

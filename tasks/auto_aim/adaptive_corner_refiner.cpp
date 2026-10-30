@@ -32,6 +32,33 @@ cv::Rect clipped_roi(
   const int y1 = std::min(size.height, static_cast<int>(std::ceil(center.y + height * 0.5)));
   return cv::Rect(x0, y0, std::max(0, x1 - x0), std::max(0, y1 - y0));
 }
+
+std::optional<double> sample(const cv::Mat & image, const cv::Point2f & p)
+{
+  const int x=static_cast<int>(std::floor(p.x)),y=static_cast<int>(std::floor(p.y));
+  if(x<0 || y<0 || x+1>=image.cols || y+1>=image.rows)return {};
+  const double a=p.x-x,b=p.y-y;
+  return (1-b)*((1-a)*image.at<uchar>(y,x)+a*image.at<uchar>(y,x+1))+
+    b*((1-a)*image.at<uchar>(y+1,x)+a*image.at<uchar>(y+1,x+1));
+}
+
+std::optional<cv::Point2f> isophote_edge(const cv::Mat & image, const cv::Point2f & start,
+                                       const cv::Point2f & outward, double threshold)
+{
+  auto previous=sample(image,start);
+  if(!previous || *previous<=threshold)return {};
+  constexpr float step=.25f;
+  for(int i=1;i<=16;++i) {
+    const auto point=start+outward*(i*step);const auto current=sample(image,point);
+    if(!current)return {};
+    if(*current<=threshold) {
+      const double fraction=(*previous-threshold)/(*previous-*current);
+      return start+outward*static_cast<float>((i-1+fraction)*step);
+    }
+    previous=current;
+  }
+  return {};
+}
 }  // namespace
 
 std::optional<AdaptiveCornerRefiner::Result> AdaptiveCornerRefiner::refine(
@@ -62,9 +89,13 @@ std::optional<AdaptiveCornerRefiner::Result> AdaptiveCornerRefiner::refine(
     if (channels.size() > 2) cv::max(gray, channels[2], gray);
   }
 
-  const auto left = refine_light(gray, p[0], p[3]);
-  const auto right = refine_light(gray, p[1], p[2]);
+  const bool allow_broad = mode == ChannelMode::red_blue_contrast;
+  const auto left = refine_light(gray, p[0], p[3], allow_broad);
+  const auto right = refine_light(gray, p[1], p[2], allow_broad);
   if (!left || !right) return std::nullopt;
+  // A near-frontal colored bar can bloom to an aspect slightly below 2.
+  // Retain a strict companion: two broad blobs cannot certify each other.
+  if (left->broad && right->broad) return std::nullopt;
 
   const double length_ratio =
     std::min(left->length, right->length) / std::max(left->length, right->length);
@@ -86,12 +117,13 @@ std::optional<AdaptiveCornerRefiner::Result> AdaptiveCornerRefiner::refine(
   result.score = 0.5 * (left->score + right->score) +
     0.25 * pair_angle_error / std::max(1.0, config_.max_pair_angle_error_deg) +
     0.25 * (1.0 - length_ratio);
+  result.single_broad_light = left->broad || right->broad;
   return result;
 }
 
 std::optional<AdaptiveCornerRefiner::LightCandidate> AdaptiveCornerRefiner::refine_light(
   const cv::Mat & gray, const cv::Point2f & expected_top,
-  const cv::Point2f & expected_bottom) const
+  const cv::Point2f & expected_bottom, bool allow_broad) const
 {
   const cv::Point2f expected_center = (expected_top + expected_bottom) * 0.5F;
   const double expected_length = cv::norm(expected_bottom - expected_top);
@@ -108,8 +140,8 @@ std::optional<AdaptiveCornerRefiner::LightCandidate> AdaptiveCornerRefiner::refi
   cv::Mat otsu_binary;
   const double otsu = cv::threshold(
     blurred, otsu_binary, 0, 255, cv::THRESH_BINARY | cv::THRESH_OTSU);
-  const double threshold = std::clamp(
-    0.65 * otsu + 0.35 * config_.binary_threshold, 25.0, 230.0);
+  const double threshold = config_.brightness_invariant_subpixel ? std::max(1.0,otsu) :
+    std::clamp(0.65 * otsu + 0.35 * config_.binary_threshold, 25.0, 230.0);
   cv::Mat binary;
   cv::threshold(blurred, binary, threshold, 255, cv::THRESH_BINARY);
 
@@ -125,7 +157,10 @@ std::optional<AdaptiveCornerRefiner::LightCandidate> AdaptiveCornerRefiner::refi
     const cv::RotatedRect rr = cv::minAreaRect(contour);
     const double major = std::max(rr.size.width, rr.size.height);
     const double minor = std::max(0.5F, std::min(rr.size.width, rr.size.height));
-    if (major / minor < config_.min_light_aspect) continue;
+    const double aspect = major / minor;
+    const bool broad = aspect < config_.min_light_aspect;
+    if (broad && (!allow_broad ||
+        aspect < std::max(1.6, 0.8 * config_.min_light_aspect))) continue;
     const double rr_area = std::max(1.0, major * minor);
     if (cv::contourArea(contour) / rr_area < config_.min_contour_fill) continue;
 
@@ -145,10 +180,20 @@ std::optional<AdaptiveCornerRefiner::LightCandidate> AdaptiveCornerRefiner::refi
 
     double min_projection = std::numeric_limits<double>::infinity();
     double max_projection = -std::numeric_limits<double>::infinity();
+    cv::Point2f low_point,high_point;
     for (const auto & point : points) {
       const double projection = (point - origin).dot(direction);
-      min_projection = std::min(min_projection, projection);
-      max_projection = std::max(max_projection, projection);
+      if(projection<min_projection){min_projection=projection;low_point=point;}
+      if(projection>max_projection){max_projection=projection;high_point=point;}
+    }
+    if(config_.brightness_invariant_subpixel) {
+      const cv::Point2f offset(static_cast<float>(roi.x),static_cast<float>(roi.y));
+      const auto low=isophote_edge(blurred,low_point-offset,-direction,threshold);
+      const auto high=isophote_edge(blurred,high_point-offset,direction,threshold);
+      // A missing boundary/ROI truncation never becomes a guessed endpoint.
+      if(!low || !high)continue;
+      min_projection=(*low+offset-origin).dot(direction);
+      max_projection=(*high+offset-origin).dot(direction);
     }
     cv::Point2f a = origin + direction * static_cast<float>(min_projection);
     cv::Point2f b = origin + direction * static_cast<float>(max_projection);
@@ -168,11 +213,16 @@ std::optional<AdaptiveCornerRefiner::LightCandidate> AdaptiveCornerRefiner::refi
         endpoint_shift > config_.max_endpoint_shift_ratio) {
       continue;
     }
-    const double score = 0.45 * center_error + 0.35 * length_error +
+    // A relaxed shape must agree more tightly with the network's current
+    // endpoints. This changes no raw-keypoint fallback or firing permission.
+    if (broad && (center_error > 0.20 || length_error > 0.30 ||
+        angle_error > 8.0 || endpoint_shift > 0.25)) continue;
+    const double score = (broad ? 1.0 : 0.0) +
+      0.45 * center_error + 0.35 * length_error +
       0.15 * angle_error / std::max(1.0, config_.max_angle_error_deg) +
       0.05 * endpoint_shift;
     if (score < best.score) {
-      best = {a, b, center, length, angle, score};
+      best = {a, b, center, length, angle, score, broad};
     }
   }
 

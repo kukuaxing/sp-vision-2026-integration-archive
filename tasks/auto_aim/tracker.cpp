@@ -33,6 +33,8 @@ void Tracker::reset()
   measurement_updated_ = identity_confirmed_ = false;
   identity_candidate_name_ = ArmorName::not_armor;
   identity_candidate_frames_ = 0;
+  rate_mismatch_since_.reset();
+  rate_mismatch_samples_ = 0;
   last_timestamp_ = std::chrono::steady_clock::now();
 }
 
@@ -138,6 +140,54 @@ Tracker::Tracker(const std::string & config_path, Solver & solver)
   if (yaml["whole_state_iekf_huber_threshold"])
     iterated_update_config_.huber_threshold = std::clamp(
       yaml["whole_state_iekf_huber_threshold"].as<double>(), 0.5, 10.0);
+  // Only the explicit fixed-speed Sentinel bench provides a speed reference.
+  // A rejected double-rate branch must reacquire instead of remaining alive
+  // indefinitely on alternating faces. Ordinary match tracking is unchanged.
+  if (yaml["board_protocol"] && yaml["board_protocol"].as<std::string>() == "SENTINEL" &&
+      yaml["xuc_event_phase_window_only"] && yaml["xuc_event_phase_window_only"].as<bool>() &&
+      yaml["xuc_event_fixed_range_m"] && yaml["xuc_event_fixed_range_m"].as<double>() > 0.0 &&
+      yaml["xuc_event_fixed_omega_rad_s"])
+    bench_reference_rate_ = std::clamp(
+      yaml["xuc_event_fixed_omega_rad_s"].as<double>(), 0.0, 8.0);
+  if (yaml["xuc_rotation_rate_disagreement_rad_s"])
+    bench_rate_tolerance_ = std::clamp(
+      yaml["xuc_rotation_rate_disagreement_rad_s"].as<double>(), 0.1, 10.0);
+}
+
+bool Tracker::recover_bench_rate_alias(std::chrono::steady_clock::time_point t, bool updated)
+{
+  const auto & x = target_.ekf().x;
+  const bool excessive = bench_reference_rate_ > 0.0 && state_ != "lost" &&
+    target_.armor_num() == 4 && x.size() == 11 && std::isfinite(x[7]) &&
+    !(target_.whole_rotation_rejection_mask() & Target::immature) &&
+    std::abs(x[7]) > bench_reference_rate_ + bench_rate_tolerance_;
+  if (!excessive) {
+    rate_mismatch_since_.reset();
+    rate_mismatch_samples_ = 0;
+    return false;
+  }
+  if (!updated) {
+    if (rate_mismatch_since_ && tools::delta_time(t, rate_mismatch_last_sample_) > 0.1) {
+      rate_mismatch_since_.reset();
+      rate_mismatch_samples_ = 0;
+    }
+    return false;
+  }
+  if (!rate_mismatch_since_ || tools::delta_time(t, rate_mismatch_last_sample_) > 0.1) {
+    rate_mismatch_since_ = t;
+    rate_mismatch_samples_ = 0;
+  }
+  rate_mismatch_last_sample_ = t;
+  ++rate_mismatch_samples_;
+  const double duration = tools::delta_time(t, *rate_mismatch_since_);
+  if (duration < 0.5 || rate_mismatch_samples_ < 10) return false;
+  tools::logger()->warn(
+    "[Tracker][RATE_ALIAS] track={} omega={:+.3f} reference={:.3f} "
+    "duration_ms={:.0f} samples={}; discard model and reacquire",
+    track_id_, x[7], bench_reference_rate_, duration * 1000.0, rate_mismatch_samples_);
+  reset();
+  diagnostics_.rate_alias_reset = true;
+  return true;
 }
 
 std::string Tracker::state() const { return state_; }
@@ -218,6 +268,8 @@ std::list<Target> Tracker::track(
   }
 
   state_machine(found);
+
+  if (state_ != "lost" && recover_bench_rate_alias(t, found)) return {};
 
   // 发散检测
   if (state_ != "lost" && target_.diverged()) {
@@ -342,6 +394,8 @@ std::tuple<omniperception::DetectionResult, std::list<Target>> Tracker::track(
   // 更新状态机
   state_machine(found);
 
+  if (state_ != "lost" && recover_bench_rate_alias(t, found)) return {switch_target, {}};
+
   // 发散检测
   if (state_ != "lost" && target_.diverged()) {
     tools::logger()->debug("[Tracker] Target diverged!");
@@ -440,6 +494,8 @@ bool Tracker::set_target(std::list<Armor> & armors, std::chrono::steady_clock::t
 
 void Tracker::initialize_target(const Armor & armor, std::chrono::steady_clock::time_point t)
 {
+  rate_mismatch_since_.reset();
+  rate_mismatch_samples_ = 0;
   diagnostics_.rebuilt = true;
   // 根据兵种优化初始化参数
   auto is_balance = (armor.type == ArmorType::big) &&
@@ -653,6 +709,8 @@ std::vector<Tracker::AssociationCandidate> Tracker::collect_association_candidat
         0.20 * range_error * range_error - confidence_bonus;
       if (std::isfinite(cost) && cost < diagnostics_.best_cost) {
         diagnostics_.best_cost = cost;
+        if (association_diagnostics_enabled_)
+          diagnostics_.association_innovation = target_.prior_innovation(measurement, static_cast<int>(id));
         diagnostics_.center_error = center_error; diagnostics_.corner_error = corner_error;
         diagnostics_.angle_error = angle_error; diagnostics_.range_error = range_error;
       }

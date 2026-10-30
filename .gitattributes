@@ -9,3 +9,7 @@
 io/driver/** -whitespace
 io/hikrobot/include/** -whitespace
 io/mindvision/include/** -whitespace
+# Navigation's reviewed-source manifests hash exact imported bytes, including
+# existing line endings. Preserve them across Windows/Linux checkout.
+navigation/** -text whitespace=cr-at-eol,-blank-at-eof
+navigation/**/*.patch -whitespace

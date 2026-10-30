@@ -197,11 +197,13 @@ void HikRobot::capture_loop()
 
   capturing_ = true;
 
+  auto capture_report_start = std::chrono::steady_clock::now();
+  unsigned capture_report_frames = 0;
   MV_FRAME_OUT raw;
   MV_CC_PIXEL_CONVERT_PARAM cvt_param{};
 
   while (!capture_quit_) {
-    std::this_thread::sleep_for(1ms);
+    // The SDK read blocks until a frame arrives or its 100 ms timeout.
 
     unsigned int ret;
     unsigned int nMsec = 100;
@@ -242,6 +244,14 @@ void HikRobot::capture_loop()
     }
 
     queue_.push({rgb_img, timestamp, raw.stFrameInfo.nFrameNum});
+    if (++capture_report_frames == 150) {
+      const auto report_now = std::chrono::steady_clock::now();
+      const double elapsed = std::chrono::duration<double>(report_now - capture_report_start).count();
+      tools::logger()->info("[CAPTURE] delivered_fps={:.1f} frame={} timestamp_basis=estimated_exposure_midpoint",
+        capture_report_frames / elapsed, raw.stFrameInfo.nFrameNum);
+      capture_report_start = report_now;
+      capture_report_frames = 0;
+    }
 
     ret = MV_CC_FreeImageBuffer(handle_, &raw);
     if (ret != MV_OK) {

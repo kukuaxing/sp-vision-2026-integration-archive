@@ -78,6 +78,7 @@ inline CONTROL ctrl;
 constexpr float PI=3.14159265358979323846f;
 #define RC_LOST_MS 100
 struct RC {
+  float nav_turn_rpm=0.f; // Match RC::OnPC navigation-state reset.
   uint32_t last_rc_tick=1;uint16_t rc_lost_cnt=0;int requested_mode=CONTROL::AUTO,nav_calls=0;
   void ApplyAim();void OnRC();void OnPC();
   void ApplyNav(){++nav_calls;}

@@ -89,6 +89,13 @@ public:
   // A valid wire packet is not proof of a valid/fresh gimbal IMU.
   bool feedback_link_valid() const;
   sentinel::Feedback sentinel_feedback() const;
+  sentinel::FeedDiagnostic sentinel_feed_diagnostic() const;
+  sentinel::MissionStatus mission_status() const;
+  uint32_t fire_requests_sent() const;
+  bool mission_link_fresh() const;
+  void configure_mission(bool enabled) { mission_mode_.store(enabled); mission_task_until_ns_.store(0); }
+  void mission_task_until(int64_t ns,uint32_t limit,uint32_t generation);
+  bool send_navigation(float vx,float vy,float wz,bool enabled);
   bool consume_tracker_reset() { return tracker_reset_.exchange(false); }
   double imu_roll() const;
   double raw_imu_pitch() const;
@@ -165,6 +172,15 @@ public:
   }
 
 private:
+  std::mutex tx_mutex_; // AIM and NAV always write complete, serialized frames.
+  int sentinel_owner_fd_=-1;
+  std::atomic<bool> mission_mode_{false};
+  std::atomic<int64_t> mission_task_until_ns_{0};
+  std::atomic<uint32_t> mission_count_limit_{0},mission_count_generation_{0};
+  sentinel::MissionStatus mission_status_{};
+  uint32_t host_fire_requests_sent_=0; // Successful fire-bearing UART writes; not motor feedback.
+  uint32_t nav_boot_=0;
+  uint16_t nav_sequence_=0;
   void recv_loop();
   void recv_sentinel_loop();
   SendResult send_sentinel(const Command & cmd, bool stop = false,
@@ -220,6 +236,7 @@ private:
   std::atomic<int64_t> last_shoot_tx_ns_{0};
   mutable std::mutex feeder_feedback_mutex_;
   FeederFeedback feeder_feedback_{};
+  sentinel::FeedDiagnostic sentinel_feed_diagnostic_{}; // guarded by sentinel_mutex_.
   std::atomic<uint64_t> rx_bytes_{0};
   std::atomic<uint64_t> header_candidates_{0};
   std::atomic<uint64_t> crc_errors_{0};

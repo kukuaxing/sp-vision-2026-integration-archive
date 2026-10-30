@@ -1,0 +1,106 @@
+{
+  "source": "User 2026-10-19: dark body top 580mm above floor; moved 200mm right, no fore-aft/orientation change; 75mm base ground datum retained",
+  "parent_frame": "base_link",
+  "child_frame": "livox_frame",
+  "relationship": "Rigidly fixed directly to chassis; independent of gimbal motion",
+  "translation_m": {
+    "x": 0.0,
+    "y": -0.2,
+    "z": 0.492
+  },
+  "rotation_rpy_rad": {
+    "roll": 0.0,
+    "pitch": 0.0,
+    "yaw": -1.5707963267948966
+  },
+  "quaternion_xyzw": [
+    0.0,
+    0.0,
+    -0.7071067811865475,
+    0.7071067811865476
+  ],
+  "rotation_lidar_to_base": [
+    [
+      0,
+      1,
+      0
+    ],
+    [
+      -1,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      1
+    ]
+  ],
+  "base_frame_definition": "x forward, y left, z up; origin at chassis centre used in the user height measurement",
+  "assumptions": [
+    "152.2 mm wheels and robot dimensions do not determine the base origin height above ground",
+    "Point coordinates are native Livox axes; driver must not have already rotated them",
+    "ROS frame names will be filled from actual driver and odometry topics",
+    "Height is referenced to Livox point-cloud origin O, 13 mm below the measured dark lidar body top; nominal upright orientation retained"
+  ],
+  "nominal_transform_defined": true,
+  "validated_with_real_points": false,
+  "manual_url": "https://terra-1-g.djicdn.com/851d20f7b9f64838a34cd02351370894/Livox/Livox_Mid-360_User_Manual_EN.pdf",
+  "runtime_composition": "odom -> lio_imu -> base_link/livox_frame; user nominal mount with official MID360 internal extrinsic",
+  "measured_heights_m": {
+    "lidar_above_ground": 0.567,
+    "base_above_ground": 0.075,
+    "lidar_above_base": 0.492,
+    "source": "580mm body top minus nominal 13mm origin offset; base ground datum75mm retained, not remeasured",
+    "ground_plane_seen_in_lidar": false,
+    "ground_normal_calibrated": false
+  },
+  "height_reference": {
+    "measured_reference": "top of the dark MID360 lidar body; separate protective shell excluded",
+    "measured_body_top_above_ground_m": 0.58,
+    "measured_body_top_above_base_m": null,
+    "point_origin_below_body_top_m": 0.013,
+    "manufacturer_lidar_body_height_m": 0.06,
+    "manufacturer_point_origin_above_body_bottom_m": 0.047,
+    "manufacturer_reference": {
+      "url": "https://dl.djicdn.com/downloads/Livox/Mid-360/QSG/Livox_Mid-360_Quick_Start_Guide_multi.pdf",
+      "pdf_sha256": "199f729e4861707e486417f43eb9774751bce1c6ca19f01db0fda7233d5d1aee",
+      "pdf_page_1_based": 13,
+      "printed_page": 12,
+      "lidar_body_height_m": 0.06,
+      "point_cloud_origin_above_body_bottom_m": 0.047,
+      "point_cloud_origin_below_body_top_m": 0.013
+    },
+    "confirmed_measurements_sha256": "1434ac1a4a07661ae212ef766c88ddef21ab14a5599d37624465d8408a17a5a3",
+    "confirmed_measurements_source": "work/navigation_mount_relocation_20261019/confirmed_mount_measurements.json",
+    "accuracy": "Nominal manufacturer dimensions plus approximate ruler measurements; no millimetre accuracy certified",
+    "orientation": "Existing nominal upright yaw-only mounting retained; not a roll/pitch calibration",
+    "derived_body_top_above_base_m": 0.505,
+    "base_ground_height_remeasured": false,
+    "retained_base_ground_height_m": 0.075
+  },
+  "installation_confirmation": {
+    "date": "2026-10-19",
+    "confirmed_by": "User messages in this conversation",
+    "measurement_reference": "Top of the dark MID360 body, not protective cover or point origin",
+    "body_top_above_ground_m": 0.58,
+    "point_origin_below_body_top_m": 0.013,
+    "translation_relative_to_old_mount_base_axes_m": {
+      "x": 0.0,
+      "y": -0.2
+    },
+    "fore_aft_and_orientation_unchanged_by_user": true,
+    "connector_side": "left",
+    "rigidly_attached_to_chassis_by_user": true,
+    "retained_base_height_above_ground_m": 0.075,
+    "base_height_remeasured_this_update": false,
+    "derived_nominal_point_origin_above_ground_m": 0.567,
+    "derived_nominal_point_origin_above_base_m": 0.492,
+    "derived_nominal_body_top_above_base_m": 0.505,
+    "rotation_change_calibrated": false,
+    "ground_normal_calibrated": false,
+    "precision": "Approximate ruler values plus nominal manufacturer 13mm offset; no millimetre accuracy certificate",
+    "requires_new_localization_session": true,
+    "low_obstacle_visibility_verified_after_relocation": false
+  }
+}

@@ -1,0 +1,396 @@
+{
+  "schema": "registered_global_round_trip_v1",
+  "frame": "course_start",
+  "created_unix": 1792872848.837791,
+  "outbound_waypoints_m": [
+    [
+      0.0,
+      0.0
+    ],
+    [
+      1.055813111874296,
+      -0.07344084291429204
+    ],
+    [
+      0.9759166191925155,
+      -1.2220627979296863
+    ],
+    [
+      4.146074139291693,
+      -1.4425743996788456
+    ],
+    [
+      4.25362718857285,
+      0.10364858942315996
+    ],
+    [
+      5.179885839565506,
+      0.039219368644876296
+    ],
+    [
+      5.088565360398434,
+      -1.2736381022281233
+    ],
+    [
+      6.130878250152,
+      -1.3461398890908034
+    ],
+    [
+      6.216827880033665,
+      -0.11049576262414218
+    ],
+    [
+      7.0683029690736525,
+      -0.16972314629302743
+    ],
+    [
+      7.208212611441998,
+      1.8416703648426733
+    ]
+  ],
+  "return_waypoints_m": [
+    [
+      7.208212611441998,
+      1.8416703648426733
+    ],
+    [
+      7.0683029690736525,
+      -0.16972314629302743
+    ],
+    [
+      6.216827880033665,
+      -0.11049576262414218
+    ],
+    [
+      6.130878250152,
+      -1.3461398890908034
+    ],
+    [
+      5.088565360398434,
+      -1.2736381022281233
+    ],
+    [
+      5.179885839565506,
+      0.039219368644876296
+    ],
+    [
+      4.25362718857285,
+      0.10364858942315996
+    ],
+    [
+      4.146074139291693,
+      -1.4425743996788456
+    ],
+    [
+      0.9759166191925155,
+      -1.2220627979296863
+    ],
+    [
+      1.055813111874296,
+      -0.07344084291429204
+    ],
+    [
+      0.0,
+      0.0
+    ]
+  ],
+  "task_goal_m": [
+    7.208212611441998,
+    1.8416703648426733
+  ],
+  "home_goal_m": [
+    0.0,
+    0.0
+  ],
+  "outbound_length_m": 14.335311914602723,
+  "round_trip_length_m": 28.670623829205446,
+  "speed_ceiling_m_s": 1.8,
+  "task_dwell_s": 5.0,
+  "deadline_s": 300.0,
+  "heading_deg": 0.0,
+  "registration_id": "f8ea6b9df1ba4cbf8f0b513a1a67aaf6",
+  "map_source_signature": {
+    "prior_directory": "/home/rcsdart/rm27/navigation/data/mapping_20261025_022124/localization_candidate/prior",
+    "prior_sha256": "c7c35a7ccb7be190e6fa8f3cbc114bc02748d6d597974e17c614ef2d7be722fe",
+    "geometry_sha256": "db646546d3d87ccb378d392000fdae00c70dc93d54ec462e31bbfabde1f299ba"
+  },
+  "source_pose_path": "H:\\rm\\导航\\work\\localization_backend_setup\\results\\full_capture\\poses.jsonl",
+  "source_pose_sha256": "fc1b7e336aaed95756a908675c963e89540e0db0e0825b489173161527edb860",
+  "registration_sha256": "16c6bb2b57a04f60a0eca9ce0583555613870a290cbec70a921e21e7bd49240f",
+  "source": "Actual recorded global-map base trajectory, not old training-course segment lengths",
+  "source_capture": "mapping_20261025_022124",
+  "full_traversal_user_confirmed": true,
+  "user_confirmation": "是，到达任务区后返回",
+  "task_point_inference": "Farthest sustained distant stationary interval before recorded return to start",
+  "task_dwell_candidate": {
+    "start": 1390,
+    "end": 1503,
+    "xy": [
+      7.208212611441998,
+      1.8416703648426733
+    ],
+    "start_s": 154.500274897,
+    "end_s": 166.899934054
+  },
+  "all_distant_stationary_candidates": [
+    {
+      "start": 1156,
+      "end": 1241,
+      "xy": [
+        7.07093737973841,
+        -0.1900408397344062
+      ],
+      "start_s": 128.500051975,
+      "end_s": 137.79996419
+    },
+    {
+      "start": 1390,
+      "end": 1503,
+      "xy": [
+        7.208212611441998,
+        1.8416703648426733
+      ],
+      "start_s": 154.500274897,
+      "end_s": 166.899934054
+    }
+  ],
+  "task_point_label_field_confirmed": true,
+  "task_point_confirmation": "是，就是这个任务点，但是因为中途车开的有点歪，你得自己规划一下直线和纠偏",
+  "route_clearance_surveyed": false,
+  "straight_line_planning": {
+    "method": "Weighted dominant orthogonal axes; per-corridor trimmed median offsets; intersect adjacent lines",
+    "field_axis_angle_deg": -3.9790030231720035,
+    "major_segments": 10,
+    "manual_wobble_retained": false,
+    "straight_lines": [
+      {
+        "segment": 1,
+        "axis": "horizontal",
+        "support_count": 28,
+        "residual_median_m": 0.035297666241293824,
+        "residual_max_m": 0.05621409720213878
+      },
+      {
+        "segment": 2,
+        "axis": "vertical",
+        "support_count": 38,
+        "residual_median_m": 0.008072162878551281,
+        "residual_max_m": 0.02312547739155235
+      },
+      {
+        "segment": 3,
+        "axis": "horizontal",
+        "support_count": 57,
+        "residual_median_m": 0.009706378942377025,
+        "residual_max_m": 0.025425256865022394
+      },
+      {
+        "segment": 4,
+        "axis": "vertical",
+        "support_count": 41,
+        "residual_median_m": 0.005471285721016628,
+        "residual_max_m": 0.02116119665691052
+      },
+      {
+        "segment": 5,
+        "axis": "horizontal",
+        "support_count": 24,
+        "residual_median_m": 0.01179462776853063,
+        "residual_max_m": 0.017955681487310526
+      },
+      {
+        "segment": 6,
+        "axis": "vertical",
+        "support_count": 28,
+        "residual_median_m": 0.024509828420007373,
+        "residual_max_m": 0.11932022637136708
+      },
+      {
+        "segment": 7,
+        "axis": "horizontal",
+        "support_count": 18,
+        "residual_median_m": 0.00670330322626872,
+        "residual_max_m": 0.016438901915847848
+      },
+      {
+        "segment": 8,
+        "axis": "vertical",
+        "support_count": 26,
+        "residual_median_m": 0.016612285241626168,
+        "residual_max_m": 0.02657266431833971
+      },
+      {
+        "segment": 9,
+        "axis": "horizontal",
+        "support_count": 29,
+        "residual_median_m": 0.007750268897751544,
+        "residual_max_m": 0.01683522679461974
+      },
+      {
+        "segment": 10,
+        "axis": "vertical",
+        "support_count": 70,
+        "residual_median_m": 0.04125399055448131,
+        "residual_max_m": 0.14426905337540763
+      }
+    ],
+    "maximum_recorded_to_planned_offset_m": 0.15374901275670905,
+    "measured_wall_centrelines": false,
+    "collision_certified": false,
+    "source_use": "Recorded path determines corridor order and approximate location; not a surveyed free-space boundary"
+  },
+  "reference_recorded_polyline_m": [
+    [
+      0.0,
+      0.0
+    ],
+    [
+      1.0604963969008205,
+      -0.02143085880934969
+    ],
+    [
+      0.9938795583172745,
+      -1.2615475800878586
+    ],
+    [
+      4.159286700157067,
+      -1.4282865866699328
+    ],
+    [
+      4.132499814938781,
+      -1.4240713631210007
+    ],
+    [
+      4.277470760328177,
+      0.11591475345835817
+    ],
+    [
+      5.108071616662332,
+      0.03142346948133941
+    ],
+    [
+      5.075319317252613,
+      -0.15999372111036328
+    ],
+    [
+      5.14780311125651,
+      -0.32735381894297455
+    ],
+    [
+      5.157885114783235,
+      -0.7810587597850578
+    ],
+    [
+      5.224843008480391,
+      -1.0339967096653973
+    ],
+    [
+      5.32210259875902,
+      -1.2154768383809547
+    ],
+    [
+      5.386069860110899,
+      -1.2816193136106309
+    ],
+    [
+      6.10362372645681,
+      -1.3588664483757684
+    ],
+    [
+      6.250425652425262,
+      -0.07963725093374818
+    ],
+    [
+      6.247427976629371,
+      -0.1096952391990161
+    ],
+    [
+      7.066906929830216,
+      -0.18979313023413016
+    ],
+    [
+      7.191955137711786,
+      0.6686642029142646
+    ],
+    [
+      7.107771697758777,
+      0.6883094747950026
+    ],
+    [
+      7.151477122542916,
+      0.9368513564831661
+    ],
+    [
+      7.042796622140757,
+      0.9523912732521362
+    ],
+    [
+      7.00642712861787,
+      1.0198041150133406
+    ],
+    [
+      7.138150277933048,
+      1.871973646881743
+    ],
+    [
+      7.1366990254155995,
+      1.8439011868826725
+    ],
+    [
+      7.208212611441998,
+      1.8416703648426733
+    ]
+  ],
+  "recorded_start_offset_from_registered_p00_m": 0.11537893559610218,
+  "recorded_final_xy_m": [
+    -0.016920722161083368,
+    0.07661865785878799
+  ],
+  "recorded_outbound_yaw_range_deg": [
+    -10.472229598068838,
+    -1.2491031450949848
+  ],
+  "raw_taught_points": 488,
+  "simplified_points": 11,
+  "reference_compression_max_error_m": 0.022437279987850414,
+  "task_actions": "Navigation stop only; no self-aim, friction wheel or firing commands",
+  "automatic_obstacle_avoidance": false,
+  "static_map_collision_certified": false,
+  "physical_tracking_validated": false,
+  "physical_entry_enabled": true,
+  "physical_entry_block_reason": null,
+  "activation": {
+    "prepared_unix": 1792873699.6139998,
+    "user_start_required": true,
+    "mcu_boot_id": 1304790763,
+    "next_sequence_at_prepare": 8941,
+    "last_passive_state": 0,
+    "last_passive_reject": 0,
+    "passive_received_frames": 300,
+    "passive_crc_errors": 0,
+    "passive_serial_frames_sent": 0,
+    "binding_receipt": "/home/rcsdart/rm27/navigation/logs/map_route_boot_binding_20261025_042701_f6419ac2/receipt.json",
+    "readiness_run": "/home/rcsdart/rm27/navigation/logs/global_round_trip_20261025_042723_ebbc2e9a",
+    "firmware_review_sha256": "586f72cfa57353cf81fbca390dc0cfef140259e6561925031ed8d665797ab2a6",
+    "local_operator_must_confirm": "P00/heading; route and footprint clearance; self-aim and firing off; AUTO plus Enter",
+    "no_autonomous_start_on_boot": true
+  },
+  "runtime_abort_policy": {
+    "motion_deviation_abort": false,
+    "map_pose_jump_abort": false,
+    "progress_stall_abort": false,
+    "short_stop_timeout_abort": false,
+    "feedback_control": true,
+    "command_speed_cap_m_s": 1.8,
+    "required": "valid fresh localization, communication, control timing, physical AUTO, whole mission <=300s",
+    "start_placement_check_retained": true
+  },
+  "motor_rpm_ceiling": 4000.0,
+  "acceleration_m_s2": 0.9,
+  "deceleration_m_s2": 1.3,
+  "competition_task": {
+    "lost_target_check_after_requests": 30,
+    "return_at_sent_requests": 50,
+    "armor_lost_s": 5.0
+  }
+}

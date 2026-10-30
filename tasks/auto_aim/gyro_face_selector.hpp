@@ -31,6 +31,31 @@ public:
     double alignment_rad = std::numeric_limits<double>::infinity();
   };
 
+  // Visualization attribution only. Preserve the complete body phase here:
+  // folding modulo pi/2 identifies an angle, but loses which of four faces
+  // is expected to occupy that angle at the planned impact time.
+  static Selection face_at_hit_time(
+    double body_phase_rad, double center_yaw_rad, double signed_omega_rad_s,
+    double capture_to_hit_s)
+  {
+    Selection out;
+    if (!std::isfinite(body_phase_rad) || !std::isfinite(center_yaw_rad) ||
+        !std::isfinite(signed_omega_rad_s) || !std::isfinite(capture_to_hit_s) ||
+        capture_to_hit_s < 0.0) return out;
+    const double impact_phase = body_phase_rad + signed_omega_rad_s * capture_to_hit_s;
+    if (!std::isfinite(impact_phase)) return out;
+    for (int face = 0; face < 4; ++face) {
+      const double alignment = std::abs(std::remainder(
+        impact_phase + face * M_PI / 2.0 - center_yaw_rad, 2.0 * M_PI));
+      if (alignment < out.alignment_rad) {
+        out.valid = true;
+        out.face_id = face;
+        out.alignment_rad = alignment;
+      }
+    }
+    return out;
+  }
+
   explicit GyroFaceSelector(double max_alignment_rad)
   : max_alignment_rad_(std::max(0.0, max_alignment_rad))
   {

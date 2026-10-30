@@ -21,6 +21,14 @@ Aimer::Aimer(const std::string & config_path)
   comming_angle_ = yaml["comming_angle"].as<double>() / 57.3;  // degree to rad
   leaving_angle_ = yaml["leaving_angle"].as<double>() / 57.3;  // degree to rad
   high_speed_delay_time_ = yaml["high_speed_delay_time"].as<double>();
+  const auto directional_delay = [&](const char * key) {
+    const double value = yaml[key] ? yaml[key].as<double>() : high_speed_delay_time_;
+    if (!std::isfinite(value) || value < 0.0 || value > 1.0)
+      throw std::invalid_argument(std::string(key) + " must be finite in [0,1] seconds");
+    return value;
+  };
+  high_speed_delay_time_cw_ = directional_delay("high_speed_delay_time_cw");
+  high_speed_delay_time_ccw_ = directional_delay("high_speed_delay_time_ccw");
   low_speed_delay_time_ = yaml["low_speed_delay_time"].as<double>();
   decision_speed_ = yaml["decision_speed"].as<double>();
   if (yaml["left_yaw_offset"].IsDefined() && yaml["right_yaw_offset"].IsDefined()) {
@@ -36,13 +44,21 @@ void Aimer::set_delay_adjustment(double adjustment_s)
 }
 
 io::Command Aimer::aim(
-  std::list<Target> targets, std::chrono::steady_clock::time_point timestamp, double bullet_speed,
-  bool to_now, AimPredictionTrace * trace, AimGeometry geometry)
+  const std::list<Target> & targets, std::chrono::steady_clock::time_point timestamp, double bullet_speed,
+  bool to_now, AimPredictionTrace * trace, AimGeometry geometry, bool rigid_high_speed)
+{
+  return aim_target(targets.empty() ? nullptr : &targets.front(), timestamp, bullet_speed,
+    to_now, trace, geometry, rigid_high_speed);
+}
+
+io::Command Aimer::aim_target(
+  const Target * input, std::chrono::steady_clock::time_point timestamp, double bullet_speed,
+  bool to_now, AimPredictionTrace * trace, AimGeometry geometry, bool rigid_high_speed)
 {
   debug_aim_point = {false, Eigen::Vector4d::Zero()};
   if (trace) *trace = AimPredictionTrace{};
-  if (targets.empty()) return {false, false, 0, 0};
-  auto target = targets.front();
+  if (!input) return {false, false, 0, 0};
+  auto target = *input;
 
   const auto & raw_state = target.ekf().x;
   // Decide once at the frame boundary, so all ballistic iterations use the
@@ -58,6 +74,11 @@ io::Command Aimer::aim(
   const bool high_speed_delay = std::abs(delay_motion_rate) > decision_speed_;
   double delay_time = (high_speed_delay ? high_speed_delay_time_ : low_speed_delay_time_) +
     delay_adjustment_time_;
+  if (rigid_high_speed) {
+    const int sign = delay_motion_rate > 0.0 ? 1 : -1;
+    delay_time = (sign > 0 ? high_speed_delay_time_ccw_ : high_speed_delay_time_cw_);
+    if (trace) trace->high_speed_rotation_sign = sign;
+  }
 
   // Low-speed friction-wheel benches can be well below the competition-speed
   // default.  Preserve the fallback only for missing/invalid telemetry so the
@@ -90,6 +111,60 @@ io::Command Aimer::aim(
 
   if (trace) trace->base_prediction_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(
     future.time_since_epoch()).count();
+  if (rigid_high_speed) {
+    // Keep one physical face through every flight-time iteration. Apply the
+    // selection window only at impact, not at the intermediate launch time.
+    if (!whole_ekf_geometry || !target.jumped) return {false, false, 0, 0};
+    if (trace) trace->final_point_selection = true;
+    const auto initial_faces = target.whole_ekf_armor_xyza_list();
+    for (std::size_t face = 0; face < initial_faces.size(); ++face) {
+      const auto & initial = initial_faces[face];
+      if (!initial.allFinite()) continue;
+      tools::Trajectory first(bullet_speed, initial.head<2>().norm(), initial[2]);
+      if (first.unsolvable || !std::isfinite(first.fly_time) || first.fly_time <= 0) continue;
+      double previous_flight = first.fly_time;
+      for (int iteration = 0; iteration < 10; ++iteration) {
+        const auto impact = future + std::chrono::duration_cast<std::chrono::steady_clock::duration>(
+          std::chrono::duration<double>(previous_flight));
+        Eigen::Vector4d point;
+        double center_yaw;
+        if (const auto fixed = target.fixed_center_armor_at(static_cast<int>(face), impact)) {
+          point = *fixed;
+          center_yaw = std::atan2(target.ekf().x[2], target.ekf().x[0]);
+        } else {
+          auto candidate = target;
+          candidate.predict(impact);
+          point = candidate.whole_ekf_armor_xyza_list()[face];
+          center_yaw = std::atan2(candidate.ekf().x[2], candidate.ekf().x[0]);
+        }
+        if (!point.allFinite()) break;
+        tools::Trajectory trajectory(bullet_speed, point.head<2>().norm(), point[2]);
+        if (trajectory.unsolvable || !std::isfinite(trajectory.fly_time) || trajectory.fly_time <= 0) break;
+        if (std::abs(trajectory.fly_time - previous_flight) < 0.00001) {
+          const auto & state = target.ekf().x;
+          const double phase = tools::limit_rad(point[3] - center_yaw);
+          const bool selected = std::abs(phase) <= comming_angle_ &&
+            (state[7] > 0 ? phase < leaving_angle_ : phase > -leaving_angle_);
+          if (!selected) break;
+          const double yaw = std::atan2(point[1], point[0]) + yaw_offset_;
+          const double pitch = -(trajectory.pitch + pitch_offset_);
+          if (!std::isfinite(yaw) || !std::isfinite(pitch)) break;
+          debug_aim_point = {true, point};
+          if (trace) {
+            trace->valid = trace->converged = true;
+            trace->face_id = static_cast<int>(face);
+            trace->prediction_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(impact.time_since_epoch()).count();
+            trace->flight_time_used_s = previous_flight;
+            trace->flight_time_s = trajectory.fly_time;
+            trace->iterations = iteration + 1;
+          }
+          return {true, false, yaw, pitch};
+        }
+        previous_flight = trajectory.fly_time;
+      }
+    }
+    return {false, false, 0, 0};
+  }
   auto aim_point0 = choose_aim_point(target, whole_ekf_geometry);
   debug_aim_point = aim_point0;
   if (!aim_point0.valid) {
@@ -111,16 +186,17 @@ io::Command Aimer::aim(
   bool converged = false;
   double prev_fly_time = trajectory0.fly_time;
   tools::Trajectory current_traj = trajectory0;
-  std::vector<Target> iteration_target(10, target);  // 创建10个目标副本用于迭代预测
-
   for (int iter = 0; iter < 10; ++iter) {
+    // Copy only the iteration that is actually evaluated; always restart from
+    // the same launch state so the physical prediction is unchanged.
+    auto iteration_target = target;
     // 预测目标在 future + prev_fly_time 时刻的位置
     auto predict_time = future + std::chrono::microseconds(static_cast<int>(prev_fly_time * 1e6));
-    iteration_target[iter].predict(predict_time);
+    iteration_target.predict(predict_time);
 
     // 计算瞄准点
     auto aim_point = choose_aim_point(
-      iteration_target[iter], whole_ekf_geometry, trace ? &trace->face_id : nullptr);
+      iteration_target, whole_ekf_geometry, trace ? &trace->face_id : nullptr);
     if (trace) {
       trace->prediction_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(
         predict_time.time_since_epoch()).count();
@@ -167,7 +243,7 @@ io::Command Aimer::aim(
 }
 
 io::Command Aimer::aim(
-  std::list<Target> targets, std::chrono::steady_clock::time_point timestamp, double bullet_speed,
+  const std::list<Target> & targets, std::chrono::steady_clock::time_point timestamp, double bullet_speed,
   io::ShootMode shoot_mode, bool to_now, AimPredictionTrace * trace, AimGeometry geometry)
 {
   double yaw_offset;

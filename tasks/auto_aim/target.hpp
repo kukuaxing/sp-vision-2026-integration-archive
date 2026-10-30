@@ -4,6 +4,7 @@
 #include <Eigen/Dense>
 #include <array>
 #include <chrono>
+#include <cstdint>
 #include <optional>
 #include <queue>
 #include <string>
@@ -73,9 +74,33 @@ public:
   // unchanged. Used by the planner's centered finite-difference trajectory.
   Eigen::VectorXd ekf_x_at(double relative_time_s) const;
   const tools::ExtendedKalmanFilter & ekf() const;
+  struct PriorInnovation {
+    bool valid = false;
+    Eigen::Vector4d residual = Eigen::Vector4d::Constant(NAN);
+    Eigen::Vector4d variance = Eigen::Vector4d::Constant(NAN);
+    double nis = NAN;
+  };
+  PriorInnovation prior_innovation(const Armor & measurement, int face) const;
+  // Prediction-only copy; never feeds a fitted state back into association/KF.
+  std::optional<Target> with_fixed_center_prediction(const Eigen::VectorXd & state) const;
+  // Fixed-center prediction copies need only the phase at a future instant.
+  // No filter/covariance copy, allocation or mutation; other models return null.
+  std::optional<Eigen::Vector4d> fixed_center_armor_at(
+    int face, std::chrono::steady_clock::time_point time) const;
   bool yaw_eskf_trusted() const;
   // Confidence of the coherent vehicle state, independent of a yaw splice.
   bool whole_rotation_trusted() const;
+  // Stable diagnostic bits; zero is exactly the existing trust predicate.
+  enum WholeRotationRejection : std::uint32_t {
+    wrong_layout = 1u << 0, no_face_diversity = 1u << 1,
+    immature = 1u << 2, invalid_dimensions = 1u << 3,
+    nonfinite_state = 1u << 4, divergent = 1u << 5,
+    excessive_rate = 1u << 6, phase_variance = 1u << 7,
+    rate_variance = 1u << 8, center_x_variance = 1u << 9,
+    center_z_variance = 1u << 10, radius_variance = 1u << 11,
+    second_radius_variance = 1u << 12
+  };
+  std::uint32_t whole_rotation_rejection_mask() const;
   bool federated_phase_consistent() const;
   double yaw_eskf_angle() const;
   double yaw_eskf_rate() const;
@@ -110,6 +135,7 @@ private:
   bool is_switch_, is_converged_;
 
   tools::ExtendedKalmanFilter ekf_;
+  bool fixed_center_prediction_ = false;
   YawESKF yaw_eskf_;
   std::array<ArmorMotionFilter, 4> armor_motion_filters_;
   IteratedUpdateConfig iterated_update_config_;

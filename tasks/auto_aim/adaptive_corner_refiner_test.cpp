@@ -51,6 +51,49 @@ int main()
   cv::Mat blank(image.size(), image.type(), cv::Scalar::all(0));
   assert(!refiner.refine(blank, noisy).has_value());
   assert(!refiner.refine(blank, noisy, Mode::red_blue_contrast).has_value());
+  // Metrology must remain stable when only global brightness changes. This
+  // uses raster light bars rather than target pose/impact truth to select edges.
+  auto_aim::AdaptiveCornerRefiner::Config invariant_config;
+  invariant_config.brightness_invariant_subpixel=true;
+  auto_aim::AdaptiveCornerRefiner invariant(invariant_config);
+  const auto reference=invariant.refine(panel,noisy,Mode::red_blue_contrast);
+  assert(reference);
+  for(double brightness:{.35,.65,1.0}) {
+    cv::Mat scaled;panel.convertTo(scaled,panel.type(),brightness);
+    const auto result=invariant.refine(scaled,noisy,Mode::red_blue_contrast);
+    assert(result);
+    for(std::size_t i=0;i<4;++i)assert(cv::norm(result->points[i]-reference->points[i])<1.25);
+    cv::Mat reverse;cv::cvtColor(scaled,reverse,cv::COLOR_RGB2BGR);
+    const auto reversed=invariant.refine(reverse,noisy,Mode::red_blue_contrast);
+    assert(reversed);
+    for(std::size_t i=0;i<4;++i)assert(cv::norm(reversed->points[i]-result->points[i])<1e-4);
+  }
+  assert(!invariant.refine(blank,noisy,Mode::red_blue_contrast));
+  assert(!invariant.refine(cv::Mat(image.size(),image.type(),cv::Scalar::all(160)),noisy,Mode::red_blue_contrast));
+  // Field regression: one blooming frontal lamp had minAreaRect aspect 1.91
+  // despite correct endpoints; its reliable companion must corroborate it.
+  const std::array<cv::Point2f,4> frontal{{{100,75},{210,75},{210,165},{100,165}}};
+  cv::Mat bloom(image.size(),image.type(),cv::Scalar::all(8));
+  cv::rectangle(bloom,{75,75},{125,165},cv::Scalar(15,55,245),-1);
+  cv::rectangle(bloom,{205,75},{215,165},cv::Scalar(15,55,245),-1);
+  const auto recovered=refiner.refine(bloom,frontal,Mode::red_blue_contrast);
+  assert(recovered && recovered->single_broad_light);
+  for(std::size_t i=0;i<4;++i) assert(cv::norm(recovered->points[i]-frontal[i])<3.0);
+  assert(!refiner.refine(bloom,frontal)); // intensity blobs do not use this exception
+  cv::Mat reverse_bloom;cv::cvtColor(bloom,reverse_bloom,cv::COLOR_RGB2BGR);
+  const auto recovered_reverse=refiner.refine(reverse_bloom,frontal,Mode::red_blue_contrast);
+  assert(recovered_reverse && recovered_reverse->single_broad_light);
+  for(std::size_t i=0;i<4;++i)
+    assert(cv::norm(recovered_reverse->points[i]-recovered->points[i])<1e-4);
+  cv::Mat double_bloom=bloom.clone();
+  cv::rectangle(double_bloom,{185,75},{235,165},cv::Scalar(15,55,245),-1);
+  assert(!refiner.refine(double_bloom,frontal,Mode::red_blue_contrast));
+  cv::Mat missing=bloom.clone();
+  cv::rectangle(missing,{180,40},{250,190},cv::Scalar::all(8),-1);
+  assert(!refiner.refine(missing,frontal,Mode::red_blue_contrast));
+  auto displaced=frontal;displaced[0].y+=22;displaced[3].y+=22;
+  assert(!refiner.refine(bloom,displaced,Mode::red_blue_contrast));
+  assert(!refined->single_broad_light && !colored->single_broad_light);
   std::cout << "adaptive_corner_refiner_test: PASS before=" << before
             << " after=" << after << std::endl;
   return 0;

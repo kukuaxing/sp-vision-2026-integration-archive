@@ -63,6 +63,7 @@ int main(int argc, char ** argv)
     nlohmann::json frames; std::ifstream(argv[1]) >> frames;
     Solver solver("configs/standard.yaml"); Tracker tracker("configs/standard.yaml", solver);
     int rebuilt = 0, tracking = 0, trusted = 0, updated = 0, ids = 0;
+    int rate_alias_resets = 0;
     std::uint64_t previous_id = 0;
     nlohmann::json model_samples = nlohmann::json::array();
     int consecutive_trusted = 0, longest_trusted = 0, whole_trusted = 0, vehicle_fresh = 0;
@@ -104,6 +105,12 @@ int main(int argc, char ** argv)
       const auto time = std::chrono::steady_clock::time_point(std::chrono::nanoseconds(
         static_cast<std::int64_t>(frame["t"].get<double>() * 1e9)));
       auto targets = tracker.track(armors, time);
+      if (tracker.diagnostics().rate_alias_reset) {
+        ++rate_alias_resets;
+        assert(targets.empty());
+        assert(!tracker.measurement_updated());
+        assert(!tracker.identity_confirmed());
+      }
       rebuilt += tracker.diagnostics().rebuilt;
       tracking += tracker.state() == "tracking";
       updated += tracker.measurement_updated();
@@ -136,7 +143,7 @@ int main(int argc, char ** argv)
     std::ofstream("logs/audit/rotation-model-confidence.json") << nlohmann::json({
       {"samples", model_samples}, {"longest_trusted_frames",longest_trusted}}).dump(2);
     std::cout << "FIELD_REPLAY " << nlohmann::json({{"frames", frames.size()}, {"rebuilt", rebuilt},
-      {"tracking", tracking}, {"updated", updated}, {"yaw_trusted", trusted}, {"whole_trusted", whole_trusted}, {"vehicle_fresh", vehicle_fresh}, {"tracks", ids}}).dump() << '\n';
+      {"tracking", tracking}, {"updated", updated}, {"yaw_trusted", trusted}, {"whole_trusted", whole_trusted}, {"vehicle_fresh", vehicle_fresh}, {"tracks", ids}, {"rate_alias_resets",rate_alias_resets}}).dump() << '\n';
     return 0;
   }
   using namespace auto_aim;
@@ -369,6 +376,7 @@ int main(int argc, char ** argv)
   // identity and correct radius/rate during the remaining steady sequence.
   for (double rate : {-4.0, 1.8, 4.0}) {
     Tracker tracker(fixture.path.string(), solver);
+    Tracker sampled_diagnostics(fixture.path.string(), solver);
     std::uint64_t id = 0, steady_id = 0;
     const int warmup_frames = static_cast<int>(std::ceil(2.0 * M_PI / std::abs(rate) / .01));
     int warmup_lost = 0, warmup_resets = 0, adaptive_frames = 0, whole_frames = 0;
@@ -381,7 +389,20 @@ int main(int argc, char ** argv)
         const Eigen::Vector3d position(3.3 - .3 * std::cos(angle), -.3 * std::sin(angle), 0.0);
         armors.push_back(observation(solver, position, 11, nullptr, 0.0, angle));
       }
-      const auto targets = tracker.track(armors, start + std::chrono::milliseconds(10 * frame));
+      auto sampled_armors = armors;
+      sampled_diagnostics.set_association_diagnostics_enabled(frame % 3 == 0);
+      const auto time = start + std::chrono::milliseconds(10 * frame);
+      const auto targets = tracker.track(armors, time);
+      const auto sampled_targets = sampled_diagnostics.track(sampled_armors, time);
+      assert(targets.size() == sampled_targets.size());
+      assert(tracker.state() == sampled_diagnostics.state());
+      assert(tracker.track_id() == sampled_diagnostics.track_id());
+      assert(tracker.primary_face_id() == sampled_diagnostics.primary_face_id());
+      assert(tracker.measurement_updated() == sampled_diagnostics.measurement_updated());
+      if (!targets.empty()) {
+        assert((targets.front().ekf().x - sampled_targets.front().ekf().x).norm() < 1e-12);
+        assert((targets.front().ekf().P - sampled_targets.front().ekf().P).norm() < 1e-12);
+      }
       if (targets.empty()) {
         assert(frame < warmup_frames);
         ++warmup_lost;

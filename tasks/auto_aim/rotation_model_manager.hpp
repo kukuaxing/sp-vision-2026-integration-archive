@@ -24,6 +24,7 @@ public:
     double high_speed_exit_rad_s = 2.5;
     double mode_dwell_s = 0.15;
     double tracker_dropout_hold_s = 0.0;
+    double geometry_dropout_hold_s = 0.75;
     double rate_filter_tau_s = 0.0;
     double max_rate_disagreement_rad_s = 1.2;
     double speed_step_reset_rad_s = 1.2;
@@ -39,6 +40,9 @@ public:
     bool tracker_trusted = false;
     bool rate_consistent = false;
     bool phase_fire_trusted = false;
+    bool geometry_held = false;
+    double trust_gap_s = 0.0;
+    const char * reset_reason = "none";
     double rate_disagreement_rad_s = std::numeric_limits<double>::infinity();
   };
 
@@ -53,6 +57,7 @@ public:
     have_candidate_ = false;
     have_last_rate_ = false;
     last_abs_ekf_rate_ = 0.0;
+    last_signed_rate_ = 0.0;
     have_filtered_rate_ = false;
     filtered_abs_rate_ = 0.0;
     last_update_s_ = 0.0;
@@ -65,23 +70,46 @@ public:
   Result update(
     double now_s, bool tracker_converged, double ekf_omega_rad_s,
     bool phase_rate_valid = false,
-    double phase_omega_rad_s = std::numeric_limits<double>::quiet_NaN())
+    double phase_omega_rad_s = std::numeric_limits<double>::quiet_NaN(),
+    bool fresh_target_observed = false)
   {
     Result out;
     out.tracker_trusted = tracker_converged && std::isfinite(now_s) &&
       std::isfinite(ekf_omega_rad_s);
     if (!out.tracker_trusted) {
+      // Keep previously earned agreement only inside the bounded hold below.
+      // tracker_trusted=false always inhibits fire; on return the current
+      // rate must still agree. Resetting progress on every one-frame geometry
+      // dropout would recreate the same repeated-acquisition dead zone.
+      out.trust_gap_s = have_last_trusted_update_
+        ? std::max(0.0, now_s - last_trusted_update_s_) : 0.0;
+      // A live same-target observation with temporarily poor covariance is
+      // different from losing that target. Preserve learning for at most two
+      // face periods (and never beyond the absolute cap), without enabling
+      // control/fire from untrusted geometry. Actual target loss keeps its
+      // original shorter hold. The caller resets us on track/context changes.
+      double hold_s = std::max(0.0, config_.tracker_dropout_hold_s);
+      if (fresh_target_observed && mode_ != Mode::armor) {
+        const double rate = phase_rate_valid && std::isfinite(phase_omega_rad_s)
+          ? std::abs(phase_omega_rad_s) : last_abs_ekf_rate_;
+        const double geometry_hold_s = rate > 0.05
+          ? std::min(config_.geometry_dropout_hold_s, M_PI / rate)
+          : config_.geometry_dropout_hold_s;
+        hold_s = std::max(0.0, geometry_hold_s);
+        out.geometry_held = true;
+      }
       // A detector association hand-over can make convergence false for only a
       // few frames.  Keep the selected motion regime through that gap (fire is
       // still inhibited by tracker_trusted=false) instead of immediately
       // collapsing high-speed -> armor and rebuilding the model on every face.
       if (have_last_trusted_update_ && std::isfinite(now_s) &&
-          now_s - last_trusted_update_s_ <=
-            std::max(0.0, config_.tracker_dropout_hold_s)) {
+          now_s >= last_trusted_update_s_ && out.trust_gap_s <= hold_s) {
         out.mode = mode_;
         return out;
       }
       out.phase_reset = mode_ == Mode::high_speed_phase;
+      out.reset_reason = fresh_target_observed ? "geometry_timeout" : "target_dropout";
+      out.geometry_held = false;
       reset();
       out.mode = mode_;
       return out;
@@ -115,6 +143,7 @@ public:
       out.mode_changed = true;
       out.phase_reset = old_mode == Mode::high_speed_phase ||
         mode_ == Mode::high_speed_phase;
+      if (out.phase_reset) out.reset_reason = "mode_change";
       agreement_updates_ = 0;
       disagreement_updates_ = 0;
     }
@@ -126,11 +155,23 @@ public:
       // usually armor hand-over artifacts. Preserve the clock and let its own
       // robust residual gate decide whether the motion actually changed.
       out.phase_reset = true;
+      out.reset_reason = "rate_step";
+      agreement_updates_ = 0;
+      disagreement_updates_ = 0;
+    }
+    if (mode_ == Mode::high_speed_phase && have_last_rate_ &&
+        last_signed_rate_ * ekf_omega_rad_s < 0.0 &&
+        std::min(std::abs(last_signed_rate_), std::abs(ekf_omega_rad_s)) > 0.5) {
+      out.phase_reset = true;
+      out.reset_reason = "direction_change";
       agreement_updates_ = 0;
       disagreement_updates_ = 0;
     }
     have_last_rate_ = true;
     last_abs_ekf_rate_ = abs_rate;
+    // Keep the last meaningful direction through a near-zero transition;
+    // otherwise a gradual reversal would erase its own sign-change evidence.
+    if (std::abs(ekf_omega_rad_s) > 0.5) last_signed_rate_ = ekf_omega_rad_s;
 
     if (mode_ == Mode::high_speed_phase && phase_rate_valid &&
         std::isfinite(phase_omega_rad_s)) {
@@ -147,6 +188,7 @@ public:
         if (disagreement_updates_ >=
             std::max(1, config_.rate_disagreement_updates)) {
           out.phase_reset = true;
+          out.reset_reason = "rate_disagreement";
           disagreement_updates_ = 0;
         }
       }
@@ -200,6 +242,7 @@ private:
   bool have_candidate_ = false;
   bool have_last_rate_ = false;
   double last_abs_ekf_rate_ = 0.0;
+  double last_signed_rate_ = 0.0;
   bool have_filtered_rate_ = false;
   double filtered_abs_rate_ = 0.0;
   double last_update_s_ = 0.0;

@@ -32,6 +32,7 @@
 #include <cstring>
 #include <cstddef>
 #include <cmath>
+#include "feed_diagnostics.h"
 
 #ifndef XUC_PI
 #define XUC_PI 3.14159265358979323846f
@@ -58,6 +59,8 @@
 #define XUC_T_TIME_SYNC_RSP   0x31u        /* 不实现 */
 #define XUC_T_ACK             0x80u        /* 不实现 */
 #define XUC_T_LINK_STATUS     0x81u
+#define XUC_T_FEED_DIAGNOSTIC 0x82u        /* paired passive diagnostic extension */
+#define XUC_PL_FEED_DIAGNOSTIC 52u
 
 /* -------------------------------------------------------- 负载长度（N） */
 #define XUC_PL_GIMBAL_IMU     32u
@@ -174,9 +177,9 @@ public:
 	uint32_t aim_rx_tick      = 0;     /* 最近收到结构正确 0x10 的时刻 */
 
 	/* --- 0x11 NAV_COMMAND --- */
-	float    nav_vx = 0.f;             /* m/s，车体前向 */
-	float    nav_vy = 0.f;             /* m/s，车体左向 */
-	float    nav_wz = 0.f;             /* rad/s，绕 +Z 左转为正（首版未使用） */
+	float    nav_vx = 0.f;             /* 原始幅值，当前安装实测正值左移 */
+	float    nav_vy = 0.f;             /* 原始幅值，当前安装实测负值前进 */
+	float    nav_wz = 0.f;             /* 原始转向幅值×159，限±200 motor rpm；左右符号待实测 */
 	uint16_t nav_valid_for_ms = 0;
 	bool     nav_enable   = false;
 	bool     nav_accepted = false;     /* 最近一帧通过全部检查 */
@@ -206,6 +209,8 @@ public:
 	uint16_t AimAgeMs();
 	uint8_t  LinkState();
 	void     RevokeAim();              /* Revoke gimbal, wheels and fire; no local AUTO pre-spin. */
+    void ObserveFeeder(const uint8_t* bytes, uint32_t arrival_us);
+    void RecordFeedIssue(bool automatic, int16_t direction);
 
 	/* --- 工具 --- */
 	static float WrapPi(float a)
@@ -231,6 +236,8 @@ private:
 	uint16_t seq_gimbal = 0;
 	uint16_t seq_chassis = 0;
 	uint16_t seq_link = 0;
+    uint16_t seq_feed = 0;
+    FeedDiagnostics feed_diagnostic{};
 
 	bool     aim_seq_init = false;
 	bool     nav_seq_init = false;

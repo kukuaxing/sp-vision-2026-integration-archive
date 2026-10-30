@@ -55,13 +55,14 @@ public:
 	void RC_Control();
 
 	/* --- 上位机（V2）分段处理，供 watch/调试 --- */
-	void ApplyNav();       // 0x11 NAV_COMMAND → 底盘 speedx/speedy
+	void ApplyNav();       // 0x11 NAV_COMMAND → 底盘 speedx/speedy/speedz
 	void ApplyAim();       // 0x10 AIM_COMMAND → 云台 mark_pitch / setangle
 	void StopChassis();    // 底盘速度归零 + 平滑量复位
 
 	uint16_t rc_lost_cnt = 0;    // 失联次数，上车 watch 用
 
 private:
+	float nav_turn_rpm = 0.f; // NAV-only turn smoothing; never retained across mode/lease loss.
 	QueueHandle_t* queueHandler = NULL;
 	BaseType_t pd_Rx, pd_Tx;
 	UART* m_uart;

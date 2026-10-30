@@ -1,26 +1,30 @@
 # 构建与维护
 
-小电脑工程：`/home/rm/sp_vision`；Windows 仓库：`Documents/GitHub/sp-vision-2026-integration-archive`。
+本副本：`/home/rcsdart/rm27_1018`。原项目 `/home/rcsdart/rm27` 不变。
 
-## 构建
+## 编译
 
-新克隆先按 [依赖说明](dependencies.md) 准备模型与SDK；现有小电脑资源未删除。
+```bash
+cd /home/rcsdart/rm27_1018
+bash scripts/build.sh standard capture calibrate_camera calibrate_handeye calibrate_robotworld_handeye verify_handeye xuc_board_probe
+```
 
-在工程根目录执行 `bash scripts/build.sh`，默认以2个任务构建 `standard`。
-可用 `bash scripts/build.sh standard calibrate_camera calibrate_handeye verify_handeye` 选择目标。
-依赖沿用现场 ROS 2 Humble、OpenVINO 2024.6、OpenCV、Eigen、Ceres、fmt、spdlog、yaml-cpp 与 MVS 环境。`librm/` 使用固定提交的 Git 子模块；新克隆使用 `git clone --recurse-submodules`，已有克隆使用 `git submodule update --init --recursive`。小电脑依赖完整保留，不依赖旧 worktree。
+默认最多两个编译任务，构建目录为 `build/`。复制来的旧 CMake 缓存含原工程绝对路径，已清理后重新生成。不要复制旧二进制冒充本副本的构建结果。依赖与本机模型/SDK见 [依赖说明](dependencies.md)。
 
-编译产物只放在 `build/`。不要为每轮修改新建构建目录、复制配置或源码文件。修改前后使用 `git status`、`git diff` 核对，不创建备份副本。
+## 不接实车的检查
 
-## 运行入口
+```bash
+source scripts/runtime_env.sh
+python3 scripts/check_deployment.py
+python3 scripts/check_offline.py --with-vision
+python3 scripts/check_desktop_launchers.py
+git diff --check
+```
 
-现场沿用桌面“启动自瞄”和“停止自瞄”，分别指向 `tools/field_start_autoaim.sh` 和 `tools/field_stop_autoaim.sh`。脚本相对自身定位工程，不再写死旧目录。
-不启用新的开机自启动。运行日志位于 `logs/xuc-bringup/日期/`，跨日期、跨颜色保留最近20份一键日志；这不是单文件大小限制。
+部署检查只校验资源、运行库、静态入口与设备枚举，不打开相机或串口；它不证明通信、安装或命中通过。离线测试使用合成数据和私有 PTY，不操作车辆。
 
-## Git
+## 入口与版本
 
-只维护当前文件。本次按用户要求将仓库重建为单次提交，删除旧标签、旧提交及本地历史备份。以后继续在同一目录修改；提交和推送按用户要求进行，不另建归档分支、标签或副本。
+副本中的启动/停止脚本相对自身定位目录，日志写入本副本。原桌面入口和系统自启动仍指向原项目；本次不安装入口或切换服务。只有用户自行启动现场测试。
 
-## 提交前检查
-
-运行 `python3 scripts/check_source_tree.py` 检查跟踪文件和忽略规则，再执行 `git diff --check`。`.gitignore` 不会自动移除已经跟踪的文件，产物必须从索引中取消跟踪。
+Git 元数据和原工作区改动已保留，未提交或推送。查看本次具体差异与清理结果应使用 `logs/maintenance/`，因为 `git diff` 也包含复制前已有的未提交改动。

@@ -256,7 +256,7 @@ sentinel_tx_hz: 50
                 flags=[f for _,f in out]
                 assert 'SUMMARY cadence=1' in output,output
                 effective_interval=1000 if interval_ms is None else interval_ms
-                minimum,maximum=(3,5) if effective_interval==500 else (2,3)
+                minimum,maximum=(6,8) if effective_interval==300 else (3,5) if effective_interval==500 else (3,4) if effective_interval==600 else (2,3)
                 assert minimum<=sum(bool(f&8) for f in flags)<=maximum,(out,output)
                 assert f'interval_ms={effective_interval}' in output,output
                 assert all(not(a&8 and b&8) for a,b in zip(flags,flags[1:])),out
@@ -282,5 +282,7 @@ if __name__=='__main__':
 
     run_send_results(str(Path(sys.argv[1]).resolve()))
     run_send_results(str(Path(sys.argv[1]).resolve()),cadence=True)
+    run_send_results(str(Path(sys.argv[1]).resolve()),cadence=True,interval_ms=600)
+    run_send_results(str(Path(sys.argv[1]).resolve()),cadence=True,interval_ms=300)
     run_send_results(str(Path(sys.argv[1]).resolve()),cadence=True,interval_ms=1000)
     run_send_results(str(Path(sys.argv[1]).resolve()),cadence=True,interval_ms=None)

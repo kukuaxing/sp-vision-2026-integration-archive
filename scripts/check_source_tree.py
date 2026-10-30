@@ -31,8 +31,16 @@ def main():
         if (path.suffix.lower() in FORBIDDEN or '.so.' in path.name or
                 (name.startswith('assets/') and name != 'assets/README.md')):
             errors.append(f'Non-source resource is tracked: {name}')
-        with (ROOT / name).open('rb') as handle:
-            magic = handle.read(8)
+        working_file = ROOT / name
+        if working_file.is_file():
+            with working_file.open('rb') as handle:
+                magic = handle.read(8)
+        else:
+            # A tracked deletion can be pending in the worktree. The index
+            # still has its source blob; inspect it instead of crashing.
+            blob = git('show', ':' + name)
+            blob.check_returncode()
+            magic = blob.stdout[:8]
         if magic.startswith((b'\x7fELF', b'MZ', b'!<arch>\n', b'\x89PNG', b'\xff\xd8\xff')):
             errors.append(f'Binary artifact is tracked: {name}')
     ignored = git('ls-files', '-ci', '--exclude-standard', '-z')
