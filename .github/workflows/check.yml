@@ -30,6 +30,6 @@ jobs:
       - name: Install desktop math dependencies
         run: sudo apt-get update && sudo apt-get install -y libopencv-dev libyaml-cpp-dev libfmt-dev libspdlog-dev nlohmann-json3-dev
       - name: Install calibration test dependencies
-        run: python -m pip install numpy PyYAML opencv-python-headless
+        run: python -m pip install numpy==1.26.4 PyYAML==6.0.3 opencv-python-headless==4.11.0.86
       - run: python scripts/check_offline.py --with-vision
       - run: python scripts/check_rmv_pty.py

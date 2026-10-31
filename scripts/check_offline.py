@@ -80,7 +80,7 @@ def native_checks(args, compiler, environment):
     if not Path(ctest).is_file():
         ctest = shutil.which("ctest") or ctest
     build = ROOT / "build/native-offline"
-    arguments = [cmake, "-S", ROOT, "-B", build, "-DSP_BUILD_OFFLINE_ONLY=ON",
+    arguments = [cmake, "-S", ROOT, "-B", build, "-DCMAKE_BUILD_TYPE=Release", "-DSP_BUILD_OFFLINE_ONLY=ON",
                  "-DSP_OFFLINE_WITH_VISION=ON", "-DPython3_EXECUTABLE=" + sys.executable,
                  "-DSP_OFFLINE_WITH_INFERENCE=" + ("ON" if args.with_inference else "OFF")]
     if args.vcpkg_root:
