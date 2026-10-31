@@ -49,8 +49,13 @@ int main() {
           for(const Eigen::Vector3d change:{Eigen::Vector3d(.10,0,0),Eigen::Vector3d(0,.20,0),
               Eigen::Vector3d(-.12,-.18,.07),Eigen::Vector3d::Zero().eval()}) {
             const Eigen::Matrix3d from=mounting.transpose()*rotation(yaw,pitch,.1)*mounting;
-            const Eigen::Matrix3d to=mounting.transpose()*
-              rotation(yaw+change[0],pitch+change[1],.1+change[2])*mounting;
+            // Exact-zero identity requires bit-identical input poses. Separate
+            // floating-point rotation evaluations can round differently under
+            // optimized GCC, even when the requested angle change is zero.
+            Eigen::Matrix3d to=from;
+            if(!change.isZero(0))
+              to=mounting.transpose()*
+                rotation(yaw+change[0],pitch+change[1],.1+change[2])*mounting;
             const Eigen::Vector3d world=from*(camera_rotation*
               Eigen::Vector3d(ray.x()*range,ray.y()*range,range)+camera_translation);
             const auto delta=solver.image_angular_delta(world,from,to,image_size);
