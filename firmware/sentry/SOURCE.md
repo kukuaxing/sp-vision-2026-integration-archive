@@ -1,5 +1,7 @@
 # 当前哨兵固件来源
 
+2026-10-31正式版补充：当前独立实车工程源码已通过 `current_vehicle.patch` 和 `current_vehicle_manifest.json` 归档，并验证43份源码可逐文件重建，使用方法及验证边界见[CURRENT_VEHICLE.md](CURRENT_VEHICLE.md)。本目录本体仍为历史参考实现，下面的旧镜像哈希不标识本轮实车镜像。
+
 2026-10-31：以下来源和烧录记录属于本仓库参考固件的历史。用户现在使用独立的 `H:/rm/Sentinel_robot-main(1)/Sentinel_robot-main` 工程并由队友更新PID/电机ID，当前镜像不能按下文旧哈希或0x82诊断功能推定。此次GitHub归档没有合并覆盖该独立工程，没有重新烧录。以当前 `docs/status.md` 和 `firmware/README.md` 的范围说明为准。
 
 来源：用户2026-10-15提供的 `D:/下载/Sentinel_robot-main (2).zip`。

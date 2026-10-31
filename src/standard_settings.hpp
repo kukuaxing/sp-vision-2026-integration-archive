@@ -345,6 +345,9 @@ struct StandardSettings
       ? std::clamp(
           integration_yaml["xuc_gyro_fire_min_consecutive_frames"].as<int>(), 1, 10)
       : 2;
+  const bool xuc_high_speed_wait_for_best_frame =
+    integration_yaml["xuc_high_speed_wait_for_best_frame"]
+      ? integration_yaml["xuc_high_speed_wait_for_best_frame"].as<bool>() : true;
   // Predictive fire uses one-frame pulses. Pending-shot and live feeder feedback
   // prevent overlapping requests; an optional post-feed hold remains available
   // for lower boards that require it, while zero enables feedback-driven repeat.

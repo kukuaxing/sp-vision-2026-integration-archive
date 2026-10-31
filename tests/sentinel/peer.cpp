@@ -1,5 +1,6 @@
 // Private PTY only. Exercises production sender/receiver; no robot devices.
 #include "io/xuc.hpp"
+#include <algorithm>
 #include <cstdio>
 #include <cstring>
 #include <thread>
@@ -13,8 +14,8 @@ int main(int argc,char**argv){
     assert(link.control_ready());
     const auto start=io::XucSender::Clock::now();
     const auto minimum_ns=link.fire_min_interval_ms()*1000000;
-    const int min_fires=minimum_ns==300000000 ? 6 : minimum_ns<=600000000 ? 3 : 2;
-    const int max_fires=minimum_ns==300000000 ? 8 : minimum_ns==500000000 ? 5 : minimum_ns==600000000 ? 4 : 3;
+    const int max_fires=int(2250000000LL/minimum_ns)+1;
+    const int min_fires=std::min(max_fires,std::max(2,max_fires-2));
     int fires=0,limited=0,clear_updates=0,stops=0;int64_t last_fire=0;
     while(true){
       const double t=std::chrono::duration<double>(io::XucSender::Clock::now()-start).count();

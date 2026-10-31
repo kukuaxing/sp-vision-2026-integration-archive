@@ -78,6 +78,8 @@ static nlohmann::json effective_aim_settings(const YAML::Node & yaml, const Stan
     {"fire_pitch_tolerance_deg", s.xuc_fire_pitch_tolerance_rad * to_deg},
     {"rotating_yaw_tolerance_deg", s.xuc_gyro_predicted_yaw_tolerance_rad * to_deg},
     {"rotating_min_consecutive_frames", s.xuc_gyro_fire_min_consecutive_frames},
+    {"high_speed_wait_for_best_frame", s.xuc_high_speed_wait_for_best_frame},
+    {"high_speed_pitch_stable_ms", yaml["xuc_high_speed_pitch_stable_ms"].as<double>(30.0)},
     {"high_speed_quality_limit_deg", yaml["xuc_high_speed_prediction_quality_max_error_deg"].as<double>(0.45)},
     {"event_tracking_tolerance_deg", s.xuc_event_gimbal_tracking_tolerance_rad * to_deg},
     {"yaw_boresight_deg", s.direct_yaw_boresight_correction_rad * to_deg},
@@ -2069,8 +2071,8 @@ int main(int argc, char * argv[])
         vision_frame_sequence, selection_phase, selection_omega,
         integration_yaml["comming_angle"].as<double>() / 57.3,
         integration_yaml["leaving_angle"].as<double>() / 57.3);
-      const bool opportunity_window_open = rotation_fire_window.two_frames_ready &&
-        (rotation_fire_window.current_frame_is_better || rotation_fire_window.exiting_selection_next_step);
+      const bool wait_for_best_frame = !teammate_high_speed || settings.xuc_high_speed_wait_for_best_frame;
+      const bool opportunity_window_open = rotation_fire_window.allows_fire(wait_for_best_frame);
       const bool yaw_gate_open = gyro_predicted_fire_active
         ? (gyro_event_schedule_valid
              ? gyro_event_gate_open
@@ -2120,6 +2122,7 @@ int main(int argc, char * argv[])
         {"window_better_now", rotation_fire_window.current_frame_is_better},
         {"window_exit_next", rotation_fire_window.exiting_selection_next_step},
         {"window_open", opportunity_window_open}, {"window_frames", rotation_fire_window.frames},
+        {"window_wait_for_best_frame", wait_for_best_frame},
         {"next_error_rad", rotation_fire_window.next_error_rad}, {"selection_phase_rad", selection_phase}};
       // Fire-gate diagnostic for both medium-speed prediction and the high-speed
       // event clock; low-speed dead zones were previously invisible here.

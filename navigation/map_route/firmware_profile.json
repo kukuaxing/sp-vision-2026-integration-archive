@@ -12,5 +12,5 @@
   "native_xy_axis_meaning": "Actual speedx/speedy wheel mix retained; previous measured raw-x left/raw-y backward signs require new-flash field verification",
   "legacy_calibration_mode": "Preserve old motor rpm targets by multiplying old raw by159 and dividing by3859.9",
   "user_flash_confirmation": "已经完成，准备开始",
-  "motor_rpm_ceiling": 4000.0
+  "motor_rpm_ceiling": 5500.0
 }

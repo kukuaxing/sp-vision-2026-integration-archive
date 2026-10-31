@@ -19,7 +19,7 @@ public:
     pitch(HighSpeedPitchGate::Config{true,
       degrees(yaml, "xuc_fire_pitch_tolerance_deg", 0.4),
       degrees(yaml, "xuc_fire_pitch_tolerance_deg", 0.4),
-      degrees(yaml, "xuc_high_speed_pitch_variation_deg", 0.15), 30000000})
+      degrees(yaml, "xuc_high_speed_pitch_variation_deg", 0.15), pitch_stability_ns(yaml)})
   {
     if (yaml["xuc_high_speed_strategy"]) {
       const auto strategy = yaml["xuc_high_speed_strategy"].as<std::string>();
@@ -85,6 +85,13 @@ public:
       value.quality_eligible && value.eligible, value.past_error_bound_rad, quality_limit_rad);
   }
 private:
+  static int64_t pitch_stability_ns(const YAML::Node & yaml) {
+    const double ms = yaml["xuc_high_speed_pitch_stable_ms"]
+      ? yaml["xuc_high_speed_pitch_stable_ms"].as<double>() : 30.0;
+    if (!std::isfinite(ms) || ms < 5.0 || ms > 200.0)
+      throw std::invalid_argument("xuc_high_speed_pitch_stable_ms must be finite in [5,200] ms");
+    return static_cast<int64_t>(ms * 1e6);
+  }
   int64_t context_time_=0;
   uint64_t context_epoch_=0;
   double context_omega_=NAN,context_range_=NAN;

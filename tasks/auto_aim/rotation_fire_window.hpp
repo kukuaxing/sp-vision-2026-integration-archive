@@ -19,6 +19,13 @@ struct RotationFireWindow
   bool two_frames_ready = false, current_frame_is_better = false;
   bool exiting_selection_next_step = false;
 
+  // Only the observation-history gate. The caller still checks current yaw,
+  // pitch, quality, pose freshness and successful-write passage commitment.
+  bool allows_fire(bool wait_for_best_frame = true) const {
+    return two_frames_ready && (!wait_for_best_frame ||
+      current_frame_is_better || exiting_selection_next_step);
+  }
+
   void update(
     bool valid, bool rebuilt, std::uint64_t track, std::uint64_t boot_generation,
     int name, int type, int count, int face,

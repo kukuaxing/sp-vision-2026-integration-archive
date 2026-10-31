@@ -19,6 +19,10 @@ int main() {
   settings_yaml["xuc_periodic_every_n_faces"] = 1;
   settings_yaml["sentinel_fire_min_interval_ms"] = 1000;
   settings_yaml["xuc_high_speed_strategy"] = "teammate_prediction";
+  settings_yaml.remove("xuc_high_speed_wait_for_best_frame");
+  assert(StandardSettings(settings_yaml, true).xuc_high_speed_wait_for_best_frame);
+  settings_yaml["xuc_high_speed_wait_for_best_frame"] = false;
+  assert(!StandardSettings(settings_yaml, true).xuc_high_speed_wait_for_best_frame);
   const auto settings_allowed = [&]() {
     try { const StandardSettings settings(settings_yaml, true); return true; }
     catch (const std::invalid_argument &) { return false; }
@@ -66,15 +70,20 @@ int main() {
       phase, omega, 1.0, .35);
   };
   observe(1,.03,.20); assert(!window.two_frames_ready);
+  assert(!window.allows_fire(false)); // never authorize a lone observation
   observe(2,.02,.23); assert(window.two_frames_ready && !window.current_frame_is_better);
+  assert(!window.allows_fire() && window.allows_fire(false)); // early qualified frame
   observe(3,.025,.26); assert(window.current_frame_is_better);
+  assert(window.allows_fire() && window.allows_fire(false));
   // Still improving, but next observed step leaves Aimer's unchanged selection edge.
   observe(4,.02,.32); assert(window.exiting_selection_next_step);
   observe(5,.02,.34,1.0,2); assert(!window.two_frames_ready); // different track
+  assert(!window.allows_fire(false)); // no retained fast-path permission
   observe(6,.02,.36,1.0,2,2); assert(!window.two_frames_ready); // MCU epoch
   observe(7,.02,.38,1.0,2,2,false); assert(!window.two_frames_ready);
   observe(8,.02,.40,1.0,2,2); assert(!window.two_frames_ready);
   observe(10,.02,.42,1.0,2,2); assert(!window.two_frames_ready); // skipped observation
+  assert(!window.allows_fire(false));
   observe(11,.02,.44,1.0,2,2,true,true); assert(!window.two_frames_ready);
   observe(12,.02,.46,1.0,2,2,true,false,1); assert(!window.two_frames_ready);
   window = {};

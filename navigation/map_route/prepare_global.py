@@ -80,7 +80,7 @@ def prepare(poses,registration):
     result=dict(schema='registered_global_round_trip_v1',frame='course_start',created_unix=time.time(),
         outbound_waypoints_m=out,return_waypoints_m=list(reversed(out)),task_goal_m=out[-1],home_goal_m=[0.,0.],
         outbound_length_m=poly.total,round_trip_length_m=2*poly.total,
-        speed_ceiling_m_s=1.80,motor_rpm_ceiling=4000.,acceleration_m_s2=.90,deceleration_m_s2=1.30,
+        speed_ceiling_m_s=1.80,motor_rpm_ceiling=5500.,acceleration_m_s2=1.10,deceleration_m_s2=1.50,jerk_limit_m_s3=6.,corner_speed_m_s=.20,corner_brake_margin_m=.08,
         task_dwell_s=5.,deadline_s=300.,heading_deg=0.,
         registration_id=reg['registration_id'],map_source_signature=reg['map_source_signature'],
         source_pose_path=str(poses.resolve()),source_pose_sha256=sha(poses),registration_sha256=sha(registration),

@@ -385,9 +385,12 @@
     "required": "valid fresh localization, communication, control timing, physical AUTO, whole mission <=300s",
     "start_placement_check_retained": true
   },
-  "motor_rpm_ceiling": 4000.0,
-  "acceleration_m_s2": 0.9,
-  "deceleration_m_s2": 1.3,
+  "motor_rpm_ceiling": 5500.0,
+  "acceleration_m_s2": 1.1,
+  "deceleration_m_s2": 1.5,
+  "jerk_limit_m_s3": 6.0,
+  "corner_speed_m_s": 0.20,
+  "corner_brake_margin_m": 0.08,
   "competition_task": {
     "lost_target_check_after_requests": 30,
     "return_at_sent_requests": 50,

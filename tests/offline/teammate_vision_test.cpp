@@ -5,6 +5,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <limits>
 
 using namespace auto_aim;
 using Clock = std::chrono::steady_clock;
@@ -112,6 +113,37 @@ int main() {
   assert(past_forecast_quality_allows(true,true,true,.01,.1));
   const auto yaml=YAML::Load("xuc_high_speed_strategy: teammate_prediction");
   HighSpeedVision integration(yaml);
+  {
+    auto fast_yaml=YAML::Clone(yaml);
+    fast_yaml["xuc_high_speed_pitch_stable_ms"]=10.0;
+    HighSpeedVision fast(fast_yaml), old_default(yaml);
+    HighSpeedPitchGate::Input in{1000000000LL,8,true,true,.001,.001};
+    assert(!fast.pitch.update(in).open && !old_default.pitch.update(in).open);
+    in.frame_ns+=13000000;
+    assert(fast.pitch.update(in).open && !old_default.pitch.update(in).open);
+    in.frame_ns+=20000000;
+    assert(old_default.pitch.update(in).open); // unchanged 30 ms default
+    in.epoch=9;in.frame_ns+=13000000;
+    assert(!fast.pitch.update(in).open); // reference change needs fresh evidence
+    in.frame_ns+=13000000;in.residual_rad=.1;
+    assert(!fast.pitch.update(in).open); // dwell does not bypass angular limits
+    in.frame_ns+=13000000;in.residual_rad=.001;
+    assert(!fast.pitch.update(in).open);
+    in.frame_ns+=13000000;assert(fast.pitch.update(in).open);
+    in.frame_ns+=13000000;in.context_valid=false;
+    assert(!fast.pitch.update(in).open);
+    in.frame_ns+=13000000;in.context_valid=true;
+    assert(!fast.pitch.update(in).open); // invalid frame cannot bridge stability
+    in.frame_ns+=13000000;assert(fast.pitch.update(in).open);
+    in.frame_ns+=51000000;assert(!fast.pitch.update(in).open); // stale gap
+    for(double ms:{4.,201.,std::numeric_limits<double>::quiet_NaN()}) {
+      fast_yaml["xuc_high_speed_pitch_stable_ms"]=ms;
+      bool rejected=false;
+      try { HighSpeedVision invalid(fast_yaml); }
+      catch(const std::invalid_argument &) { rejected=true; }
+      assert(rejected);
+    }
+  }
   // Exercise the real caller adapter, including its NaN range during one
   // missing frame. The retained metadata must not authorize that frame.
   for(double sign:{-1.,1.}) {

@@ -83,6 +83,7 @@ def run(ipc,*,check_only=False):
             if now-last_tick<.02:continue
             dt=now-last_tick;last_tick=now
             v={};ready=False;auto=False;fresh=False;error=None;used=0;start_checks=None;wait_reason=None
+            motion_command=None
             try:
                 v=json.loads((ipc/'vision.json').read_text())
                 auto=vision_health(v,int(now*1e9));fresh=True
@@ -110,6 +111,11 @@ def run(ipc,*,check_only=False):
                     # Revoke task first, wait beyond the maximum MCU lease, then move home.
                     complete=task_return_since is not None and now-task_return_since>=.25
                     c=mission.step(s,dt,source_age,stamp,now,task_complete=complete)
+                    motion_command={k:c[k] for k in (
+                        'planned_world_vx_m_s','planned_world_vy_m_s','planned_speed_m_s',
+                        'planned_acceleration_m_s2','terminal_blend','path_segment',
+                        'progress_m','lateral_error_m','endpoint_error_m','endpoint_speed_cap_m_s',
+                        'endpoint_predicted_error_m','terminal_settling') if k in c}
                     native=profile.convert(c['wire_vx'],c['wire_vy'],c['wire_wz'])
                     task=c['phase']=='TASK_DWELL' and reason is None
                     command(v,now,nav=c['enabled'],task=task,
@@ -145,7 +151,8 @@ def run(ipc,*,check_only=False):
                         else:wait_reason='Ready; waiting for new both-UP edge'
                 if now-motion_trace_at>=.1:
                     motion_trace.write(json.dumps(dict(boot_id=boot_id,monotonic_s=now,phase=phase,state=vars(s),
-                        source_stamp_ns=stamp,source_age_s=source_age,sent_requests=used),allow_nan=False)+'\n')
+                        source_stamp_ns=stamp,source_age_s=source_age,sent_requests=used,
+                        navigation_command=motion_command),allow_nan=False)+'\n')
                     motion_trace_at=now
             except (RuntimeError,ValueError,KeyError,OSError,TypeError) as e:
                 error=str(e);wait_reason=error;command(v,now)
@@ -169,7 +176,10 @@ def run(ipc,*,check_only=False):
                 atomic(log/'status.json',dict(phase=phase,ready=ready,error=error,monotonic_s=now,
                     boot_id=boot_id,start_checks=start_checks,wait_reason=wait_reason,
                     sent_requests=used,return_reason=reason,vision_instance=v.get('vision_instance'),
-                    auto=auto,observe_only=observe_only,nav_route_speed_m_s=plan['speed_ceiling_m_s']))
+                    auto=auto,observe_only=observe_only,nav_route_speed_m_s=plan['speed_ceiling_m_s'],
+                    nav_motor_rpm_ceiling=plan.get('motor_rpm_ceiling',2000.),
+                    nav_jerk_limit_m_s3=plan.get('jerk_limit_m_s3',6.),
+                    nav_corner_brake_margin_m=plan.get('corner_brake_margin_m',.10)))
                 status_at=now
     except Exception as exc:
         phase='FAULT';error=str(exc)

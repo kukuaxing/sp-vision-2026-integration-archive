@@ -1,0 +1,3484 @@
+diff --git a/STM32F405/CRC.h b/STM32F405/CRC.h
+--- a/STM32F405/CRC.h
++++ b/STM32F405/CRC.h
+@@ -1,7 +1,5 @@
+ #pragma once
+-#ifndef SENTINEL_HOST_TEST
+ #include "stm32f4xx_hal.h"
+-#endif
+ #include <stdint.h>
+ uint8_t GetCRC8CheckSum(uint8_t* pchMessage, uint32_t dwLength, uint8_t ucCRC8);
+ uint8_t VerifyCRC8CheckSum(uint8_t* pchMessage, uint32_t dwLength);
+diff --git a/STM32F405/HTmotor.cpp b/STM32F405/HTmotor.cpp
+--- a/STM32F405/HTmotor.cpp
++++ b/STM32F405/HTmotor.cpp
+@@ -1,9 +1,6 @@
+ #include "HTmotor.h"
+-#ifndef SENTINEL_ACTUATOR_HOST_TEST
+ #include "delay.h"
+-#endif
+ #include "can.h"
+-#include "control.h"
+ #include "stdio.h"
+ 
+ #define now 0
+@@ -19,88 +16,46 @@
+ 	buffer[(*index)++] = number;
+ }
+ 
+-bool DMMOTOR::OnFeedbackFrame(const uint8_t* bytes)
+-{
+-	if (!bytes || (bytes[0] & 0x0fu) != (ID & 0x0fu)) return false;
+-	const auto state = bytes[0] >> 4;
+-	if (state != 0u && state != 1u && (state < 8u || state > 14u)) return false;
+-	const uint32_t now_ms = HAL_GetTick();
+-	const uint8_t previous_state = feedback_bytes_[0] >> 4;
+-	if (ever_operational_ && !feedback_watchdog_.Fresh(now_ms)) LatchSafetyFault(FEEDBACK_TIMEOUT);
+-	if (state > 1u) LatchSafetyFault(DRIVER_FAULT);
+-	else if (ever_operational_ && state == 0u) LatchSafetyFault(DRIVER_DISABLED);
+-	if (!feedback_watchdog_.Fresh(now_ms) || (previous_state > 1u && state <= 1u))
+-		++feedback_generation_;
+-	memcpy(feedback_bytes_, bytes, sizeof(feedback_bytes_));
+-	feedback_watchdog_.Received(now_ms);
+-	++feedback_sequence_;
+-	return true;
+-}
+-DMMOTOR& DMMOTOR::State_Decode(uint8_t idata[][8])//接收反馈数据
+-{
+-	(void)idata;
+-	uint8_t frame[8];
+-	taskENTER_CRITICAL();
+-	const bool fresh = feedback_watchdog_.Fresh(HAL_GetTick());
+-	const uint32_t generation = feedback_generation_;
+-	const uint32_t receive_sequence = feedback_sequence_;
+-	if (fresh) memcpy(frame, feedback_bytes_, sizeof(frame));
+-	taskEXIT_CRITICAL();
+-	if (!fresh) {
+-		if (ever_operational_) LatchSafetyFault(FEEDBACK_TIMEOUT);
+-		decoded = false; command_encoded_ = false; setSpeed = 0.f;
+-		return *this;
+-	}
+-	const bool recovering = !decoded || decoded_generation_ != generation;
+-	decoded_generation_ = generation;
+-	
+-	//浮点型数据
+-	//receive_data[0]=电机id
+-	uint8_t id = 0xFF;
+-	for (uint8_t i = 0; i < sizeof(DMmotor) / sizeof(DMmotor[0]); i++) {
+-		if (&DMmotor[i] == this) { id = i; break; }//获取当前电机的索引
+-	}
+-	if (id == 0xFF) return *this;
+-
+-	const uint8_t s = frame[0];  //电机状态
+-	if ((s & 0x0F) != (this->ID & 0x0F)) return *this;   // 本槽不是我的帧 → 不改任何东西
+-	status = s >> 4;
+-	if (status > 1u) LatchSafetyFault(DRIVER_FAULT);
+-	else if (ever_operational_ && status == 0u) LatchSafetyFault(DRIVER_DISABLED);
+-
+-	int direct = 0;
+-	int tmp_value = 0;
+-	tmp_value = (frame[1] << 8) | (frame[2]);//电机位置
+-	pos = uint_to_float(tmp_value, P_MIN, P_MAX, 16);//浮点型
+-	tmp_value = (frame[3] << 4) | (frame[4] >> 4);//转速
+-	curSpeed = uint_to_float(tmp_value, V_MIN, V_MAX, 12);//转浮点型
+-	tmp_value = (frame[5]) | ((frame[4] & 0x0f) << 8);
+-	current = uint_to_float(tmp_value, C_MIN, C_MAX, 12);
+-	torque = current * KT;//（力矩=电流*转矩常数，本产品转矩常数为 1.4Nm/A）
+-	decoded = true;
+-	if (recovering || !ever_operational_) {
+-		setPos = pos; setSpeed = 0.f; setTorque = 0.f; command_encoded_ = false;
+-	}
+-	if (!safety_fault_latched && enable_requested_ && receive_sequence != enable_request_sequence_ && status == 1u)
+-		ever_operational_ = true;
+-	
+-	return *this;
++DMMOTOR& DMMOTOR::State_Decode(uint8_t idata[][8])
++{
++    uint8_t slot = 0xff;
++    for (uint8_t i=0; i<sizeof(DMmotor)/sizeof(DMmotor[0]); ++i)
++        if (&DMmotor[i] == this) { slot=i; break; }
++    if (slot==0xff) return *this;
++    uint8_t bytes[8];
++    taskENTER_CRITICAL();
++    if (!feedback_seen_ || uint32_t(HAL_GetTick()-feedback_ms_) > 100u)
++    {
++        decoded=false; setSpeed=0;
++        taskEXIT_CRITICAL();
++        return *this;
++    }
++    memcpy(bytes,idata[slot],8);
++    const uint32_t generation=feedback_generation_;
++    taskEXIT_CRITICAL();
++    if ((bytes[0]&0x0fu)!=(ID&0x0fu)) return *this;
++    const bool recovering=!decoded || decoded_generation_!=generation;
++    status=bytes[0]>>4;
++    pos=uint_to_float((bytes[1]<<8)|bytes[2],P_MIN,P_MAX,16);
++    curSpeed=uint_to_float((bytes[3]<<4)|(bytes[4]>>4),V_MIN,V_MAX,12);
++    current=uint_to_float(bytes[5]|((bytes[4]&0x0f)<<8),C_MIN,C_MAX,12);
++    torque=current*KT;
++    if (recovering) { setPos=pos; setSpeed=0; }
++    decoded_generation_=generation;
++    decoded=true;
++    return *this;
+ }
+ 
+ 
+ void DMMOTOR::DMmotor_transmit(CAN& hcan)
+ {
+-	if (ever_operational_ && (!FeedbackFresh() || !decoded)) LatchSafetyFault(FEEDBACK_TIMEOUT);
+-	else if (ever_operational_ && status == 0u) LatchSafetyFault(DRIVER_DISABLED);
+-	else if (status > 1u) LatchSafetyFault(DRIVER_FAULT);
+-	if (safety_fault_latched) {
+-		// Explicit latched stop. Periodic startup FC cannot undo a runtime fault.
+-		CanComm_ControlCmd(hcan, CMD_RESET_MODE);
+-		return;
+-	}
+-	// Before the first enabled feedback, wait: an FD here could race and undo
+-	// the startup FC before its first reply. Position packets do not prove enable.
+-	if (!DriveReady() || !command_encoded_ || command_encoded_generation_ != decoded_generation_) return;
++    if (!FeedbackFresh())
++    {
++        if (feedback_seen_) CanComm_ControlCmd(hcan,CMD_RESET_MODE);
++        return;
++    }
++    if (status!=1u) return;
++
+ 	//can2.Transmit(this->ID +0x100, can2.jointpdata[this->ID - 1], 8);
+ 	//这一段有点没看懂
+ 	uint8_t slot = 0xFF;
+@@ -121,14 +76,11 @@
+ 
+ void DMMOTOR::DMmotorinit(CAN& hcan)
+ {
+-	if (safety_fault_latched || ever_operational_ ||
+-	    (ctrl.mode != CONTROL::STOP && ctrl.mode != CONTROL::RESET)) return;
+-	if (!enable_requested_) {
+-		enable_request_sequence_ = feedback_sequence_;
+-		enable_requested_ = true;
+-	}
+-	CanComm_ControlCmd(hcan, CMD_MOTOR_MODE);
+-	delay.delay_ms(1);
++    if (feedback_seen_ &&
++        (uint32_t(HAL_GetTick()-feedback_ms_)>100u || status>=8u)) return;
++    if (FeedbackFresh() && status==1u) return;
++    CanComm_ControlCmd(hcan,CMD_MOTOR_MODE);
++    delay.delay_ms(1);
+ }
+ 
+ void DMMOTOR::SetTorque(float settorque)
+@@ -239,6 +191,14 @@
+ 		memset(odata, 0, 8);
+ 		break;
+ 	}
+-	command_encoded_generation_ = decoded_generation_;
+-	command_encoded_ = true;
+-}
++}
++
++bool DMMOTOR::OnFeedbackFrame(const uint8_t* bytes)
++{
++    if (!bytes || (bytes[0] & 0x0fu) != (ID & 0x0fu)) return false;
++    const uint32_t tick = HAL_GetTick();
++    if (!feedback_seen_ || uint32_t(tick-feedback_ms_) > 100u) ++feedback_generation_;
++    feedback_ms_ = tick;
++    feedback_seen_ = true;
++    return true;
++}
+diff --git a/STM32F405/HTmotor.h b/STM32F405/HTmotor.h
+--- a/STM32F405/HTmotor.h
++++ b/STM32F405/HTmotor.h
+@@ -5,7 +5,6 @@
+ #include <cmath>
+ #include"label.h"
+ #include "can.h"
+-#include "feedback_watchdog.h"
+ 
+ constexpr auto MAXHIGH = 0.35;//轮腿最高伸展高度，待测
+ constexpr auto MINHIGH = 0.133;
+@@ -63,13 +62,14 @@
+ 	float Kp = 10.f;
+ 	float Kd = 0.6f;
+ 
+-	bool decoded = false;   //是否解码成功，解码成功后才可以使用数据
++	bool OnFeedbackFrame(const uint8_t* bytes);
++    bool FeedbackFresh() const {
++        return feedback_seen_ && uint32_t(HAL_GetTick()-feedback_ms_) <= 100u &&
++            decoded_generation_ == feedback_generation_;
++    }
++    uint32_t FeedbackGeneration() const { return feedback_generation_; }
++    bool decoded = false;   //是否解码成功，解码成功后才可以使用数据
+ 	uint8_t status = 0;      // 0=未使能 1=已使能 8~E=故障
+-	enum SAFETY_FAULT : uint8_t { SAFETY_OK = 0, FEEDBACK_TIMEOUT = 1, DRIVER_DISABLED = 2, DRIVER_FAULT = 3 };
+-	// Readable in SWD without changing the V2 wire protocol. Only an MCU reset
+-	// clears a runtime safety latch; setting STOP alone cannot restart a motor.
+-	volatile bool safety_fault_latched = false;
+-	volatile uint8_t safety_fault_reason = SAFETY_OK;
+ 
+ 	float uint_to_float(int x_int, float x_min, float x_max, int bits);//计算用函数
+ 	int float_to_uint(float x, float x_min, float x_max, int bits);
+@@ -84,18 +84,6 @@
+ 	void  Motor_Stop(CAN& hcan, uint32_t id);//电机失力
+ 
+ 	DMMOTOR& State_Decode(uint8_t odata[][8]);//解码并接收数据
+-	bool OnFeedbackFrame(const uint8_t* bytes); // CAN receive callback only.
+-	bool FeedbackFresh() const {
+-		return feedback_watchdog_.Fresh(HAL_GetTick()) && decoded_generation_ == feedback_generation_;
+-	}
+-	uint32_t FeedbackGeneration() const { return feedback_generation_; }
+-	// Startup requires FC issued in physical STOP/RESET, then a NEW real status=1
+-	// feedback. Once operational, any lost/disabled/faulted feedback latches OFF
+-	// until the MCU is restarted in STOP/RESET; cached goals can never re-enable it.
+-	bool DriveReady() const {
+-		return !safety_fault_latched && ever_operational_ && FeedbackFresh() && decoded && status == 1u;
+-	}
+-	bool FaultLatched() const { return safety_fault_latched; }
+ 	void DMmotor_Ontimer(float f_kp, float f_kd, uint8_t* odata);//电流计算，不包括发送
+ 	void DMmotor_transmit(CAN& hcan);//使能并发送控制数据
+ 
+@@ -109,21 +97,10 @@
+ 	DMMOTOR(const uint32_t ID, FUCTION_MODE function, POSITION position) :ID(ID), function(function), position(position) {};//定义接口
+ 
+ private:
+-	FeedbackWatchdog feedback_watchdog_;
+-	uint8_t feedback_bytes_[8]{};
+-	volatile uint32_t feedback_generation_ = 0;
+-	uint32_t decoded_generation_ = 0;
+-	volatile uint32_t feedback_sequence_ = 0;
+-	volatile bool ever_operational_ = false;
+-	bool enable_requested_ = false;
+-	uint32_t enable_request_sequence_ = 0;
+-	bool command_encoded_ = false;
+-	uint32_t command_encoded_generation_ = 0;
+-	void LatchSafetyFault(uint8_t reason) {
+-		if (!safety_fault_latched) safety_fault_reason = reason;
+-		safety_fault_latched = true;
+-	}
+-
++    volatile bool feedback_seen_ = false;
++    volatile uint32_t feedback_ms_ = 0;
++    volatile uint32_t feedback_generation_ = 0;
++    uint32_t decoded_generation_ = 0;
+ };
+ 
+ extern DMMOTOR DMmotor[2];
+diff --git a/STM32F405/RC.cpp b/STM32F405/RC.cpp
+--- a/STM32F405/RC.cpp
++++ b/STM32F405/RC.cpp
+@@ -2,11 +2,18 @@
+ #include "HTmotor.h"
+ #include "motor.h"
+ #include "RC.h"
++#include "tim.h"
+ #include "control.h"
+ #include "xuc.h"
+ #include "imu.h"
+ #include <algorithm>
+ 
++bool RC::Fresh() const
++{
++    return last_rc_tick!=0u &&
++        (xTaskGetTickCount()-last_rc_tick)<=pdMS_TO_TICKS(RC_LOST_MS);
++}
++
+ void RC::Init(UART* huart, USART_TypeDef* Instance, const uint32_t BaudRate)
+ {
+ 	huart->Init(Instance, BaudRate).DMARxInit(nullptr);
+@@ -16,21 +23,16 @@
+ 
+ void RC::OnRC()
+ {
+-	const bool was_auto = ctrl.mode == CONTROL::AUTO;
++	RC_CheckState();
++	RC_Control();
++
+ 	//RC失联保护，失联撤销运动
+-	const bool rc_lost = last_rc_tick == 0 ||
+-        (xTaskGetTickCount() - last_rc_tick) > pdMS_TO_TICKS(RC_LOST_MS);
+-	if (rc_lost) ctrl.mode = CONTROL::STOP;
+-	else RC_CheckState();
+-	// Capture before manual increments on AUTO exit; STOP latches each valid axis once.
+-	if (ctrl.mode == CONTROL::STOP || (was_auto && ctrl.mode != CONTROL::AUTO))
+-		ctrl.pantile.Hold_Pantile();
+-	RC_Control();
++	const bool rc_lost = (xTaskGetTickCount() - last_rc_tick) > pdMS_TO_TICKS(RC_LOST_MS);
+ 
+ 	if (rc_lost)
+ 	{
+ 		if (rc_lost_cnt < 60000) ++rc_lost_cnt;
+-		// Physical remote loss also revokes AUTO; OnPC cannot override STOP.
++		// 只清【遥控器来源】的执行器，不碰视觉
+ 		ctrl.chassis.speedx = 0;
+ 		ctrl.chassis.speedy = 0;
+ 		ctrl.chassis.speedz = 0;
+@@ -47,32 +49,42 @@
+ 	if (Shift_mode())
+ 	{
+ 		ctrl.pantile.mark_yaw = (float)ctrl.pantile_motor[CONTROL::PANTILE::YAW]->angle[now];
+-
++		
+ 	}
+ }
+ 
+ void RC::OnPC()
+ {
+-	/* 只在 AUTO 模式接管。RC_Control() 先跑并写入摇杆值，
+-	 * 本函数后跑 ⇒ 天然覆盖顺序正确，不需要额外插旗标。*/
+-	if (ctrl.mode != CONTROL::AUTO) {
+-		nav_turn_rpm = 0.f;
+-        ctrl.shooter.auto_fire_request_level = false;
+-        xuc.RevokeAim();
+-        xuc.nav_accepted = xuc.nav_enable = false;
+-        ctrl.shooter.auto_shoot = false;
+-        if (ctrl.mode != CONTROL::FIRE) ctrl.shooter.CancelPendingFeed();
+-        return;
+-    }
+-
+-	ApplyNav();     // 0x11 → 底盘
+-	ApplyAim();     // 0x10 → 云台 / 摩擦轮 / 开火
++	// 每个控制周期重新确认自动开火许可。
++	ctrl.shooter.auto_shoot = false;
++	ctrl.shooter.auto_fire_request_level =
++		ctrl.mode == CONTROL::AUTO && xuc.aim_accepted &&
++		xuc.aim_control_en && xuc.aim_fire_req;
++
++	if (ctrl.mode != CONTROL::AUTO)
++	{
++		ctrl.pantile.navigation_hold_ready = false;
++		ctrl.pantile.navigation_pitch_hold_ready = false;
++		return;
++	}
++
++	const bool rc_lost = last_rc_tick == 0u ||
++		(xTaskGetTickCount() - last_rc_tick) >
++		pdMS_TO_TICKS(RC_LOST_MS);
++
++	if (rc_lost)
++	{
++		ctrl.shooter.openRub = false;
++		StopChassis();
++		return;
++	}
++
++	ApplyNav();
++	ApplyAim();
+ }
+ 
+ /* ==========================================================================
+- * 底盘：NAV原始幅值 → 轮速给定（rpm），不是经过实测标定的SI速度。
+- * wz与平移沿用159增益，正值为四轮混控的正向旋转分量；实车左右符号待核验。
+- * 转向单独限200 motor rpm，每5ms控制周期最多变化10 rpm。
++ * 底盘：视觉导航速度（m/s）→ 轮速给定（rpm）
+  *
+  * 口径：三个量级 —— ① 限目标 ② 限增量 ③ 下发。
+  *   限幅的对象是【目标】而不是【输出】，prespeed 因此被夹在 tgt 附近，
+@@ -84,56 +96,32 @@
+  * ========================================================================== */
+ void RC::ApplyNav()
+ {
+-	const bool rc_lost = (xTaskGetTickCount() - last_rc_tick) > pdMS_TO_TICKS(RC_LOST_MS);
+-
+-	if (xuc.NavReady())
+-	{
+-		// ① 目标钳位
+-		const float tgt_x = std::max(std::min(xuc.nav_vx * para.K_NAV, para.NAV_MAX), -para.NAV_MAX);
+-		const float tgt_y = std::max(std::min(xuc.nav_vy * para.K_NAV, para.NAV_MAX), -para.NAV_MAX);
+-
+-		// ② 变化率限行（每周期最多 ±DV_MAX rpm）
+-		float dvx = tgt_x - xuc.prespeedx;
+-		dvx = std::max(std::min(dvx, para.DV_MAX), -para.DV_MAX);
+-		float dvy = tgt_y - xuc.prespeedy;
+-		dvy = std::max(std::min(dvy, para.DV_MAX), -para.DV_MAX);
+-
+-		xuc.prespeedx += dvx;
+-		xuc.prespeedy += dvy;
+-
+-		// ③ 下发（int32_t 赋值即隐式取整；prespeed 不越界，无须再钳）
+-		ctrl.chassis.speedx = (int32_t)xuc.prespeedx;
+-		ctrl.chassis.speedy = (int32_t)xuc.prespeedy;
+-		// Bound before multiplication, including finite but extremely large packets.
+-		constexpr float turn_gain = 159.f;
+-		constexpr float turn_limit_rpm = 200.f;
+-		constexpr float turn_step_rpm = 10.f;
+-		const float turn_raw = std::max(-turn_limit_rpm / turn_gain,
+-			std::min(xuc.nav_wz, turn_limit_rpm / turn_gain));
+-		const float target_turn = turn_raw * turn_gain;
+-		const float delta_turn = std::max(-turn_step_rpm,
+-			std::min(target_turn - nav_turn_rpm, turn_step_rpm));
+-		nav_turn_rpm = std::max(-turn_limit_rpm,
+-			std::min(nav_turn_rpm + delta_turn, turn_limit_rpm));
+-		ctrl.chassis.speedz = (int32_t)nav_turn_rpm;
+-		return;
+-	}
+-
+-	/* --- 无有效导航许可 --- */
+-	xuc.prespeedx = 0.f;      // 复位平滑量，避免许可恢复瞬间从残值暴冲
+-	xuc.prespeedy = 0.f;
+-	nav_turn_rpm = 0.f; // RC_Control has already supplied this cycle's manual command.
+-	if (rc_lost) StopChassis();
++    const bool rc_lost=last_rc_tick==0u ||
++        (xTaskGetTickCount()-last_rc_tick)>pdMS_TO_TICKS(RC_LOST_MS);
++    if (xuc.NavReady())
++    {
++        const float target[3]={xuc.nav_vx*para.K_NAV,xuc.nav_vy*para.K_NAV,
++            xuc.nav_wz*para.K_NAV*para.nav_yaw_lever_m*para.nav_yaw_sign};
++        float* smooth[3]={&xuc.prespeedx,&xuc.prespeedy,&xuc.prespeedz};
++        for (int i=0;i<3;++i)
++        {
++            const float t=std::max(-para.NAV_MAX,std::min(para.NAV_MAX,target[i]));
++            const float delta=std::max(-para.DV_MAX,std::min(para.DV_MAX,t-*smooth[i]));
++            *smooth[i]+=delta;
++        }
++        ctrl.chassis.speedx=int32_t(xuc.prespeedx);
++        ctrl.chassis.speedy=int32_t(xuc.prespeedy);
++        ctrl.chassis.speedz=int32_t(xuc.prespeedz);
++        return;
++    }
++    xuc.prespeedx=xuc.prespeedy=xuc.prespeedz=0.f;
++    if (rc_lost) StopChassis();
+ }
+ 
+ void RC::StopChassis()
+ {
+-	nav_turn_rpm = 0.f;
+-	ctrl.chassis.speedx = 0;
+-	ctrl.chassis.speedy = 0;
+-	ctrl.chassis.speedz = 0;
+-	xuc.prespeedx = 0.f;
+-	xuc.prespeedy = 0.f;
++    ctrl.chassis.speedx=ctrl.chassis.speedy=ctrl.chassis.speedz=0;
++    xuc.prespeedx=xuc.prespeedy=xuc.prespeedz=0.f;
+ }
+ 
+ /* ==========================================================================
+@@ -141,88 +129,97 @@
+  *
+  * ⚠️ 目标来自 xuc.aim_yaw_target / aim_pitch_target —— 这是【绝对目标】，
+  *    由 xuc.cpp 的 HandleAim() 用「参考样本姿态 + 上位机给的误差」一次性
+- *    重建（V2 §7.3）。本函数用当前IMU误差生成当前位置附近的有界参考，
+- *    不把串口误差或IMU误差继续累加到旧电机目标。
++ *    重建（V2 §7.3）。本函数只做每周期的 IMU 闭环，**不再 += 上位机的误差**。
++ *    这与旧版最大的区别：旧版拿一份会过期的 diff 每 5 ms 累加一次，
++ *    同一份误差被重复使用约 200 次/秒，目标一路顶到限位（10-11 踩过的坑）。
+  *
+- * IMU给出绝对方向误差，编码器给出本周期位置基准；mark_pitch / setangle
+- * 是位置参考，不能当作无界积分后的速率指令。
++ * 误差源用 IMU 而非电机编码器：这样 mark_pitch / setangle 扮演的是
++ * 「速率指令」的角色，误差归零即自然停 —— 视觉重复发同一个目标也不会跑飞。
+  * ========================================================================== */
+ void RC::ApplyAim()
+ {
+-	ctrl.shooter.auto_fire_request_level = xuc.aim_fire_req;
+-	ctrl.pantile.Synchronize_Feedback_Recovery();
+-#if XUC_ALLOW_CONTROL == 0
+-	/* 只读联调版：0x10 会被完整解析、校验、重建目标并记入 last_reject，
+-	 * 但本地不放行 ⇒ 不驱动任何执行器（连摩擦轮都不转）。
+-	 * 改这个宏之前必须先完成：
+-	 *   A 实验 —— sample_time_us 误差界 ≤ 2 ms（SAMPLE_TIME_VALID）
+-	 *   B 实验 —— 单轴 / 参考系 / gyro 符号（AXES_VERIFIED）
+-	 * 否则姿态与角速度不在同一可信参考系里，拿来闭环会系统性打偏。*/
+-	ctrl.shooter.openRub = false;
+-	ctrl.shooter.auto_shoot = false;
+-#else
+-	// Host sends an independently renewed wheel lease during the five-second
+-	// detection-loss hold. Missing/stale host data stops wheels in <=100ms.
+-	ctrl.shooter.openRub = xuc.FrictionReady();
+-	if (!xuc.AimReady()) {
+-		ctrl.pantile.Hold_Pantile();
+-        ctrl.shooter.auto_shoot = false;
++    taskENTER_CRITICAL();
++    ctrl.shooter.openRub = xuc.FrictionReady();
++    ctrl.shooter.auto_shoot = false;
++    Motor* y = ctrl.pantile_motor[CONTROL::PANTILE::YAW];
++    const bool axes_ready = y && y->FeedbackFresh() && y->has_feedback &&
++        y->angle_latched && DMmotor[0].FeedbackFresh() && DMmotor[0].decoded &&
++        DMmotor[0].status == 1u;
++	const bool aim_ready = xuc.AimReady();
++	const bool navigation_hold = !aim_ready || !axes_ready;
++    if (!navigation_hold) {
++        ctrl.pantile.navigation_hold_ready=false;
++        ctrl.pantile.navigation_pitch_hold_ready=false;
++    }
++	if (navigation_hold)
++    {
++        if (y && y->FeedbackFresh() && y->has_feedback && y->angle_latched) {
++            if (navigation_hold) {
++                // Capture ONCE. Following the measured angle every cycle removes
++                // position restoring torque and allows vibration to ratchet left.
++                if (!ctrl.pantile.navigation_hold_ready ||
++                    ctrl.pantile.navigation_hold_generation!=y->FeedbackGeneration()) {
++                    ctrl.pantile.navigation_hold_angle=CONTROL::ClampAngle(
++                        y->angle[now],para.yaw_center,para.yaw_span);
++                    ctrl.pantile.navigation_hold_generation=y->FeedbackGeneration();
++                    ctrl.pantile.navigation_hold_ready=true;
++                }
++                y->setangle=ctrl.pantile.navigation_hold_angle;
++            } else y->setangle=y->angle[now];
++        } else ctrl.pantile.navigation_hold_ready=false;
++        if (DMmotor[0].FeedbackFresh() && DMmotor[0].decoded && DMmotor[0].status==1u) {
++            if (navigation_hold) {
++                if (!ctrl.pantile.navigation_pitch_hold_ready ||
++                    ctrl.pantile.navigation_pitch_hold_generation!=DMmotor[0].FeedbackGeneration()) {
++					const bool first_pitch_start =
++						!ctrl.pantile.pitch_ready &&
++						ctrl.pantile.navigation_pitch_hold_generation == 0u;
++
++					const float hold_pitch = first_pitch_start
++						? para.dm_initial_pitch
++						: DMmotor[0].pos;
++
++					ctrl.pantile.navigation_pitch_hold_pos = std::max(
++						para.dm_pitch_min,
++						std::min(para.dm_pitch_max, hold_pitch));
++                    ctrl.pantile.navigation_pitch_hold_generation=DMmotor[0].FeedbackGeneration();
++                    ctrl.pantile.navigation_pitch_hold_ready=true;
++                }
++                ctrl.pantile.mark_pitch=ctrl.pantile.navigation_pitch_hold_pos;
++            } else ctrl.pantile.mark_pitch=DMmotor[0].pos;
++        } else ctrl.pantile.navigation_pitch_hold_ready=false;
+         ctrl.shooter.CancelPendingFeed();
++        taskEXIT_CRITICAL();
+         return;
+-    }   // No visual/lease permission: discard queued motion and hold decoded pose.
+-	const float DB      = 0.3f * PI / 180.f;   // 死区，rad
+-	const float DEG2RAD = PI / 180.f;
+-	const float RAD2CNT = 8192.f / (2.f * PI);
+-
+-	// Both position servos must have usable feedback before AUTO moves either
+-	// axis. DriveReady includes real CAN freshness, enabled status and the
+-	// latched-fault/startup handshake; status=0 alone never grants AUTO.
+-	Motor* y = ctrl.pantile_motor[CONTROL::PANTILE::YAW];
+-	const bool yaw_feedback_valid = y && y->FeedbackFresh() && y->has_feedback && y->angle_latched &&
+-		std::isfinite(y->angle[now]) && y->angle[now] >= 0.f && y->angle[now] < 8192.f;
+-	const bool pitch_feedback_valid = DMmotor[0].DriveReady() &&
+-		std::isfinite(DMmotor[0].pos);
+-	// An out-of-range measured pose is held, not pulled to a soft-limit edge on
+-	// takeover. Manual operation retains its existing limit/recovery semantics.
+-	const bool within_limits = yaw_feedback_valid && pitch_feedback_valid &&
+-		fabsf((float)Motor::getdeltaa((int16_t)(y->angle[now] - para.yaw_center))) <= para.yaw_span &&
+-		DMmotor[0].pos >= para.dm_pitch_min && DMmotor[0].pos <= para.dm_pitch_max;
+-	const float perr = xuc.aim_pitch_target - imu_pantile.GetAnglePitch() * DEG2RAD;
+-	const float yerr = XUC::WrapPi(xuc.aim_yaw_target - imu_pantile.GetAngleYaw() * DEG2RAD);
+-	if (!within_limits || !std::isfinite(perr) || !std::isfinite(yerr)) {
+-		ctrl.pantile.Hold_Pantile();
+-		ctrl.shooter.auto_shoot = false;
+-		ctrl.shooter.CancelPendingFeed();
+-		return;
+-	}
+-
+-	// This is a proportional position correction, not an error integral. Reuse
+-	// of the same packet or frozen encoder can never accumulate an old goal.
+-	// The lead caps constrain references; they do not certify motor speed or stability.
+-	const float KP = 0.25f, KY = 0.25f;
+-	// ClampAngle quantizes to whole counts; 22 counts stays below 1 degree.
+-	const float YAW_LEAD_MAX = 22.f;
+-	const float PITCH_LEAD_MAX = 0.5f * DEG2RAD; // 0.5 degree, radians
+-	float yaw_reference, pitch_reference;
+-	const bool yaw_ready = ctrl.pantile.aim_yaw_reference.Update(
+-		y->angle[now], fabsf(yerr) > DB ? KY * yerr * RAD2CNT : 0.f,
+-		YAW_LEAD_MAX, yaw_reference);
+-	const bool pitch_ready = ctrl.pantile.aim_pitch_reference.Update(
+-		DMmotor[0].pos, fabsf(perr) > DB ? KP * perr : 0.f,
+-		PITCH_LEAD_MAX, pitch_reference);
+-	if (!yaw_ready || !pitch_ready) {
+-		ctrl.pantile.Hold_Pantile();
+-		ctrl.shooter.auto_shoot = false;
+-		ctrl.shooter.CancelPendingFeed();
+-		return;
+-	}
+-	ctrl.pantile.hold_position = false;
+-	y->setangle = yaw_reference;
+-	ctrl.pantile.mark_pitch = pitch_reference;
+-
+-	/* Wheel-only heartbeats never enable angle control or feeding. */
+-	ctrl.shooter.auto_shoot = xuc.aim_valid && xuc.aim_friction_en && xuc.aim_fire_req;
+-#endif
++    }
++    const float DEG2RAD = PI/180.f, RAD2CNT = 8192.f/(2.f*PI);
++    const float DB = 0.3f*DEG2RAD;
++    const float KP = 0.25f, KY = 0.25f;
++    const float YAW_LEAD_MAX = 22.f;
++    const float PITCH_LEAD_MAX = 0.5f*DEG2RAD;
++    const float perr = xuc.aim_pitch_target - imu_pantile.GetAnglePitch()*DEG2RAD;
++    const float yerr = XUC::WrapPi(xuc.aim_yaw_target - imu_pantile.GetAngleYaw()*DEG2RAD);
++    const bool in_limits = std::isfinite(perr) && std::isfinite(yerr) &&
++        fabsf(float(Motor::getdeltaa(int16_t(y->angle[now]-para.yaw_center)))) <= para.yaw_span &&
++        DMmotor[0].pos >= para.dm_pitch_min && DMmotor[0].pos <= para.dm_pitch_max;
++    if (!in_limits)
++    {
++        y->setangle = y->angle[now];
++        ctrl.pantile.mark_pitch = DMmotor[0].pos;
++        ctrl.shooter.CancelPendingFeed();
++        taskEXIT_CRITICAL();
++        return;
++    }
++    float dp = fabsf(perr) > DB ? KP*perr : 0.f;
++    float dy = fabsf(yerr) > DB ? KY*yerr*RAD2CNT : 0.f;
++    dp = std::max(-PITCH_LEAD_MAX,std::min(PITCH_LEAD_MAX,dp));
++    dy = std::max(-YAW_LEAD_MAX,std::min(YAW_LEAD_MAX,dy));
++    // Each reference starts at measured joint feedback. Old targets cannot accumulate.
++    ctrl.pantile.mark_pitch = std::max(para.dm_pitch_min,
++        std::min(para.dm_pitch_max,DMmotor[0].pos+dp));
++    y->setangle = CONTROL::ClampAngle(y->angle[now]+dy,para.yaw_center,para.yaw_span);
++    ctrl.shooter.auto_shoot = xuc.aim_valid && xuc.aim_friction_en && xuc.aim_fire_req;
++    taskEXIT_CRITICAL();
+ }
+ 
+ void RC::Update()
+@@ -311,7 +308,7 @@
+ 			ctrl.pantile.Control_Pantile(rc.ch[2], rc.ch[3],0);
+ 			break;
+ 
+-		case CONTROL::AUTO://自动瞄准
++		case CONTROL::AUTO://自动瞄准	
+ 			ctrl.chassis.speedx = rc.ch[1] * 4000.f / 660.f;
+ 			ctrl.chassis.speedy = -1 * rc.ch[0] * 4000.f / 660.f;
+ 			ctrl.chassis.speedz = rc.ch[2];
+@@ -335,7 +332,7 @@
+ 			ctrl.chassis.speedx = 0;
+ 			ctrl.chassis.speedy = 0;
+ 			ctrl.chassis.speedz = 0;
+-			// OnRC captured the measured pose; do not restore a queued position goal.
++			ctrl.pantile.Control_Pantile(0, 0, 0);
+ 			ctrl.shooter.trig_raw = 0;
+ 			break;
+ 
+@@ -358,11 +355,11 @@
+ 		ctrl.chassis.speedy = 0;
+ 		ctrl.chassis.speedz = 0;//这里不能写setspeed,那个只能在电机的update里写
+ 		ctrl.shooter.trig_raw = 0;
+-
++		
+ 		if (ctrl.pantile_motor[CONTROL::PANTILE::TYPE::YAW])
+ 			ctrl.pantile_motor[CONTROL::PANTILE::TYPE::YAW]->setangle =
+ 			ctrl.pantile_motor[CONTROL::PANTILE::TYPE::YAW]->angle[now];
+-
++		
+ 		ctrl.shooter.openRub = false;
+ 		ctrl.shooter.trig_raw = 0;                // 确保退出开火时绝不留残余信号
+ 		ctrl.shooter.supply_bullet = false;
+@@ -371,17 +368,23 @@
+ 	}
+ }
+ 
++
+ void RC::Decode()
+ {
+-	if (queueHandler == NULL || *queueHandler == NULL) {
+-		return;  // 或者报错
+-	}
+-	else {
+-		pd_Rx = xQueueReceive(*queueHandler, m_frame, NULL);
+-	}
+-	if (pd_Rx != pdTRUE) return;
+-	if (sizeof(m_frame) < 18) return;
+-	if ((m_frame[0] | m_frame[1] | m_frame[2] | m_frame[3] | m_frame[4] | m_frame[5]) == 0)return;
++    uint16_t length = 0;
++    uint32_t arrival = 0;
++    if (!m_uart || !m_uart->ReceiveSnapshot(m_frame, sizeof(m_frame), length, arrival) ||
++        length != 18u || uint32_t(TIM::NowUs()-arrival)>100000u) return;
++    const int16_t channels[4] = {
++        int16_t(((m_frame[0] | m_frame[1] << 8) & 0x7ff) - 1024),
++        int16_t(((m_frame[1] >> 3 | m_frame[2] << 5) & 0x7ff) - 1024),
++        int16_t(((m_frame[2] >> 6 | m_frame[3] << 2 | m_frame[4] << 10) & 0x7ff) - 1024),
++        int16_t(((m_frame[4] >> 1 | m_frame[5] << 7) & 0x7ff) - 1024)
++    };
++    const uint8_t s0 = (m_frame[5] >> 6) & 3u;
++    const uint8_t s1 = (m_frame[5] >> 4) & 3u;
++    if (!s0 || !s1) return;
++    for (const auto c : channels) if (c < -700 || c > 700) return;
+ 
+ 	last_rc_tick = xTaskGetTickCount();//收到有效帧
+ 
+@@ -406,7 +409,7 @@
+ 	pc.press_l = m_frame[12];
+ 	pc.press_r = m_frame[13];
+ 
+-	pc.key_h = m_frame[15];//按键的高位部分R F G Z X C
++	pc.key_h = m_frame[15];//按键的高位部分R F G Z X C 
+ 	pc.key_l = m_frame[14];//按键的低8位 W S A D SHIFT CTRL Q E
+ 
+ }
+diff --git a/STM32F405/RC.h b/STM32F405/RC.h
+--- a/STM32F405/RC.h
++++ b/STM32F405/RC.h
+@@ -55,14 +55,14 @@
+ 	void RC_Control();
+ 
+ 	/* --- 上位机（V2）分段处理，供 watch/调试 --- */
+-	void ApplyNav();       // 0x11 NAV_COMMAND → 底盘 speedx/speedy/speedz
++	void ApplyNav();       // 0x11 NAV_COMMAND → 底盘 speedx/speedy
+ 	void ApplyAim();       // 0x10 AIM_COMMAND → 云台 mark_pitch / setangle
+ 	void StopChassis();    // 底盘速度归零 + 平滑量复位
++	bool Fresh() const;
+ 
+ 	uint16_t rc_lost_cnt = 0;    // 失联次数，上车 watch 用
+ 
+ private:
+-	float nav_turn_rpm = 0.f; // NAV-only turn smoothing; never retained across mode/lease loss.
+ 	QueueHandle_t* queueHandler = NULL;
+ 	BaseType_t pd_Rx, pd_Tx;
+ 	UART* m_uart;
+diff --git a/STM32F405/STM32F405.cpp b/STM32F405/STM32F405.cpp
+--- a/STM32F405/STM32F405.cpp
++++ b/STM32F405/STM32F405.cpp
+@@ -32,7 +32,7 @@
+ Motor can1_motor[CAN1_MOTOR_NUM] = {
+ 	Motor(M3508,SPD,shooter, ID2, PID(10.f, 0.0f, 1.5f,0.f)),
+ 	Motor(M3508,SPD,shooter, ID3, PID(10.f, 0.0f, 1.5f,0.f)),
+-	Motor(M2006,POS,supply, ID7, PID(10.0f, 0.03f, 0.5f,0.f), PID(1.0f, 0.01f, 0.02f,0.f)),
++	Motor(M2006,POS,supply, ID7, PID(10.0f, 0.05f, 1.5f,0.f), PID(5.0f, 0.01f, 0.4f,0.f)),
+ 	Motor(M6020,POS,pantile, ID5, PID(200.0f, 0.08f, 0.0f,0.f),PID(5.0f, 0.0f, 0.5f,0.5f)),
+ };
+ 	/*Motor(M3508,SPD,chassis, ID1, PID(10.f, 0.0f, 1.5f,0.f)),
+@@ -54,7 +54,7 @@
+ 	Motor(M6020,SPD,chassis, ID8, PID(10.f, 0.0f, 1.5f,0.f))*/
+ };
+ DMMOTOR DMmotor[2] = {
+-	DMMOTOR(0x09, P_S, Pitch),//pitch
++	DMMOTOR(0x03, P_S, Pitch),//pitch
+ 	DMMOTOR(0x06, SPEED, Yaw),//yaw
+ };
+ 
+@@ -111,19 +111,19 @@
+ 	rc.Init(&uart1, USART1, 100000);
+ 	
+ 	//power.Init(&uart4,UART4,9600);
+-	xuc.Init(&uart4, UART4, 921600); // V2 A6/6A, UART4 PA0 TX / PA1 RX (see usart.cpp)
++	xuc.Init(&uart4, UART4, 921600); // v1 COMMAND34 / STATE101, PC10 TX / PC11 RX
+ 
+ 	para.Init();
+ 	ctrl.init_dm();
+ 
+ 	ctrl.Init(std::vector<Motor*>{
+-		&can2_motor[0],
++		    &can2_motor[0],
+ 			& can2_motor[1],
+ 			& can2_motor[2],
+ 			& can2_motor[3]
+ 	});
+ 	ctrl.Init(std::vector<Motor*>{
+-		&can1_motor[0],
++		    &can1_motor[0],
+ 			& can1_motor[1],
+ 			& can1_motor[2],
+ 			& can1_motor[3]
+diff --git a/STM32F405/aim_position_reference.h b/STM32F405/aim_position_reference.h
+--- a/STM32F405/aim_position_reference.h
++++ /dev/null
+@@ -1,26 +0,0 @@
+-#pragma once
+-#include <algorithm>
+-#include <cmath>
+-
+-// A reference is measured position + bounded correction, never old goal + error.
+-// Each takeover begins at measured position, including recovery from lost feedback.
+-class AimPositionReference final
+-{
+-public:
+-	void Reset() { anchored_ = false; }
+-	bool Update(float measured_position, float correction, float max_lead, float& reference)
+-	{
+-		if (!std::isfinite(measured_position) || !std::isfinite(correction) ||
+-		    !std::isfinite(max_lead) || max_lead <= 0.f) {
+-			Reset();
+-			return false;
+-		}
+-		reference = measured_position;
+-		if (anchored_) reference += std::max(-max_lead, std::min(max_lead, correction));
+-		anchored_ = true;
+-		return true;
+-	}
+-
+-private:
+-	bool anchored_ = false;
+-};
+diff --git a/STM32F405/can.cpp b/STM32F405/can.cpp
+--- a/STM32F405/can.cpp
++++ b/STM32F405/can.cpp
+@@ -3,13 +3,7 @@
+ #include "string.h"
+ #include "HTmotor.h"
+ #include "motor.h"
+-#ifndef SENTINEL_ACTUATOR_HOST_TEST
+-#include "xuc.h"
+-#include "tim.h"
+-#include "control.h"
+-#endif
+-
+-#ifndef SENTINEL_ACTUATOR_HOST_TEST
++
+ /*
+ * @brief		CAN通信初始化函数
+ * @param		CAN通道基地址
+@@ -135,54 +129,59 @@
+ 	//ready = status != HAL_ERROR;// == HAL_OK;
+ 	return status;
+ }
+-#endif
+-
+-bool CAN::ReceiveFeedback(uint32_t id, const uint8_t* bytes, uint8_t length,
+-                          bool standard_data_frame)
+-{
+-	if (!standard_data_frame || !bytes || length != 8u || id > 0x7ffu) return false;
+-	if (id >= 0x201u && id <= 0x208u) {
+-		Motor* motors = this == &can1 ? can1_motor : this == &can2 ? can2_motor : nullptr;
+-		if (!motors) return false;
+-		const uint8_t count = this == &can1 ? CAN1_MOTOR_NUM : CAN2_MOTOR_NUM;
+-		for (uint8_t i = 0; i < count; ++i) {
+-			if (id == 0x201u + motors[i].ID - ID1 && motors[i].OnFeedbackFrame(bytes)) {
+-				memcpy(data[id - 0x201u], bytes, 8);
+-#ifndef SENTINEL_ACTUATOR_HOST_TEST
+-                if (&motors[i]==ctrl.supply_motor[0]) xuc.ObserveFeeder(bytes,TIM::NowUs());
+-#endif
+-				return true;
++
++/*
++ * @brief       CAN通信接收回调函数
++ * @param       *hcan		:	CAN句柄指针
++*/
++void HAL_CAN_RxCpltCallback(CAN_HandleTypeDef* hcan)
++{
++	const auto* frame = hcan->pRxMsg;
++
++	if (frame && frame->IDE == CAN_ID_STD &&
++		frame->RTR == CAN_RTR_DATA && frame->DLC == 8u)
++	{
++		const uint32_t id = frame->StdId;
++
++		if (id >= 0x201u && id <= 0x208u)
++		{
++			CAN* bus = hcan == &can1.hcan ? &can1 :
++				hcan == &can2.hcan ? &can2 : nullptr;
++
++			Motor* motors = bus == &can1 ? can1_motor :
++				bus == &can2 ? can2_motor : nullptr;
++
++			const uint8_t count = bus == &can1
++				? CAN1_MOTOR_NUM : CAN2_MOTOR_NUM;
++
++			if (bus && motors)
++			{
++				for (uint8_t i = 0; i < count; ++i)
++				{
++					if (id == 0x201u + motors[i].ID - ID1 &&
++						motors[i].OnFeedbackFrame(frame->Data))
++					{
++						memcpy(bus->data[id - 0x201u], frame->Data, 8);
++						break;
++					}
++				}
+ 			}
+ 		}
+-		return false;
+-	}
+-	// The supplied firmware does not record configured DM MST IDs or receive
+-	// bus bindings. Preserve its routing until those are measured; never invent
+-	// identifiers and silently disconnect the real motors. DLC/type and motor
+-	// ID/state are checked before the physical arrival clock is renewed.
+-	for (uint8_t i = 0; i < sizeof(DMmotor) / sizeof(DMmotor[0]); ++i) {
+-		if (DMmotor[i].OnFeedbackFrame(bytes)) {
+-			memcpy(can2.jointidata[i], bytes, 8);
+-			return true;
++		else
++		{
++			// 保留原来的达妙反馈分配方式。
++			for (uint8_t i = 0;
++				i < sizeof(DMmotor) / sizeof(DMmotor[0]); ++i)
++			{
++				if (DMmotor[i].OnFeedbackFrame(frame->Data))
++				{
++					memcpy(can2.jointidata[i], frame->Data, 8);
++					break;
++				}
++			}
+ 		}
+ 	}
+-	return false;
+-}
+-
+-#ifndef SENTINEL_ACTUATOR_HOST_TEST
+-/*
+- * @brief       CAN通信接收回调函数
+- * @param       *hcan		:	CAN句柄指针
+-*/
+-void HAL_CAN_RxCpltCallback(CAN_HandleTypeDef* hcan)
+-{
+-	CAN* bus = hcan == &can1.hcan ? &can1 : hcan == &can2.hcan ? &can2 : nullptr;
+-	if (bus && hcan->pRxMsg) {
+-		const auto& frame = *hcan->pRxMsg;
+-		bus->ReceiveFeedback(frame.StdId, frame.Data, uint8_t(frame.DLC),
+-		                     frame.IDE == CAN_ID_STD && frame.RTR == CAN_RTR_DATA);
+-	}
+-	
++
+ 	__HAL_CAN_ENABLE_IT(hcan, CAN_IT_FMP0);
+ }
+ 
+@@ -202,4 +201,3 @@
+ {
+ 	HAL_CAN_IRQHandler(&can2.hcan);
+ }
+-#endif
+diff --git a/STM32F405/can.h b/STM32F405/can.h
+--- a/STM32F405/can.h
++++ b/STM32F405/can.h
+@@ -1,7 +1,4 @@
+ #pragma once
+-#ifdef SENTINEL_ACTUATOR_HOST_TEST
+-#include "tests/sentinel/actuator_hal_stubs.hpp"
+-#endif
+ /* USER CODE BEGIN Header */
+ /**
+   ******************************************************************************
+@@ -30,13 +27,9 @@
+ #endif
+ 
+ 	/* Includes ------------------------------------------------------------------*/
+-#ifdef SENTINEL_ACTUATOR_HOST_TEST
+-#include "tests/sentinel/actuator_hal_stubs.hpp"
+-#else
+ #include "stm32f4xx_hal_can.h"
+ #include "stm32f4xx_hal.h"
+ #include "FreeRTOS.h"
+-#endif
+ 
+ class CAN
+ {
+@@ -45,9 +38,6 @@
+ 	void Init(CAN_TypeDef *instance);
+ 	void InitFilter();
+ 	HAL_StatusTypeDef Transmit(const uint32_t ID, const uint8_t* const pData, const uint8_t len = 8);
+-	// Returns true only for an accepted, complete standard data feedback frame.
+-	bool ReceiveFeedback(uint32_t id, const uint8_t* bytes, uint8_t length,
+-	                     bool standard_data_frame = true);
+ 	uint8_t data[12][8];//接收数据缓冲区，结合，motor.h中ontimer函数，12是防止3508和6020接收数据时存放位置冲突
+ 	uint8_t joint_data[6][6];
+ 	uint8_t temp_data[16];
+diff --git a/STM32F405/control.cpp b/STM32F405/control.cpp
+--- a/STM32F405/control.cpp
++++ b/STM32F405/control.cpp
+@@ -1,9 +1,6 @@
+ #include "control.h"
+-#ifndef SENTINEL_ACTUATOR_HOST_TEST
+ #include "tim.h"
+ #include "judgement.h"
+-#include "xuc.h"
+-#endif
+ #include "HTmotor.h"
+ #include "motor.h"
+ 
+@@ -62,8 +59,6 @@
+ 
+ void CONTROL::PANTILE::Control_Pantile(int32_t ch_dji_yaw, int32_t ch_pitch, int32_t ch_dm_yaw)
+ {
+-	Reset_Aim_References();
+-	hold_position = false;
+ 	// 1. 大疆Yaw/位置累加
+ 	if (ctrl.pantile_motor[PANTILE::TYPE::YAW] && ctrl.pantile_motor[PANTILE::TYPE::YAW]->has_feedback)//feedback和他本身不为空
+ 	{
+@@ -73,73 +68,15 @@
+ 		ctrl.pantile_motor[PANTILE::TYPE::YAW]->setangle += -(float)ch_dji_yaw / 660.f * yaw_rate * 0.005f;
+ 	}
+ 
+-	// 2. 达妙 Pitch 轴（位置模式）
++	// 2. 达妙 Pitch 轴（位置模式） 
+ 	mark_pitch += -(float)ch_pitch / 660.f * (PI * 0.5f) * 0.005f;
+ 
+ 	// 3. 达妙 Yaw 轴（纯速度模式）
+ 	// 速度模式：摇杆推多少就给多大角速度，传 0 就立刻刹停
+ 	const float max_dm_speed = PI; // 最大 180°/s
+ 	yaw_speed_out = (float)ch_dm_yaw / 660.f * max_dm_speed;
+-
+-
+-}
+-
+-void CONTROL::PANTILE::Hold_Pantile()
+-{
+-	Synchronize_Feedback_Recovery();
+-	Reset_Aim_References();
+-	Motor* yaw = ctrl.pantile_motor[PANTILE::TYPE::YAW];
+-	if (!yaw || !yaw->FeedbackFresh()) hold_yaw_captured = false;
+-	if (!DMmotor[0].FeedbackFresh()) hold_pitch_captured = false;
+-	if (!DMmotor[1].FeedbackFresh()) hold_dm_yaw_captured = false;
+-	if (!hold_position) {
+-		hold_yaw_captured = false;
+-		hold_pitch_captured = false;
+-		hold_dm_yaw_captured = false;
+-	}
+-	hold_position = true;
+-	yaw_speed_out = 0.f;
+-	Motor* y = ctrl.pantile_motor[PANTILE::TYPE::YAW];
+-	if (!hold_yaw_captured && y && y->FeedbackFresh() && y->has_feedback && y->angle_latched &&
+-	    std::isfinite(y->angle[now]) && y->angle[now] >= 0.f && y->angle[now] < 8192.f) {
+-		y->setangle = y->angle[now];
+-		hold_yaw_captured = true;
+-	}
+-	// decoded is only set after a real frame with this motor ID was decoded.
+-	// Fault/uninitialized feedback must not overwrite the previous goal with zero.
+-	// Latch each axis once per hold entry. Following every new feedback position
+-	// would remove restoring position error and let gravity/external loads drift.
+-	if (!hold_pitch_captured && DMmotor[0].FeedbackFresh() && DMmotor[0].decoded && DMmotor[0].status <= 1u && std::isfinite(DMmotor[0].pos)) {
+-		mark_pitch = DMmotor[0].pos;
+-		DMmotor[0].setPos = mark_pitch;
+-		if (!pitch_ready) pitch0 = mark_pitch;
+-		pitch_ready = true;
+-		hold_pitch_captured = true;
+-	}
+-	if (!hold_dm_yaw_captured && DMmotor[1].FeedbackFresh() && DMmotor[1].decoded && DMmotor[1].status <= 1u && std::isfinite(DMmotor[1].pos)) {
+-		yaw_lock_pos = DMmotor[1].pos;
+-		yaw_lock_ready = true;
+-		DMmotor[1].setSpeed = 0.f;
+-		hold_dm_yaw_captured = true;
+-	}
+-}
+-
+-void CONTROL::PANTILE::Synchronize_Feedback_Recovery()
+-{
+-	Motor* y = ctrl.pantile_motor[PANTILE::TYPE::YAW];
+-	const uint32_t yaw_generation = y ? y->FeedbackGeneration() : 0;
+-	const uint32_t pitch_generation = DMmotor[0].FeedbackGeneration();
+-	const uint32_t dm_yaw_generation = DMmotor[1].FeedbackGeneration();
+-	if (yaw_generation != yaw_feedback_generation || pitch_generation != pitch_feedback_generation) {
+-		Reset_Aim_References();
+-		ctrl.shooter.CancelPendingFeed();
+-	}
+-	if (yaw_generation != yaw_feedback_generation) hold_yaw_captured = false;
+-	if (pitch_generation != pitch_feedback_generation) hold_pitch_captured = pitch_ready = false;
+-	if (dm_yaw_generation != dm_yaw_feedback_generation) hold_dm_yaw_captured = yaw_lock_ready = false;
+-	yaw_feedback_generation = yaw_generation;
+-	pitch_feedback_generation = pitch_generation;
+-	dm_yaw_feedback_generation = dm_yaw_generation;
++	
++
+ }
+ 
+ void CONTROL::PANTILE::Keep_Pantile(float angleKeep, PANTILE::TYPE type,IMU frameOfReference)
+@@ -199,125 +136,201 @@
+ 
+ void CONTROL::PANTILE::Update()
+ {
+-	Synchronize_Feedback_Recovery();
+-	// 1. 6020yaw
+-	if (ctrl.pantile_motor[PANTILE::TYPE::YAW] && !hold_position)
+-		ctrl.pantile_motor[PANTILE::TYPE::YAW]->setangle =
+-		ClampAngle(ctrl.pantile_motor[PANTILE::TYPE::YAW]->setangle, para.yaw_center, para.yaw_span);// 钳到 ±半宽
+-
+-	// 2. 达妙 Pitch 保护与更新
+-	if (DMmotor[0].DriveReady() && std::isfinite(DMmotor[0].pos))
+-	{
+-		if (!pitch_ready) { mark_pitch = DMmotor[0].pos;pitch0 = mark_pitch; pitch_ready = true; }
+-		// Holding a measured pose must not command a return to a soft-limit edge.
+-		if (!hold_position) LIMIT_MIN_MAX(mark_pitch, para.dm_pitch_min, para.dm_pitch_max);
+-		DMmotor[0].setPos = mark_pitch;
+-		DMmotor[0].setSpeed = 1.5f;
+-	}
+-	else {
+-		pitch_ready = hold_pitch_captured = false;
+-		Reset_Aim_References();
+-	}
+-
+-	// 3. 达妙 Yaw 下发速度指令
+-	// 如果上层传 0，这里就会下发 0 rad/s，电机依靠自身的阻尼和速度环稳稳刹住
+-	if (DMmotor[1].DriveReady() && std::isfinite(DMmotor[1].pos))
+-	{
+-		if (!yaw_lock_ready) { yaw_lock_pos = DMmotor[1].pos; yaw_lock_ready = true; }
+-		DMmotor[1].setSpeed = yaw_speed_out                                  // 手动微调（rad/s）
+-			+ yaw_lock_Kp * (yaw_lock_pos - DMmotor[1].pos); // 软锁回位
+-	}
+-	else { yaw_lock_ready = hold_dm_yaw_captured = false; DMmotor[1].setSpeed = 0.f; }
+-
++    Motor* y=ctrl.pantile_motor[PANTILE::TYPE::YAW];
++    if (y)
++    {
++        const bool outside=fabsf(float(Motor::getdeltaa(int16_t(y->angle[now]-para.yaw_center))))>para.yaw_span;
++        if (ctrl.mode==CONTROL::AUTO && y->FeedbackFresh() && outside)
++            y->setangle=y->angle[now];
++        else y->setangle=ClampAngle(y->setangle,para.yaw_center,para.yaw_span);
++    }
++    static uint32_t pitch_generation=0,yaw_generation=0;
++    if (pitch_generation!=DMmotor[0].FeedbackGeneration()) pitch_ready=false;
++    if (yaw_generation!=DMmotor[1].FeedbackGeneration()) yaw_lock_ready=false;
++    pitch_generation=DMmotor[0].FeedbackGeneration();
++    yaw_generation=DMmotor[1].FeedbackGeneration();
++    if (DMmotor[0].FeedbackFresh() && DMmotor[0].decoded && DMmotor[0].status==1u)
++    {
++        if (!pitch_ready) {
++            mark_pitch=(ctrl.mode==CONTROL::AUTO && navigation_pitch_hold_ready)
++                ? navigation_pitch_hold_pos:para.dm_initial_pitch;
++            pitch0=mark_pitch;pitch_ready=true;
++        }
++        if (ctrl.mode==CONTROL::AUTO &&
++            (DMmotor[0].pos<para.dm_pitch_min || DMmotor[0].pos>para.dm_pitch_max))
++            mark_pitch=DMmotor[0].pos;
++        else LIMIT_MIN_MAX(mark_pitch,para.dm_pitch_min,para.dm_pitch_max);
++        DMmotor[0].setPos=mark_pitch;
++        DMmotor[0].setSpeed=1.5f;
++    }
++    else { pitch_ready=false; DMmotor[0].setSpeed=0; }
++    if (DMmotor[1].FeedbackFresh() && DMmotor[1].decoded && DMmotor[1].status==1u)
++    {
++        if (!yaw_lock_ready) { yaw_lock_pos=DMmotor[1].pos; yaw_lock_ready=true; }
++        DMmotor[1].setSpeed=yaw_speed_out+yaw_lock_Kp*(yaw_lock_pos-DMmotor[1].pos);
++    }
++    else { yaw_lock_ready=false; DMmotor[1].setSpeed=0; }
+ }
+ void CONTROL::SHOOTER::CancelPendingFeed()
+ {
+-    Motor* d = ctrl.supply_motor[0];
+-    const bool pending = d && d->angle_latched &&
+-        std::fabs(d->setangle - float(d->sum_angle)) > 1.f;
+-    // Losing authorization after a ready/issued shot requires a new trigger.
+-    // Initial wheel spin-up, before any shot was possible, is an ordinary wait.
+-    if (feed_permission_was_ready || pending) feed_rearm_required = true;
+-    feed_permission_was_ready = false;
+-    trig_pre = false; hold_ms = rate_ms = 0;
+-    if (d) {
+-        taskENTER_CRITICAL();
+-        d->CancelPositionTarget();
+-        taskEXIT_CRITICAL();
+-    }
++	taskENTER_CRITICAL();
++
++	Motor* d = ctrl.supply_motor[0];
++
++	const bool pending = d && d->angle_latched &&
++		fabsf(d->setangle - float(d->sum_angle)) > 1.f;
++
++	if (feed_permission_was_ready || pending)
++		feed_rearm_required = true;
++
++	feed_permission_was_ready = false;
++	trig_pre = false;
++	hold_ms = 0;
++	rate_ms = 0;
++
++	if (d)
++		d->CancelPositionTarget();
++
++	taskEXIT_CRITICAL();
+ }
+ 
+ void CONTROL::SHOOTER::Update()
+ {
+-    if (ctrl.shooter_motor[0]) ctrl.shooter_motor[0]->setspeed = openRub ? shoot_speed : 0;
+-    if (ctrl.shooter_motor[1]) ctrl.shooter_motor[1]->setspeed = openRub ? -shoot_speed : 0;
+-
+-    const int16_t T_ON = 300, T_OFF = 200;
+-    if (!trig && trig_raw > T_ON) trig = true;
+-    if (trig && trig_raw < T_OFF) trig = false;
+-    const bool trig_eff = trig || auto_shoot;
+-    const bool request_level = trig || auto_fire_request_level;
+-    if (!request_level) feed_rearm_required = false;
+-
+-    Motor* d = ctrl.supply_motor[0];
+-    Motor* left = ctrl.shooter_motor[0];
+-    Motor* right = ctrl.shooter_motor[1];
+-    const uint32_t left_generation = left ? left->FeedbackGeneration() : 0;
+-    const uint32_t right_generation = right ? right->FeedbackGeneration() : 0;
+-    const uint32_t feeder_generation = d ? d->FeedbackGeneration() : 0;
+-    if (left_generation != left_feedback_generation || right_generation != right_feedback_generation ||
+-        feeder_generation != feeder_feedback_generation) CancelPendingFeed();
+-    left_feedback_generation = left_generation;
+-    right_feedback_generation = right_generation;
+-    feeder_feedback_generation = feeder_generation;
+-    const float threshold = float(shoot_speed) * 0.8f;
+-    // Both wheels must be fresh, decoded and turning in their commanded
+-    // directions. An average can hide a stalled or reversed wheel.
+-    const bool wheels_ready = left && right &&
+-        left->FeedbackFresh() && right->FeedbackFresh() &&
+-        left->has_feedback && right->has_feedback && left->temperature <= 70 && right->temperature <= 70 &&
+-        left->curspeed >= threshold && right->curspeed <= -threshold;
+-    const bool allowed_mode = ctrl.mode == CONTROL::AUTO || ctrl.mode == CONTROL::FIRE;
+-    const bool allow = allowed_mode && openRub && wheels_ready && d &&
+-        d->FeedbackFresh() && d->has_feedback && d->angle_latched;
+-    if (!allow) {
+-        CancelPendingFeed();
+-        // A low trigger observed during the fault already satisfies re-arming.
+-        if (!request_level) feed_rearm_required = false;
+-        return;
+-    }
+-    if (feed_rearm_required) {
+-        d->CancelPositionTarget();
+-        return;
+-    }
+-    feed_permission_was_ready = true;
+-
+-    const uint16_t TICK = 5, T_ARM = 300, T_RATE = 125;
+-    bool fire_pulse = false, fire_cont = false;
+-    if (trig_eff && !trig_pre) { fire_pulse = true; hold_ms = 0; rate_ms = T_RATE; }
+-    else if (trig_eff) {
+-        if (hold_ms < 60000) hold_ms += TICK;
+-        if (hold_ms >= T_ARM) fire_cont = true;
+-    }
+-    trig_pre = trig_eff;
+-    if (fire_pulse) {
+-        d->setangle -= para.bullet_step;
+-#if !defined(SENTINEL_ACTUATOR_HOST_TEST) && !defined(SENTINEL_HOST_TEST)
+-        xuc.RecordFeedIssue(auto_shoot && !trig, para.bullet_step>0 ? -1:1);
+-#endif
+-    }
+-    if (fire_cont) {
+-        if (rate_ms >= T_RATE) { rate_ms = 0; d->setangle -= para.bullet_step;
+-#if !defined(SENTINEL_ACTUATOR_HOST_TEST) && !defined(SENTINEL_HOST_TEST)
+-            xuc.RecordFeedIssue(auto_shoot && !trig, para.bullet_step>0 ? -1:1);
+-#endif
+-        }
+-        else rate_ms += TICK;
+-    } else rate_ms = 0;
+-
+-    const float lead = d->setangle - float(d->sum_angle);
+-    if (lead > para.bullet_lead_max) d->setangle = float(d->sum_angle) + para.bullet_lead_max;
+-    if (lead < -para.bullet_lead_max) d->setangle = float(d->sum_angle) - para.bullet_lead_max;
++	taskENTER_CRITICAL();
++
++	Motor* left = ctrl.shooter_motor[0];
++	Motor* right = ctrl.shooter_motor[1];
++	Motor* d = ctrl.supply_motor[0];
++
++	const bool allowed_mode = ctrl.mode == CONTROL::AUTO ||
++		ctrl.mode == CONTROL::FIRE;
++
++	const bool wheel_run = allowed_mode && openRub && shoot_speed > 0;
++
++	if (left)
++		left->setspeed = wheel_run ? shoot_speed : 0;
++
++	if (right)
++		right->setspeed = wheel_run ? -shoot_speed : 0;
++
++	const float v0 = left ? fabsf(float(left->curspeed)) : 0.f;
++	const float v1 = right ? fabsf(float(right->curspeed)) : 0.f;
++
++	friction_speed_diff = int32_t(fabsf(v0 - v1));
++
++	const int16_t T_ON = 300, T_OFF = 200;
++
++	if (!trig && trig_raw > T_ON)
++		trig = true;
++
++	if (trig && trig_raw < T_OFF)
++		trig = false;
++
++	const bool trig_eff = trig || auto_shoot;
++	const bool request_level = trig || auto_fire_request_level;
++
++	const uint32_t lg = left ? left->FeedbackGeneration() : 0;
++	const uint32_t rg = right ? right->FeedbackGeneration() : 0;
++	const uint32_t dg = d ? d->FeedbackGeneration() : 0;
++
++	if (lg != left_feedback_generation ||
++		rg != right_feedback_generation ||
++		dg != feeder_feedback_generation)
++	{
++		CancelPendingFeed();
++	}
++
++	left_feedback_generation = lg;
++	right_feedback_generation = rg;
++	feeder_feedback_generation = dg;
++
++	if (!request_level)
++		feed_rearm_required = false;
++
++	const float threshold = float(shoot_speed) * friction_ready_ratio;
++
++	const bool wheels_ready = left && right &&
++		left->FeedbackFresh() && right->FeedbackFresh() &&
++		left->has_feedback && right->has_feedback &&
++		left->temperature <= 70 && right->temperature <= 70 &&
++		left->curspeed >= threshold &&
++		right->curspeed <= -threshold &&
++		friction_speed_diff <= friction_diff_limit;
++
++	const bool allow = wheel_run && wheels_ready && d &&
++		d->FeedbackFresh() && d->has_feedback && d->angle_latched &&
++		d->use_sum_angle && d->temperature <= 70;
++
++	if (!allow)
++	{
++		CancelPendingFeed();
++
++		if (!request_level)
++			feed_rearm_required = false;
++
++		taskEXIT_CRITICAL();
++		return;
++	}
++
++	if (feed_rearm_required)
++	{
++		d->CancelPositionTarget();
++
++		taskEXIT_CRITICAL();
++		return;
++	}
++
++	feed_permission_was_ready = true;
++
++	const uint16_t TICK = 5, T_ARM = 300, T_RATE = 125;
++	bool fire_pulse = false, fire_cont = false;
++
++	if (trig_eff && !trig_pre)
++	{
++		fire_pulse = true;
++		hold_ms = 0;
++		rate_ms = T_RATE;
++	}
++	else if (trig_eff)
++	{
++		if (hold_ms < 60000)
++			hold_ms += TICK;
++
++		if (hold_ms >= T_ARM)
++			fire_cont = true;
++	}
++
++	trig_pre = trig_eff;
++
++	if (fire_pulse)
++		d->setangle -= para.bullet_step;
++
++	if (fire_cont)
++	{
++		if (rate_ms >= T_RATE)
++		{
++			rate_ms = 0;
++			d->setangle -= para.bullet_step;
++		}
++		else
++		{
++			rate_ms += TICK;
++		}
++	}
++	else
++	{
++		rate_ms = 0;
++	}
++
++	const float lead = d->setangle - float(d->sum_angle);
++
++	if (lead > para.bullet_lead_max)
++		d->setangle = float(d->sum_angle) + para.bullet_lead_max;
++
++	if (lead < -para.bullet_lead_max)
++		d->setangle = float(d->sum_angle) - para.bullet_lead_max;
++
++	taskEXIT_CRITICAL();
+ }
+ 
+ float CONTROL::CHASSIS::Ramp(float setval, float curval, uint32_t RampSlope)
+@@ -355,3 +368,4 @@
+ {
+ 	return fmaxf(fminf(range, original), -range);
+ }
++
+diff --git a/STM32F405/control.h b/STM32F405/control.h
+--- a/STM32F405/control.h
++++ b/STM32F405/control.h
+@@ -1,14 +1,9 @@
+ #pragma once
+ #include <vector>
+ #include <cmath>
+-#ifdef SENTINEL_ACTUATOR_HOST_TEST
+-#include "tests/sentinel/actuator_hal_stubs.hpp"
+-#else
+ #include "stm32f4xx.h"
++#include "motor.h"
+ #include "imu.h"
+-#endif
+-#include "motor.h"
+-#include "aim_position_reference.h"
+ 
+ class CONTROL final
+ {
+@@ -19,15 +14,15 @@
+ 	Motor* pantile_motor[PANTILE_MOTOR_NUM]{};
+ 	Motor* shooter_motor[SHOOTER_MOTOR_NUM]{};
+ 	Motor* supply_motor[SUPPLY_MOTOR_NUM]{};
+-
+-	enum MODE { PC = 0, RC, AUTO, RESET, ROTATION, SPINNING, FOLLOW, SEPARATE, FIRE, STOP, LOCK } mode = STOP;
++	
++	enum MODE { PC = 0, RC, AUTO, RESET, ROTATION, SPINNING, FOLLOW, SEPARATE, FIRE, STOP, LOCK } mode = AUTO;
+ 	struct CHASSIS
+ 	{
+ 
+ 
+ 		PID chassis_reset{};
+ 		int32_t speedx{}, speedy{}, speedz{};
+-
++		
+ 		void Keep_Direction(int32_t ch_fwd, int32_t ch_left);
+ 
+ 		void Update();
+@@ -43,13 +38,6 @@
+ 		bool aim = false;
+ 		bool pitch_ready = false;
+ 		float pitch0 = 0.0f;
+-		bool hold_position = false;
+-		bool hold_yaw_captured = false, hold_pitch_captured = false, hold_dm_yaw_captured = false;
+-		AimPositionReference aim_yaw_reference, aim_pitch_reference;
+-		uint32_t yaw_feedback_generation = 0, pitch_feedback_generation = 0, dm_yaw_feedback_generation = 0;
+-		void Synchronize_Feedback_Recovery();
+-		void Reset_Aim_References() { aim_yaw_reference.Reset(); aim_pitch_reference.Reset(); }
+-		void Hold_Pantile(); // Capture decoded motor positions; never use an uninitialized zero.
+ 		void Control_Pantile(int32_t ch_dji_yaw, int32_t ch_pitch, int32_t ch_dm_yaw);
+ 		//void Control_Pantile(int32_t ch_yaw, int32_t ch_pitch);
+ 		void Keep_Pantile(float angleKeep, PANTILE::TYPE type, IMU frameOfReference);
+@@ -58,6 +46,12 @@
+ 		bool  yaw_lock_ready = false;// yaw锁定准备好，这是一个自动模式需要用的一个判断变量
+ 		float yaw_lock_pos = 0.f;
+ 		float yaw_lock_Kp = 3.0f;    // rad/s per rad，先给 3，从小往大调
++		bool navigation_hold_ready = false;
++		float navigation_hold_angle = 0.f;
++		uint32_t navigation_hold_generation = 0;
++		bool navigation_pitch_hold_ready = false;
++		float navigation_pitch_hold_pos = 0.f;
++		uint32_t navigation_pitch_hold_generation = 0;
+ 	};
+ 
+ 	struct SHOOTER
+@@ -66,10 +60,19 @@
+ 		float now_bullet_speed = 0.f;
+ 
+ 		bool auto_shoot = false;
+-		// Host request before local safety gating; a forced-off output must not
+-		// masquerade as the low edge needed to re-arm after a fault.
+ 		bool auto_fire_request_level = false;
++
++		float friction_ready_ratio = 0.8f;
++		int32_t friction_diff_limit = 300;
++
++		bool feed_permission_was_ready = false;
++		bool feed_rearm_required = false;
++
++		uint32_t left_feedback_generation = 0;
++		uint32_t right_feedback_generation = 0;
++		uint32_t feeder_feedback_generation = 0;
+ 		bool openRub = false, supply_bullet = false;
++		volatile int32_t friction_speed_diff = 0;//摩擦轮速度差
+ 		bool fraction = false;
+ 		bool fullheat_shoot = false;
+ 		bool heat_ulimit = false;
+@@ -77,15 +80,12 @@
+ 		void Update();
+ 		void CancelPendingFeed();
+ 		int32_t trig_raw{}; bool trig{}; bool trig_pre{}; uint16_t hold_ms{}; uint16_t rate_ms{};// 发射机构要用的：触发器：原始值、当前值、上次值、保持时间、间隔时间
+-		bool feed_permission_was_ready = false;
+-		bool feed_rearm_required = false;
+-		uint32_t left_feedback_generation = 0, right_feedback_generation = 0, feeder_feedback_generation = 0;
+ 	};
+ 
+ 	CHASSIS chassis;
+ 	PANTILE pantile;
+ 	SHOOTER shooter;
+-
++	
+ 	static int16_t Setrange(const int16_t original, const int16_t range);
+ 	static float ClampAngle(float setangle, float center, float span);
+ 	float GetDelta(float delta);
+diff --git a/STM32F405/feed_diagnostics.h b/STM32F405/feed_diagnostics.h
+--- a/STM32F405/feed_diagnostics.h
++++ /dev/null
+@@ -1,42 +0,0 @@
+-#pragma once
+-#include <cstdint>
+-
+-// Passive recorder only. Callers serialize task/ISR access; no motor command
+-// or firing permission is produced here. Times use the wrapping MCU us clock.
+-struct FeedDiagnostics {
+-  uint16_t request_seq=0, issue_seq=0, motion_seq=0, encoder=0;
+-  uint32_t request_us=0, issue_us=0, motion_us=0, feedback_us=0;
+-  uint32_t issue_count=0, motion_count=0;
+-  int16_t rpm=0, baseline_encoder=0, direction=-1;
+-  bool request_seen=false, issued=false, motion_seen=false, feedback_seen=false;
+-  bool automatic=false, pending=false, already_moving=false;
+-
+-  void Request(uint16_t seq, uint32_t us) {
+-    request_seq=seq; request_us=us; request_seen=true;
+-  }
+-  void Issue(uint16_t seq, uint32_t us, bool auto_request, int16_t dir) {
+-    issue_seq=seq; issue_us=us; automatic=auto_request; issued=true; ++issue_count;
+-    direction=dir; baseline_encoder=encoder;
+-    const bool fresh=feedback_seen && uint32_t(us-feedback_us)<=100000u;
+-    already_moving=fresh && (rpm>=100 || rpm<=-100);
+-    pending=fresh && !already_moving && direction!=0;
+-  }
+-  void Feedback(uint16_t angle, int16_t speed, uint32_t us) {
+-    if (pending && (uint32_t(us-feedback_us)>100000u ||
+-                    uint32_t(us-issue_us)>2000000u)) pending=false;
+-    encoder=angle; rpm=speed; feedback_us=us; feedback_seen=true;
+-    int32_t delta=int32_t(angle)-baseline_encoder;
+-    if (delta>4096) delta-=8192;
+-    if (delta<-4096) delta+=8192;
+-    // Confirm intended movement with both velocity and encoder displacement.
+-    // This is the first qualifying CAN sample, not muzzle exit or motor torque onset.
+-    if (pending && int32_t(speed)*direction>=100 && delta*direction>=8) {
+-      motion_seq=issue_seq; motion_us=us; ++motion_count; motion_seen=true; pending=false;
+-    }
+-  }
+-  uint8_t Flags(uint32_t us) const {
+-    return (feedback_seen && uint32_t(us-feedback_us)<=100000u ? 1u:0u) |
+-      (request_seen?2u:0u) | (issued?4u:0u) | (motion_seen?8u:0u) |
+-      (automatic?16u:0u) | (pending?32u:0u) | (already_moving?64u:0u);
+-  }
+-};
+diff --git a/STM32F405/feedback_watchdog.h b/STM32F405/feedback_watchdog.h
+--- a/STM32F405/feedback_watchdog.h
++++ /dev/null
+@@ -1,16 +0,0 @@
+-#pragma once
+-#include <cstdint>
+-
+-// The clock is renewed only by a validated physical CAN receive callback.
+-// Consumers may decode a cached frame repeatedly, but cannot renew its lease.
+-class FeedbackWatchdog final {
+-public:
+-	static constexpr uint32_t timeout_ms = 100;
+-	void Received(uint32_t now_ms) { last_ms_ = now_ms; received_ = true; }
+-	bool Fresh(uint32_t now_ms) const {
+-		return received_ && uint32_t(now_ms - last_ms_) <= timeout_ms;
+-	}
+-private:
+-	volatile uint32_t last_ms_ = 0;
+-	volatile bool received_ = false;
+-};
+diff --git a/STM32F405/imu.cpp b/STM32F405/imu.cpp
+--- a/STM32F405/imu.cpp
++++ b/STM32F405/imu.cpp
+@@ -1,7 +1,6 @@
+ #include "imu.h"
+-#ifndef SENTINEL_IMU_HOST_TEST
+ #include "label.h"
+-#endif
++#include "tim.h"
+ void IMU::Init(UART* huart, USART_TypeDef* Instance, const uint32_t BaudRate, IMU_TYPE type)
+ {
+ 	huart->Init(Instance, BaudRate).DMARxInit();
+@@ -12,20 +11,14 @@
+ 
+ void IMU::Decode()
+ {
+-	if (queueHandler == NULL || *queueHandler == NULL) return;
+-
+-	/* 🔴 队列空时必须立刻返回。
+-	 * 原来缺这一句：xQueueReceive 失败时 rxData【保持上一次的内容】，
+-	 * 于是本函数会拿旧帧再解析一遍 —— 表现为「同一帧被重复处理 N 次」
+-	 * （N = 后续空轮询次数），而 last_rx_tick / init_done 会被反复刷新。
+-	 * ⇒ 采样有效性判据失真，且 A 实验统计的样本数完全不可信。
+-	 * （第三个参数是"最长等待 tick 数"，传 0 = 立即返回，不阻塞。）*/
+-    if (!m_uart->ReceiveSnapshot(rxData, rx_length, rx_arrival_us)) return;
+-    if (rx_length < 6u) return;
+-
+-	if (type == IMU601)        DecodeIMU601();
+-	else if (type == CH010)    Decode0x91();
+-	else if (type == HI226)    Decode0x91();
++    if (!m_uart || !m_uart->ReceiveSnapshot(rxData, sizeof(rxData),
++                                          rx_length, frame_rx_time_us)) return;
++    if (type == IMU601)
++    {
++        if (rx_length >= 5u) DecodeIMU601();
++    }
++    else if (rx_length >= 6u && (type == CH010 || type == HI226))
++        Decode0x91();
+ }
+ 
+ /* ======================================================================
+@@ -47,7 +40,7 @@
+ 	const uint32_t ndata = rxData[3];                        /* 数据域字节数 */
+ 	const uint32_t need  = 5u + ndata;                       /* 4 + 数据域 + 1 校验 */
+ 
+-	if (ndata == 0u || need > UART_MAX_LEN)
++	if (ndata == 0u || need > UART_MAX_LEN || need != rx_length)
+ 	{
+ 		++len_bad;
+ 		return;
+@@ -178,7 +171,7 @@
+ 
+ 	// A HI91 packet is exactly 76 bytes. The quaternion at 60..75 is required;
+ 	// a valid CRC on a truncated Euler-only packet does not make a usable pose.
+-	if (len_raw < 76u)
++	if (len_raw != 76u)
+ 	{
+ 		++short_payload;
+ 		return;
+@@ -264,11 +257,15 @@
+ void IMU::MarkSampleValid()
+ {
+ 	data_ok = fabsf(angle.roll) <= 180.f
+-	       && fabsf(angle.pitch) <= 90.f
+-	       && fabsf(angle.yaw) <= 180.f;   /* NaN/Inf 比较恒 false，天然拦掉 */
+-    sample_arrival_us = rx_arrival_us;
+-    last_rx_tick = xTaskGetTickCount();
+-	if (data_ok) init_done = true;             /* 数据离谱就不认"已初始化" */
++		&& fabsf(angle.pitch) <= 90.f
++		&& fabsf(angle.yaw) <= 180.f;
++
++	if (data_ok)
++	{
++		sample_time_us = frame_rx_time_us;
++		last_rx_tick = xTaskGetTickCount();
++		init_done = true;
++	}
+ }
+ 
+ float IMU::GetAngleYaw()
+@@ -279,9 +276,8 @@
+ 
+ bool IMU::IsValid()
+ {
+-	return init_done
+-		&& (xTaskGetTickCount() - last_rx_tick) <= pdMS_TO_TICKS(50)
+-		&& data_ok;
++    return init_done && data_ok &&
++        uint32_t(TIM::NowUs() - sample_time_us) <= 50000u;
+ }
+ 
+ 
+@@ -369,4 +365,4 @@
+ 	 *    整型提升为 int 后左移 8 位，值域 0x00~0xFF00 恰好在 int 内，
+ 	 *    所以【没有】UB，但依赖提升规则，隐晦。改成显式 uint16 组合。*/
+ 	return (int16_t)((uint16_t)HighBit << 8 | (uint16_t)LowBits);
+-}
++}
+\ No newline at end of file
+diff --git a/STM32F405/imu.h b/STM32F405/imu.h
+--- a/STM32F405/imu.h
++++ b/STM32F405/imu.h
+@@ -1,10 +1,6 @@
+ #pragma once
+-#ifdef SENTINEL_IMU_HOST_TEST
+-#include "tests/sentinel/firmware_stubs.hpp"
+-#else
+ #include "stm32f4xx.h"
+ #include "usart.h"
+-#endif
+ #include <string.h>
+ #include <cmath>
+ enum IMU_TYPE { IMU601 = 0, CH010, HI226 };
+@@ -29,13 +25,9 @@
+ 	 *    必须用 CrcReset / CrcAccum / CrcResult，见 imu.cpp 的说明。
+ 	 *    保留本函数供 IMU601（算术和校验）与将来其他型号复用。*/
+ 	bool Check(uint8_t* pdata, uint8_t len, uint32_t com);
+-	// HI91: conventional body-to-navigation ZYX Euler degrees; IMU601 unchanged.
+ 	float GetAngleYaw();
+ 	float GetAnglePitch();
+ 	float GetAngleRoll();
+-	// CH010/HI226 wire Euler values retain the device's configurable convention.
+-	// Control/GetAngle* use quaternion-derived ZYX; diagnostics may inspect these.
+-	Angle GetDeviceEuler() const { return device_angle; }
+ 	float* GetAcceleration();
+ 	float GetAccX();
+ 	float GetAccY();
+@@ -45,20 +37,22 @@
+ 	float GetGyroYaw();
+ 
+ 	uint8_t  id = 0;                    // 传感器身份（装配处指定）
+-    uint32_t GetTimestamp();
+-    uint32_t GetArrivalTimeUs() const { return sample_arrival_us; }
++	uint32_t GetTimestamp();
+     uint16_t GetEpoch() const { return sample_epoch; }
++    Angle GetDeviceEuler() const { return device_angle; }
++    volatile uint32_t quaternion_bad = 0;
++	uint32_t GetSampleTimeUs() const { return sample_time_us; }
+ 	bool     IsValid();
+ 
+-	/* Diagnostic counts: rx_ok counts CRC-valid frames; sample_ok counts accepted
+-	 * HI91 orientation samples (new timestamp and valid full quaternion). CRC-valid
+-	 * non-pose/invalid/duplicate frames do not increase sample_ok or freshness. */
++	/* --- 诊断计数（watch 用，A 实验统计样本通过率靠它）---
++	 * 关系：rx_ok = crc_ok + crc_fail + len_bad；sample_ok ≤ rx_ok。
++	 * A 实验做回归时用 sample_ok 当分母，不要拿 rx_ok —— 后者含"帧有效但
++	 * 不是 0x91 姿态包"的帧，那些帧没有可用于标定的 timestamp。*/
+ 	volatile uint32_t rx_ok = 0;        // 帧头 + 长度 + CRC 全部通过的帧数
+ 	volatile uint32_t crc_fail = 0;     // CRC 不匹配（真·校验失败）
+ 	volatile uint32_t len_bad = 0;      // 长度字段非法（0 或越界）
+-	volatile uint32_t sample_ok = 0;    // Accepted 0x91 samples: full payload, valid quaternion, new timestamp.
+-	volatile uint32_t short_payload = 0;// 0x91 payload shorter than all 76 bytes (including quaternion).
+-	volatile uint32_t quaternion_bad = 0; // NaN/Inf or quaternion norm outside the permitted range.
++	volatile uint32_t sample_ok = 0;    // 0x91 姿态包通过 CRC 的帧数
++	volatile uint32_t short_payload = 0;// 0x91 包但 len < 60，读不到 yaw 就丢弃
+ 
+ 	int16_t getword(uint8_t HighBit, uint8_t LowBits);
+ 
+@@ -79,39 +73,30 @@
+ 
+ 	uint16_t crc_acc = 0;      // CRC 累加器（每帧 CrcReset() 清零）
+ 
+-    uint16_t rx_length = 0;
+-    uint32_t rx_arrival_us = 0, sample_arrival_us = 0;
+-    uint32_t last_device_timestamp = 0;
++	uint16_t rx_length = 0;
+     uint16_t sample_epoch = 1;
+     bool have_device_timestamp = false;
+-    uint32_t timestamp = 0;             // 0x91 offset 8 system_time (ms)
++    uint32_t last_device_timestamp = 0;
++    Angle device_angle{};
++    uint32_t timestamp = 0;
++	uint32_t frame_rx_time_us = 0;  // 本次取出的串口帧接收时间
++	uint32_t sample_time_us = 0;    // 最近一次有效姿态对应的接收时间// 0x91 offset 8 system_time (ms)
+ 	uint32_t last_rx_tick = 0;
+ 	bool     init_done = false;
+ 	bool     data_ok = false;
+ 
+-	Angle angle;
+-	Angle device_angle{};
+-	AngularVelocity angularvelocity;
++	Angle angle{};
++	AngularVelocity angularvelocity{};
+ 	Acceleration acceleration;
+ 	IMU_TYPE type;
+ 
+-	uint8_t rxData[UART_MAX_LEN];
+-	UART* m_uart;
++	uint8_t rxData[UART_MAX_LEN]{};
++	UART* m_uart = nullptr;
+ 
+ };
+ 
+-/* 原 uint16_t U2() 已删：全项目零消费者。
+- *
+- * ⚠️ 形参必须是 `const uint8_t*`：这两个函数只 memcpy 出来读、不写，
+- *    给 const 才是正确语义。声明成非 const 时，调用点一旦指向只读缓冲
+- *    （Decode0x91 里的 `const uint8_t* p`）就编译不过 ——
+- *    而"去掉 const 就能编过"恰恰是把只读缓冲伪装成可写，风险更糟。
+- *
+- * ⚠️ memcpy 读多字节字段要求源指针满足目标类型的对齐。uint8_t 数组首地址
+- *    至少 1 字节对齐，而 Cortex-M4 的 float/uint32 对齐要求是 4 —— 这里
+- *    理论上有 UB。F405 上实测未出问题（对齐在实践中被链接/栈布局兜住），
+- *    要严格正确应改成逐字节小端装载。*/
++// memcpy handles unaligned wire floats without dereferencing float pointers.
+ static uint32_t U4(const uint8_t* p) { uint32_t u; memcpy(&u, p, 4); return u; }
+ static float    R4(const uint8_t* p) { float    r; memcpy(&r, p, 4); return r; }
+ 
+-extern IMU imu_chassis, imu_pantile;
++extern IMU imu_chassis, imu_pantile;
+\ No newline at end of file
+diff --git a/STM32F405/judgement.cpp b/STM32F405/judgement.cpp
+--- a/STM32F405/judgement.cpp
++++ b/STM32F405/judgement.cpp
+@@ -11,7 +11,7 @@
+ 	if (m_uart->updateFlag)
+ 	{
+ 		m_uart->updateFlag = false;
+-		pd_Rx = xQueueReceive(*queueHandler, m_uartrx, NULL);
++		pd_Rx = xQueueReceive(*queueHandler, m_uartrx, 0);
+ 		m_readnum = m_uart->dataDmaNum;
+ 		if ((m_whand + m_readnum) < (m_FIFO + BUFSIZE))
+ 		{
+@@ -625,12 +625,12 @@
+ 		Start_x、Start_x    开始坐标
+ 		End_x、End_y   结束坐标
+ **********************************************************************************************************/
+-void Judgement::LineDraw(graphic_data_struct_t* image, char imagename[3], uint32_t Graph_Operate, \
++void Judgement::LineDraw(graphic_data_struct_t* image, const char imagename[3], uint32_t Graph_Operate, \
+ 	uint32_t Graph_Layer, uint32_t Graph_Color, uint32_t Graph_Width, uint32_t Start_x, \
+ 	uint32_t Start_y, uint32_t End_x, uint32_t End_y)
+ {
+ 	int i;
+-	for (i = 0; i < 3 && imagename[i] != NULL; i++)
++	for (i = 0; i < 3 && imagename[i] != '\0'; i++)
+ 		image->figure_name[2 - i] = imagename[i];
+ 	image->figure_tpye = UI_Graph_Line;
+ 	image->operate_tpye = Graph_Operate;
+@@ -653,12 +653,12 @@
+ 		Start_x、Start_x    开始坐标
+ 		End_x、End_y   结束坐标（对顶角坐标）
+ **********************************************************************************************************/
+-void Judgement::Rectangle_Draw(graphic_data_struct_t* image, char imagename[3], uint32_t Graph_Operate, \
++void Judgement::Rectangle_Draw(graphic_data_struct_t* image, const char imagename[3], uint32_t Graph_Operate, \
+ 	uint32_t Graph_Layer, uint32_t Graph_Color, uint32_t Graph_Width, uint32_t Start_x, \
+ 	uint32_t Start_y, uint32_t End_x, uint32_t End_y)
+ {
+ 	int i;
+-	for (i = 0; i < 3 && imagename[i] != NULL; i++)
++	for (i = 0; i < 3 && imagename[i] != '\0'; i++)
+ 		image->figure_name[2 - i] = imagename[i];
+ 	image->figure_tpye = UI_Graph_Rectangle;
+ 	image->operate_tpye = Graph_Operate;
+@@ -681,11 +681,11 @@
+ 		Start_x、Start_x    圆心坐标
+ 		Graph_Radius  图形半径
+ **********************************************************************************************************/
+-void Judgement::Circle_Draw(graphic_data_struct_t* image, char imagename[3], uint32_t Graph_Operate, uint32_t Graph_Layer, \
++void Judgement::Circle_Draw(graphic_data_struct_t* image, const char imagename[3], uint32_t Graph_Operate, uint32_t Graph_Layer, \
+ 	uint32_t Graph_Color, uint32_t Graph_Width, uint32_t Start_x, uint32_t Start_y, uint32_t Graph_Radius)
+ {
+ 	int i;
+-	for (i = 0; i < 3 && imagename[i] != NULL; i++)
++	for (i = 0; i < 3 && imagename[i] != '\0'; i++)
+ 		image->figure_name[2 - i] = imagename[i];
+ 	image->figure_tpye = UI_Graph_Circle;
+ 	image->operate_tpye = Graph_Operate;
+@@ -709,12 +709,12 @@
+ 		Start_y,Start_y    圆心坐标
+ 		x_Length,y_Length   x,y方向上轴长，参考椭圆
+ **********************************************************************************************************/
+-void Judgement::Arc_Draw(graphic_data_struct_t* image, char imagename[3], uint32_t Graph_Operate, uint32_t Graph_Layer, \
++void Judgement::Arc_Draw(graphic_data_struct_t* image, const char imagename[3], uint32_t Graph_Operate, uint32_t Graph_Layer, \
+ 	uint32_t Graph_Color, uint32_t Graph_StartAngle, uint32_t Graph_EndAngle, uint32_t Graph_Width, uint32_t Start_x, \
+ 	uint32_t Start_y, uint32_t x_Length, uint32_t y_Length)
+ {
+ 	int i;
+-	for (i = 0; i < 3 && imagename[i] != NULL; i++)
++	for (i = 0; i < 3 && imagename[i] != '\0'; i++)
+ 		image->figure_name[2 - i] = imagename[i];
+ 	image->figure_tpye = UI_Graph_Arc;
+ 	image->operate_tpye = Graph_Operate;
+@@ -742,11 +742,11 @@
+ 		Start_x、Start_x    开始坐标
+ 		Graph_Float   要显示的变量
+ **********************************************************************************************************/
+-void Judgement::Float_Draw(float_data_struct_t* image, char imagename[3], uint32_t Graph_Operate, uint32_t Graph_Layer, uint32_t Graph_Color, \
++void Judgement::Float_Draw(float_data_struct_t* image, const char imagename[3], uint32_t Graph_Operate, uint32_t Graph_Layer, uint32_t Graph_Color, \
+ 	uint32_t Graph_Size, uint32_t Graph_Digit, uint32_t Graph_Width, uint32_t Start_x, uint32_t Start_y, float Graph_Float)
+ {
+ 	int i;
+-	for (i = 0; i < 2 && imagename[i] != NULL; i++)
++	for (i = 0; i < 2 && imagename[i] != '\0'; i++)
+ 		image->figure_name[2 - i] = imagename[i];
+ 	image->figure_tpye = UI_Graph_Float;
+ 	image->operate_tpye = Graph_Operate;
+@@ -778,11 +778,11 @@
+ 		Start_x、Start_x    开始坐标
+ 		*Char_Data          待发送字符串开始地址
+ **********************************************************************************************************/
+-void Judgement::Char_Draw(string_data_struct_t* image, char imagename[3], uint32_t Graph_Operate, uint32_t Graph_Layer, uint32_t Graph_Color, \
++void Judgement::Char_Draw(string_data_struct_t* image, const char imagename[3], uint32_t Graph_Operate, uint32_t Graph_Layer, uint32_t Graph_Color, \
+ 	uint32_t Graph_Size, uint32_t Graph_Digit, uint32_t Graph_Width, uint32_t Start_x, uint32_t Start_y, char* Char_Data)
+ {
+ 	int i;
+-	for (i = 0; i < 3 && imagename[i] != NULL; i++)
++	for (i = 0; i < 3 && imagename[i] != '\0'; i++)
+ 		image->Graph_Control.figure_name[2 - i] = imagename[i];
+ 	image->Graph_Control.figure_tpye = UI_Graph_Char;
+ 	image->Graph_Control.operate_tpye = Graph_Operate;
+diff --git a/STM32F405/judgement.h b/STM32F405/judgement.h
+--- a/STM32F405/judgement.h
++++ b/STM32F405/judgement.h
+@@ -320,23 +320,23 @@
+ 
+ 	}data;
+ 
+-#pragma pack(1)
++#pragma pack(push, 1)
+ 	//-----------------------------------------------------------
+-	typedef __packed struct
++	typedef struct
+ 	{
+ 		uint8_t delete_type;
+ 		uint8_t layer;
+ 	}interaction_layer_delete_t;
+ 
+-	typedef  __packed  struct {
++	typedef  struct {
+ 		uint16_t data_cmd_id;
+ 		uint16_t sender_ID;
+ 		uint16_t receiver_ID;
+ 	}robot_interaction_data_t;
+-	typedef  __packed  struct {
++	typedef  struct {
+ 		uint8_t data[15];
+ 	} robot_interactive_data_t;
+-	typedef __packed struct
++	typedef struct
+ 	{
+ 		uint8_t figure_name[3];
+ 		uint32_t operate_tpye : 3;
+@@ -376,7 +376,7 @@
+ 
+ 	//-----------------------------------------------------------
+ 
+-	typedef __packed  struct
++	typedef struct
+ 	{
+ 		uint8_t  sof = 0xA5;//数据帧起始字节，固定值为0x05
+ 		uint16_t data_length; //数据中data的长度
+@@ -384,7 +384,7 @@
+ 		uint8_t  crc8;  //帧头CRC8校验
+ 
+ 	} frame_header_t;
+-	typedef __packed  struct
++	typedef struct
+ 	{
+ 		frame_header_t   						txFrameHeader;
+ 		uint16_t								CMD;//命令字id
+@@ -393,7 +393,7 @@
+ 	}CommunatianData_graphic_t;
+ 
+ 
+-#pragma pack()
++#pragma pack(pop)
+ 
+ 
+ private:
+@@ -431,21 +431,21 @@
+ 	bool Transmit(uint32_t read_size, uint8_t* plate);
+ 
+ 
+-	void LineDraw(graphic_data_struct_t* image, char imagename[3], uint32_t Graph_Operate, \
++	void LineDraw(graphic_data_struct_t* image, const char imagename[3], uint32_t Graph_Operate, \
+ 		uint32_t Graph_Layer, uint32_t Graph_Color, uint32_t Graph_Width, uint32_t Start_x, \
+ 		uint32_t Start_y, uint32_t End_x, uint32_t End_y);
+-	void Rectangle_Draw(graphic_data_struct_t* image, char imagename[3], uint32_t Graph_Operate, \
++	void Rectangle_Draw(graphic_data_struct_t* image, const char imagename[3], uint32_t Graph_Operate, \
+ 		uint32_t Graph_Layer, uint32_t Graph_Color, uint32_t Graph_Width, uint32_t Start_x, \
+ 		uint32_t Start_y, uint32_t End_x, uint32_t End_y);
+-	void Circle_Draw(graphic_data_struct_t* image, char imagename[3], uint32_t Graph_Operate, uint32_t Graph_Layer, \
++	void Circle_Draw(graphic_data_struct_t* image, const char imagename[3], uint32_t Graph_Operate, uint32_t Graph_Layer, \
+ 		uint32_t Graph_Color, uint32_t Graph_Width, uint32_t Start_x, uint32_t Start_y, uint32_t Graph_Radius);
+-	void Arc_Draw(graphic_data_struct_t* image, char imagename[3], uint32_t Graph_Operate, uint32_t Graph_Layer, \
++	void Arc_Draw(graphic_data_struct_t* image, const char imagename[3], uint32_t Graph_Operate, uint32_t Graph_Layer, \
+ 		uint32_t Graph_Color, uint32_t Graph_StartAngle, uint32_t Graph_EndAngle, uint32_t Graph_Width, uint32_t Start_x, \
+ 		uint32_t Start_y, uint32_t x_Length, uint32_t y_Length);
+-	void Float_Draw(float_data_struct_t* image, char imagename[3], uint32_t Graph_Operate, uint32_t Graph_Layer,
++	void Float_Draw(float_data_struct_t* image, const char imagename[3], uint32_t Graph_Operate, uint32_t Graph_Layer,
+ 		uint32_t Graph_Color, uint32_t Graph_Size, uint32_t Graph_Digit, uint32_t Graph_Width, uint32_t Start_x, \
+ 		uint32_t Start_y, float Graph_Float);
+-	void Char_Draw(string_data_struct_t* image, char imagename[3], uint32_t Graph_Operate, uint32_t Graph_Layer,
++	void Char_Draw(string_data_struct_t* image, const char imagename[3], uint32_t Graph_Operate, uint32_t Graph_Layer,
+ 		uint32_t Graph_Color, uint32_t Graph_Size, uint32_t Graph_Digit, uint32_t Graph_Width, uint32_t Start_x, \
+ 		uint32_t Start_y, char* Char_Data);
+ 
+@@ -459,5 +459,10 @@
+ 
+ };
+ 
++static_assert(sizeof(Judgement::frame_header_t)==5, "UI header layout");
++static_assert(sizeof(Judgement::robot_interaction_data_t)==6, "UI interaction layout");
++static_assert(sizeof(Judgement::graphic_data_struct_t)==15, "UI graphic layout");
++static_assert(sizeof(Judgement::float_data_struct_t)==15, "UI float graphic layout");
++static_assert(sizeof(Judgement::string_data_struct_t)==45, "UI string layout");
+ extern "C" Judgement judgement;
+ 
+diff --git a/STM32F405/label.cpp b/STM32F405/label.cpp
+--- a/STM32F405/label.cpp
++++ b/STM32F405/label.cpp
+@@ -9,15 +9,30 @@
+ 	imu_pitch_max = 18, imu_pitch_min = 16;
+ 	ace_speed = 1000, max_speed = 3000, rota_speed = 1000;
+ 	pitch_speed = 2, yaw_speed = 2;
+-	dm_initial_pitch = 0.f, dm_initial_yaw = 0.f;
+-	yaw_center = 8192.f, yaw_span = 1707.f;//左右75度大概
++	dm_initial_pitch = 0.00f, dm_initial_yaw = 0.f;
++	yaw_center = 8192.f, yaw_span = 1200.0f;//左右75度大概
+ 	bullet_step = 42130.29f;bullet_lead_max = 84260.58f;
+-	dm_pitch_min = -0.55f;   
+-	dm_pitch_max = +0.4f;  
+-	// 底盘导航：视觉速度 → rpm
++	dm_pitch_min = -0.45f;   
++	dm_pitch_max = +0.45f;  
++	// ── 底盘导航：视觉速度(m/s) → 电机转子rpm ──
++	//换算链： nav_v [m/s] × K_NAV → 转子rpm → ÷GEAR → 轮rpm → ×2πR → m/s
++	//   反解得K_NAV = GEAR × 60 / (2π × R)
++	//
++	//🔴 K_NAV 原值 159 是【量纲错误】，不是"待标定的估算值"：
++	//   159 rpm ÷ 19.2 = 8.28 轮rpm → ×2π×0.0475 = 0.0220 m/s
++	//   ⇒ 上位机发 1 m/s，机器人只走 2.2 cm/s，差 45 倍。
++	//   正确值应为 3859.9（GEAR=19.2032, R=0.0475m）。
+ 	DV_MAX = 200.f;                    // 每周期(5ms)最多变 200rpm
+-	NAV_MAX = 4000.f;                  // 与摇杆量程对齐
+-	K_NAV = 159.f;           // 速度增益
++	NAV_MAX = 6000.f;                  // 目标rpm 上限，与底盘 maxspeed 对齐
++	K_NAV = 3859.9f;
++
++	nav_yaw_lever_m = 0.350f;
++	nav_yaw_sign = -1.f;         // 速度增益 m/s → 转子rpm（理论值，仍需实测校正）
++	// ⚠️ 理论值只保证"量纲对"，实测必偏：轮胎打滑、地面摩擦、负载、
++	//    以及 M3508 实际减速比与标称值的差异，都会带来 10~30% 偏差。
++	//    实测方法：上位机固定发 vx=1.0 m/s，秒表量 3 秒实际距离，
++	//    K_NAV_new = K_NAV_theory × (1.0 / v_measured)。
++	// ⚠️ 若轮径不是 47.5mm（实测直径 D），K_NAV 应按 3859.9 × 47.5/D 缩放。
+ }
+ 
+ 
+diff --git a/STM32F405/label.h b/STM32F405/label.h
+--- a/STM32F405/label.h
++++ b/STM32F405/label.h
+@@ -1,11 +1,7 @@
+ #pragma once
+-#ifdef SENTINEL_ACTUATOR_HOST_TEST
+-#include "tests/sentinel/actuator_hal_stubs.hpp"
+-#else
+ #include "FreeRTOS.h"
+ #include "task.h"
+ #include "queue.h"
+-#endif
+ 
+ /*
+ 头文件中不要进行全局变量定义，可进行宏定义
+@@ -46,7 +42,9 @@
+ 	// 底盘导航：视觉速度 → rpm
+ 	float DV_MAX{};              // 每周期(5ms)最多变 200rpm
+ 	float NAV_MAX{};              // 与摇杆量程对齐
+-	float K_NAV{};        // 速度增益
++	float K_NAV{};
++    float nav_yaw_lever_m = 0.f; // (front/rear wheel-center spacing + left/right spacing)/2, metres
++    float nav_yaw_sign = 1.f;   // Verify physical left-turn sign before navigation use        // 速度增益
+ 
+ 	void Init();
+ 
+@@ -67,7 +65,7 @@
+ extern TaskHandle_t LedTask_Handler;
+ 
+ #define DECODE_TASK_PRIO		3
+-#define DECODE_STK_SIZE 		128  
++#define DECODE_STK_SIZE 		512  
+ extern TaskHandle_t DecodeTask_Handler;
+ 
+ #define RC_TASK_PRIO		3	
+@@ -75,7 +73,7 @@
+ extern TaskHandle_t RcTask_Handler;
+ 
+ #define CONTROL_TASK_PRIO		2
+-#define CONTROL_STK_SIZE 		128  
++#define CONTROL_STK_SIZE 		256  
+ extern TaskHandle_t ControlTask_Handler;
+ 
+ #define MOTOR_TASK_PRIO		2
+@@ -86,4 +84,4 @@
+ #define CANTX_STK_SIZE 		256 
+ extern TaskHandle_t CanTxTask_Handler;
+ 
+-extern PARAMETER para;
++extern PARAMETER para;
+\ No newline at end of file
+diff --git a/STM32F405/mission_counter.h b/STM32F405/mission_counter.h
+--- /dev/null
++++ b/STM32F405/mission_counter.h
+@@ -0,0 +1,28 @@
++#pragma once
++#include <cstdint>
++#include <cmath>
++
++// Net encoder travel in the firing direction. A complete bullet_step is one
++// completed feed, not a full disk revolution and not proof of a projectile exit.
++struct MissionFeedCounter {
++    uint32_t count=0,generation=0;
++    int32_t previous=0;
++    double remainder=0;
++    bool initialized=false,continuous=false;
++    void Update(bool fresh,uint32_t gen,int32_t sum,float step) {
++        if (!fresh || !std::isfinite(step) || step<=1.f) { continuous=false; return; }
++        if (!initialized || !continuous || gen!=generation) {
++            if (initialized) ++generation_serial;
++            initialized=continuous=true;generation=gen;previous=sum;remainder=0;return;
++        }
++        // Modular subtraction survives the signed 32-bit sum-angle wrap.
++        const int32_t delta=int32_t(uint32_t(previous)-uint32_t(sum));previous=sum;
++        remainder+=delta;
++        // Allow at most 32 encoder counts (and at most 0.1% of a step) of
++        // position quantization/settling error. Subtract the full step so this
++        // tolerance cannot accumulate or count threshold vibration twice.
++        const double tolerance=step*.001<32. ? step*.001:32.;
++        while (remainder>=step-tolerance) { if(count!=0xffffffffu)++count;remainder-=step; }
++    }
++    uint32_t generation_serial=0;
++};
+diff --git a/STM32F405/motor.cpp b/STM32F405/motor.cpp
+--- a/STM32F405/motor.cpp
++++ b/STM32F405/motor.cpp
+@@ -1,5 +1,7 @@
+ #include "motor.h"
++#include "gpio.h"
+ #include "HTmotor.h"
++#include "imu.h"
+ #define DEG_TO_RAD 0.017453292f  // π / 180
+ Motor::Motor(const motor_type type, const motor_mode mode, const function_type function, const uint32_t id, PID _speed, PID _position, PID _speed2)
+ 	: ID(id)
+@@ -59,150 +61,168 @@
+ {
+ 	return (uint8_t)m_status;
+ }
++
+ bool Motor::OnFeedbackFrame(const uint8_t* bytes)
+ {
+-	if (!bytes || ((uint16_t(bytes[0]) << 8) | bytes[1]) >= 8192u) return false;
++	if (!bytes || ((uint16_t(bytes[0]) << 8) | bytes[1]) >= 8192u)
++		return false;
++
+ 	const uint32_t now_ms = HAL_GetTick();
+-	if (!feedback_watchdog_.Fresh(now_ms)) ++feedback_generation_;
+-	memcpy(feedback_bytes_, bytes, sizeof(feedback_bytes_));
+-	feedback_watchdog_.Received(now_ms);
++
++	if (!feedback_seen_ ||
++		uint32_t(now_ms - last_feedback_ms_) > FEEDBACK_TIMEOUT_MS)
++		++feedback_generation_;
++
++	last_feedback_ms_ = now_ms;
++	feedback_seen_ = true;
+ 	return true;
+ }
++
++bool Motor::FeedbackFresh() const
++{
++	return feedback_seen_ &&
++		uint32_t(HAL_GetTick() - last_feedback_ms_) <= FEEDBACK_TIMEOUT_MS &&
++		decoded_generation_ == feedback_generation_;
++}
++
+ void Motor::CancelPositionTarget()
+ {
+ 	taskENTER_CRITICAL();
++
+ 	setangle = use_sum_angle ? float(sum_angle) : angle[now];
+-	setspeed = 0; current = 0;
+-	for (auto& controller : pid) controller.Reset();
++	setspeed = 0;
++	current = 0;
++
++	for (auto& controller : pid)
++		controller.Reset();
++
+ 	taskEXIT_CRITICAL();
+ }
+-void Motor::Ontimer(uint8_t idata[][8], uint8_t* odata)//idate: receive;odate: trainsmit;RC
+-{
+-	uint32_t trainsmit_or_receive_ID = this->ID - ID1;
+-	(void)idata; // A cached public CAN buffer is never evidence of a new arrival.
+-	uint8_t frame[8];
++
++void Motor::Ontimer(uint8_t idata[][8], uint8_t* odata)
++{
++	const uint32_t slot = ID - ID1;
++	if (slot >= 8u) return;
++
+ 	taskENTER_CRITICAL();
+-	const bool fresh = feedback_watchdog_.Fresh(HAL_GetTick());
+-	const uint32_t generation = feedback_generation_;
+-	if (fresh) memcpy(frame, feedback_bytes_, sizeof(frame));
+-	// Keep controller state and the output pair coherent with cancellation in
+-	// ControlTask. No blocking operations occur in this bounded critical section.
+-	if (!fresh) {
++
++	const bool fresh = feedback_seen_ &&
++		uint32_t(HAL_GetTick() - last_feedback_ms_) <= FEEDBACK_TIMEOUT_MS;
++
++	if (!fresh)
++	{
+ 		CancelPositionTarget();
+-		has_feedback = angle_latched = false;
+-		curspeed = 0; m_status = DISCONNECTED;
+-		odata[trainsmit_or_receive_ID * 2] = 0;
+-		odata[trainsmit_or_receive_ID * 2 + 1] = 0;
++		has_feedback = false;
++		angle_latched = false;
++		curspeed = 0;
++		m_status = DISCONNECTED;
++
++		odata[slot * 2u] = 0;
++		odata[slot * 2u + 1u] = 0;
++
+ 		taskEXIT_CRITICAL();
+ 		return;
+ 	}
+-	const bool recovering = !has_feedback || decoded_generation_ != generation;
+-	decoded_generation_ = generation;
+-	has_feedback = true; m_status = FINE;
+-
+-	//----------------------------------------------------------------
+-	/*if (this->type == M6020)
+-	{
+-		trainsmit_or_receive_ID += 4;//神秘注释，好像是另外一套偏移id的方案
+-	}*/
+-	//----------------------------------------------------------------
+-	this->torque_current = getword(frame[4], frame[5]);
+-	this->angle[now] = getword(frame[0], frame[1]);
+-	this->temperature = frame[6];
+-	if (recovering) {
++
++	const bool recovering = !has_feedback ||
++		decoded_generation_ != feedback_generation_;
++
++	decoded_generation_ = feedback_generation_;
++	has_feedback = true;
++	m_status = FINE;
++
++	torque_current = getword(idata[slot][4], idata[slot][5]);
++	angle[now] = getword(idata[slot][0], idata[slot][1]);
++	temperature = idata[slot][6];
++
++	if (recovering)
++	{
+ 		angle[pre] = angle[now];
+ 		CancelPositionTarget();
+ 	}
+-	//Get currrent speed
+-
+-	motor_status = 0;
+-	if (temperature > 70) {
++
++	if (temperature > 70)
+ 		setspeed = 0;
+-	}
+ 
+ 	if (type == EC60)
+-	{
+-		curspeed = static_cast<float>(getdeltaa(angle[now] - angle[pre])) / T / 8192.f * 60.f;
+-	}
+-	else {
+-		curspeed = getword(frame[2], frame[3]);
+-	}
+-	//----------------------------------------------------------------
+-	/*if (this->type == M6020)
+-	{
+-		trainsmit_or_receive_ID -= 4;
+-	}*/
+-	//----------------------------------------------------------------
+-	// A wheel OFF/thermal stop is an output revocation, not a zero-speed
+-	// regulation request. The incremental speed loop can retain nonzero current
+-	// even at zero measured speed (observed on the stopped hot right wheel).
+-	// Clear both PID debt and the actual CAN pair; keep decoding encoder history.
+-	if (function == function_type::shooter && (setspeed == 0 || temperature > 70)) {
++		curspeed = static_cast<float>(
++			getdeltaa(angle[now] - angle[pre])) / MOTOR_SAMPLE_DT_S / 8192.f * 60.f;
++	else
++		curspeed = getword(idata[slot][2], idata[slot][3]);
++
++	if ((function == shooter || function == supply) &&
++		temperature > 70)
++	{
+ 		CancelPositionTarget();
+ 		recorded_the_Laps();
+ 		GetDistanceFromMechanicalAngle();
+ 		angle[pre] = angle[now];
+-		odata[trainsmit_or_receive_ID * 2] = 0;
+-		odata[trainsmit_or_receive_ID * 2 + 1] = 0;
++
++		odata[slot * 2u] = 0;
++		odata[slot * 2u + 1u] = 0;
++
+ 		taskEXIT_CRITICAL();
+ 		return;
+ 	}
+-	//20220121--hz
+-	if (mode == ACE)
+-	{
+-
+-	}
+-	else if (mode == POS)
+-	{
+-		if (!has_feedback) current = 0;
+-		else
++
++	if (mode == POS)
++	{
++		if (!angle_latched)
+ 		{
+-			if (!angle_latched)
++			if (use_sum_angle)
+ 			{
+-				if (use_sum_angle)                       // 小yaw和拨弹轮的POS模式不同，拨弹轮不能回环，要多圈
+-				{
+-					sum_angle = 0;
+-					angle[pre] = angle[now];             // ← 关键，见下
+-					setangle = 0.f;
+-				}
+-				else setangle = angle[now];              // 云台：单圈绝对角
+-				angle_latched = true;
++				sum_angle = 0;
++				angle[pre] = angle[now];
++				setangle = 0.f;
+ 			}
+-
+-			float raw = use_sum_angle ? (setangle - (float)sum_angle)
+-				: (float)getdeltaa((int16_t)(setangle - angle[now]));//只有小yaw的POS模式才会用到getdeltaa，拨弹轮的POS模式不需要回环
+-			float pos_error = mechanicalToDegree(raw);
+-
+-			if (fabsf(pos_error) < pos_deadband) pos_error = 0.f;// 小死区，防震荡
+-
+-			float speed_ref = pid[position].Position(pos_error, 1000.f);
+-			speed_ref = std::max(std::min(speed_ref, (float)maxspeed), -(float)maxspeed);
+-			current += pid[speed].Delta(speed_ref - curspeed);
++			else
++				setangle = angle[now];
++
++			angle_latched = true;
+ 		}
++
++		float raw = use_sum_angle
++			? setangle - float(sum_angle)
++			: float(getdeltaa(int16_t(setangle - angle[now])));
++
++		float pos_error = mechanicalToDegree(raw);
++
++		if (fabsf(pos_error) < pos_deadband)
++			pos_error = 0.f;
++
++		float speed_ref = pid[position].Position(pos_error, 1000.f);
++
++		speed_ref = std::max(
++			std::min(speed_ref, float(maxspeed)), -float(maxspeed));
++
++		current += pid[speed].Delta(speed_ref - curspeed);
+ 	}
+ 	else if (mode == SPD)
+ 	{
+ 		current += pid[speed].Delta(setspeed - curspeed);
+ 	}
++
+ 	recorded_the_Laps();
+ 	GetDistanceFromMechanicalAngle();
+ 	angle[pre] = angle[now];
++
+ 	current = setrange(current, maxcurrent);
+-	odata[trainsmit_or_receive_ID * 2] = (current & 0xff00) >> 8;//高八位
+-	odata[trainsmit_or_receive_ID * 2 + 1] = current & 0x00ff;
++	odata[slot * 2u] = (current & 0xff00) >> 8;
++	odata[slot * 2u + 1u] = current & 0x00ff;
++
+ 	taskEXIT_CRITICAL();
+ }
+-void Motor::recorded_the_Laps() {
++
++void Motor::recorded_the_Laps()
++{
+ 	int16_t delta = angle[now] - angle[pre];
+-	// 处理回绕：顺时针
+-	if (delta > 8192 / 2)
++
++	if (delta > 4096)
+ 		delta -= 8192;
+-	// 处理回绕：逆时针
+-	else if (delta < -8192 / 2)
++	else if (delta < -4096)
+ 		delta += 8192;
+ 
+-	sum_angle+= delta;
+-//	round_count = total_count / encoder_resolution;
++	sum_angle += delta;
+ }
+ 
+ uint8_t initial_cnt=0;
+diff --git a/STM32F405/motor.h b/STM32F405/motor.h
+--- a/STM32F405/motor.h
++++ b/STM32F405/motor.h
+@@ -5,9 +5,8 @@
+ #include "pid.h"
+ #include "kalman.h"
+ #include "label.h"
+-#include "feedback_watchdog.h"
+ #define WHEEL_RADIUS_MM 47.5f
+-#define GEAR_RATIO      36.0f
++#define GEAR_RATIO      19.2032f
+ 
+ constexpr auto MAXSPEED = 5000;
+ //constexpr auto ADJUSTSPEED = 3000;
+@@ -20,7 +19,7 @@
+ enum function_type { chassis, pantile, shooter, supply };
+ typedef enum { UNINIT, UNCONNECTED, DISCONNECTED, FINE }motor_status_t;
+ #define SQRTF(x) ((x)>0?sqrtf(x):-sqrtf(-x))
+-#define T 1.e-3f
++static constexpr float MOTOR_SAMPLE_DT_S = 1.e-3f;
+ 
+ class Motor
+ {
+@@ -33,11 +32,12 @@
+ 	Motor(const motor_type type, const motor_mode mode, const function_type function, const uint32_t id, PID _speed);
+ 	void recorded_the_Laps();
+ 	void Ontimer(uint8_t idata[][8], uint8_t* odata);
+-	bool OnFeedbackFrame(const uint8_t* bytes); // CAN receive callback only.
+-	bool FeedbackFresh() const {
+-		return feedback_watchdog_.Fresh(HAL_GetTick()) && decoded_generation_ == feedback_generation_;
+-	}
++	static constexpr uint32_t FEEDBACK_TIMEOUT_MS = 100u;
++
++	bool OnFeedbackFrame(const uint8_t* bytes);
++	bool FeedbackFresh() const;
+ 	uint32_t FeedbackGeneration() const { return feedback_generation_; }
++
+ 	void CancelPositionTarget();
+ private:
+ 	motor_status_t m_status = UNINIT;
+@@ -50,8 +50,8 @@
+ 	static int16_t getword(const uint8_t high, const uint8_t low);
+ 	static int32_t setrange(const int32_t original, const int32_t range);
+ 	type_t type;
+-	FeedbackWatchdog feedback_watchdog_;
+-	uint8_t feedback_bytes_[8]{};
++	volatile bool feedback_seen_ = false;
++	volatile uint32_t last_feedback_ms_ = 0;
+ 	volatile uint32_t feedback_generation_ = 0;
+ 	uint32_t decoded_generation_ = 0;
+ public:
+@@ -68,8 +68,8 @@
+ 	int32_t mode{};
+ 	int round_count;
+ 	bool pd = 0, spinning = 0;//pd:单次拨弹 spinning:一秒八发
+-	bool has_feedback = false;   // Decoded feedback is currently fresh.
+-	bool angle_latched = false;  // Reset on loss; recovery captures current position.
++	bool has_feedback = false;   // 收到过真实反馈帧（置位后永不复位）                                                       HELLO，如果你看到我了，那你很认真了
++	bool angle_latched = false;  // POS：目标角已锁存（置位后永不复位）
+ 	bool use_sum_angle = false;
+ 	PID pid[3];
+ 	float Torque_constant_2006 = (0.18*10)/10000;
+diff --git a/STM32F405/pid.h b/STM32F405/pid.h
+--- a/STM32F405/pid.h
++++ b/STM32F405/pid.h
+@@ -1,9 +1,5 @@
+ #pragma once
+-#ifdef SENTINEL_ACTUATOR_HOST_TEST
+-#include "tests/sentinel/actuator_hal_stubs.hpp"
+-#else
+ #include "stm32f4xx_hal.h"
+-#endif
+ #include <algorithm>
+ 
+ enum { INTEGRATE = 0, LLAST = 0, LAST = 1, NOW = 2 };
+@@ -11,11 +7,6 @@
+ class PID
+ {
+ public:
+-	void Reset() {
+-		for (auto& value : m_error) value = 0.f;
+-		for (auto& value : m_filter) value = 0.f;
+-		m_lderivative = 0.f; m_filterindex = 0;
+-	}
+ 	PID(void)
+ 		: m_Kp(0.f)
+ 		, m_Ti(0.f)
+@@ -24,6 +15,14 @@
+ 		: m_Kp(Kp)
+ 		, m_Ti(Ti)
+ 		, m_Td(Td), m_alpha(alpha) {}
++
++	void Reset()
++	{
++		for (auto& e : m_error) e = 0.f;
++		for (auto& v : m_filter) v = 0.f;
++		m_lderivative = 0.f;
++		m_filterindex = 0;
++	}
+ 
+ 	void Adjust(float Kp, float Ti, float Td, float alpha)
+ 	{
+diff --git a/STM32F405/supercap.cpp b/STM32F405/supercap.cpp
+--- a/STM32F405/supercap.cpp
++++ b/STM32F405/supercap.cpp
+@@ -3,7 +3,7 @@
+ #include "label.h"
+ #include "control.h"
+ #include "motor.h"
+-#include <judgement.h>
++#include "judgement.h"
+ 
+ 
+ float uint_to_float(int x_int, float x_min, float x_max, int bits)
+@@ -31,7 +31,7 @@
+ 
+ void SUPERCAP::decode()
+ {
+-	pd_Rx = xQueueReceive(*queueHandler, rxData, NULL);
++	pd_Rx = xQueueReceive(*queueHandler, rxData, 0);
+ 
+ 	if (Rxsuper.I == I_pre) { count += 1; }
+ 	else { count = 0; }
+diff --git a/STM32F405/taskslist.cpp b/STM32F405/taskslist.cpp
+--- a/STM32F405/taskslist.cpp
++++ b/STM32F405/taskslist.cpp
+@@ -23,7 +23,7 @@
+ 		(uint16_t)START_STK_SIZE,        //任务堆栈大小
+ 		(void*)NULL,                  //传递给任务函数的参数
+ 		(UBaseType_t)START_TASK_PRIO,       //任务优先级
+-		(TaskHandle_t*)&StartTask_Handler);   //任务句柄
++		(TaskHandle_t*)&StartTask_Handler);   //任务句柄              
+ 	vTaskStartScheduler();          //开启任务调度
+ }
+ 
+@@ -77,11 +77,11 @@
+ void MotorUpdateTask(void* pvParameters)
+ {
+ 	TickType_t xlastWakeTime = xTaskGetTickCount();
+-
++	
+ 	while (1)
+ 	{
+-
+-
++	
++	
+ 		for (auto& motor : can1_motor)motor.Ontimer(can1.data, can1.temp_data);
+ 
+ 		for (auto& motor : can2_motor)motor.Ontimer(can2.data, can2.temp_data);
+@@ -128,7 +128,7 @@
+ 		default:
+ 			break;
+ 		}
+-
++		
+ 		vTaskDelayUntil(&xlastWakeTime1, pdMS_TO_TICKS(1));//开始执行该任务之后1ms再执行该任务
+ 
+ 	}
+@@ -136,19 +136,21 @@
+ 
+ void ControlTask(void* pvParameters)
+ {
++    TickType_t wake = xTaskGetTickCount();
+ 	while (true)
+ 	{
+ 		rc.Update();
+ 		ctrl.chassis.Update();
+ 		ctrl.pantile.Update();
+ 		ctrl.shooter.Update();
+-		vTaskDelay(5);
++		vTaskDelayUntil(&wake,pdMS_TO_TICKS(5));
+ 	}
+ }
+ 
+ 
+ void DecodeTask(void* pvParameters)
+ {
++    TickType_t wake = xTaskGetTickCount();
+ 	/* ---- 上行发送分频（2026-10-15 新增）----
+ 	 *
+ 	 * 原来 xuc.Encode() 在 ArmTask(100 ms) ⇒ 三帧（0x01/0x02/0x81）一起只有 10 Hz。
+@@ -176,10 +178,15 @@
+ 		/* ---- 上行发送（从 ArmTask 挪来）----
+ 		 * 同任务的好处：xuc.Decode() 与 xuc.Encode() 在同一时间轴上，
+ 		 * 抓包/看 watch 时"这一周期收了什么、发的是什么"能直接对上。*/
+-		// Keep startup/STOP telemetry alive; physical AUTO is explicit in state.bit7.
+-		if (++tx_div >= 4) { tx_div = 0; xuc.Encode(); }
+-
+-		vTaskDelay(5);
++		 // 所有模式都持续上报姿态和状态。
++ // 上报数据不代表允许控制，执行许可仍由电控模式决定。
++		if (++tx_div >= 4)
++		{
++			tx_div = 0;
++			xuc.Encode();
++		} //在非AUTO状态下也会上报姿态
++
++		vTaskDelayUntil(&wake,pdMS_TO_TICKS(5));
+ 	}
+ }
+ 
+@@ -192,9 +199,7 @@
+ 	 * 所以 100 ms 的 ArmTask + 512 B 栈（LED_STK_SIZE）现在只干轻活，风险反而降了。*/
+ 	while (true)
+ 	{
+-		// Startup requests only: DMmotorinit requires physical STOP/RESET and
+-		// stops emitting FC after operation or a safety latch. Feedback faults
+-		// require STOP/RESET + MCU restart; this loop cannot undo the latch.
++		//初始化达妙电机
+ 		DMmotor[0].DMmotorinit(can1);
+ 		DMmotor[1].DMmotorinit(can2);
+ 		power.Send();
+diff --git a/STM32F405/tim.cpp b/STM32F405/tim.cpp
+--- a/STM32F405/tim.cpp
++++ b/STM32F405/tim.cpp
+@@ -44,15 +44,17 @@
+ 	                                HAL_TIM_Base_MspInit → 开 TIM2 NVIC），残留的
+ 	                                UIE 会让 1 MHz 计数器每秒进 100 万次 ISR 直接拖死
+ 	                                系统。这里不碰 NVIC，只保证外设侧不再产生中断请求。*/
+-	TIM2->PSC = (div - 1u);       /* 84 MHz / 84 = 1 MHz */
+-	TIM2->ARR = 0xFFFFFFFFu;      /* 32 位满量程 */
+-	// PSC is buffered: load /84 now, before CEN, instead of waiting for
+-	// the first 32-bit overflow (~51 s at the unprescaled 84 MHz clock).
++	TIM2->PSC = div - 1u;
++	TIM2->ARR = 0xFFFFFFFFu;
++
++	// 产生更新事件，让预分频值立即生效。
+ 	TIM2->EGR = TIM_EGR_UG;
+-	TIM2->CNT = 0;                /* 从 0 起算 */
+-	TIM2->SR  = 0;                /* 清所有更新/捕获标志 */
+-
+-	TIM2->CR1 = TIM_CR1_CEN;      /* 仅置 CEN 启动计数；UEV/DIE 保持 0 */
++
++	// 清除更新事件产生的标志，并从零开始计时。
++	TIM2->SR = 0;
++	TIM2->CNT = 0;
++
++	TIM2->CR1 = TIM_CR1_CEN;
+ 	return true;
+ }
+ 
+diff --git a/STM32F405/usart.cpp b/STM32F405/usart.cpp
+--- a/STM32F405/usart.cpp
++++ b/STM32F405/usart.cpp
+@@ -19,7 +19,7 @@
+   /* USER CODE END Header */
+   /* Includes ------------------------------------------------------------------*/
+ #include "usart.h"
+-#include "task.h"
++#include <cstring>
+ #include "stm32f4xx_hal_gpio.h"
+ #include "label.h"
+ #include "queue.h"
+@@ -51,22 +51,28 @@
+ }
+ 
+ 
+-UART& UART::DMARxInit(const uint8_t* buffer, const uint32_t size)//size = UART_MAX_LEN
+-{
+-	__HAL_DMA_DISABLE(huart.hdmarx);						//失能串口DMA接收
+-	huart.hdmarx->Instance->PAR = reinterpret_cast<uint32_t>(&huart.Instance->DR);
+-	//PAR is DMA stream x peripheral address register,DR is UART Date register address
+-	huart.hdmarx->Instance->NDTR = size;					//设置串口数据长度
+-	if (buffer == nullptr)									//设置缓冲区
+-		buffer = m_uartrx;
+-	huart.hdmarx->Instance->M0AR = reinterpret_cast<uint32_t>(buffer);//设置存储器0地址
+-	DMAClearAllFlags(huart.hdmarx);
+-	__HAL_DMA_ENABLE(huart.hdmarx);							//使能串口DMA接收	
+-	SET_BIT(huart.Instance->CR3, USART_CR3_DMAR);
+-
+-	__HAL_UART_CLEAR_PEFLAG(&huart);						//开启串口空闲中断
+-	__HAL_UART_ENABLE_IT(&huart, UART_IT_IDLE);
+-	return *this;
++UART& UART::DMARxInit(const uint8_t* buffer, const uint32_t size)
++{
++    if (size == 0u || size > UART_RX_STORAGE) return *this;
++    __HAL_DMA_DISABLE(huart.hdmarx);
++    if (size != rx_capacity_)
++    {
++        if (UartQueueHandler) vQueueDelete(UartQueueHandler);
++        UartQueueHandler = xQueueCreate(1, size);
++        rx_capacity_ = uint16_t(size);
++    }
++    if (!UartQueueHandler) return *this;
++    if (!buffer) buffer = m_uartrx;
++    huart.hdmarx->Instance->PAR = reinterpret_cast<uint32_t>(&huart.Instance->DR);
++    huart.hdmarx->Instance->M0AR = reinterpret_cast<uint32_t>(buffer);
++    huart.hdmarx->Instance->NDTR = size;
++    rx_len = 0;
++    DMAClearAllFlags(huart.hdmarx);
++    __HAL_DMA_ENABLE(huart.hdmarx);
++    SET_BIT(huart.Instance->CR3, USART_CR3_DMAR);
++    __HAL_UART_CLEAR_PEFLAG(&huart);
++    __HAL_UART_ENABLE_IT(&huart, UART_IT_IDLE);
++    return *this;
+ }
+ 
+ /*
+@@ -451,14 +457,20 @@
+ 	}
+ }
+ 
+-bool UART::ReceiveSnapshot(uint8_t* bytes, uint16_t& length, uint32_t& arrival_us)
+-{
+-    if (!bytes || !UartQueueHandler) return false;
++
++bool UART::ReceiveSnapshot(uint8_t* bytes, uint16_t capacity,
++                           uint16_t& length, uint32_t& arrival_us)
++{
++    if (!bytes || !UartQueueHandler || capacity < rx_capacity_) return false;
+     taskENTER_CRITICAL();
+     const BaseType_t ready = xQueueReceive(UartQueueHandler, bytes, 0);
+-    if (ready == pdTRUE) { length = rx_len; arrival_us = rx_time_us; }
++    if (ready == pdTRUE)
++    {
++        length = rx_len;
++        arrival_us = rx_time_us;
++    }
+     taskEXIT_CRITICAL();
+-    return ready == pdTRUE;
++    return ready == pdTRUE && length > 0u && length <= rx_capacity_;
+ }
+ 
+ void UART::OnUARTITHandler(void)
+@@ -475,8 +487,8 @@
+ 		 *    短帧的尾部挂着上一帧的残字节。消费端只能靠这个长度知道数据到哪结束。*/
+ 		const uint32_t ndtr = huart.hdmarx->Instance->NDTR;
+ 		uint32_t len = 0u;
+-		if (ndtr <= UART_MAX_LEN) len = UART_MAX_LEN - ndtr;   // 正常路径
+-		else { len = UART_MAX_LEN; ++rx_overflow; }            // NDTR 异常，防御性钳位
++		if (ndtr <= rx_capacity_) len = rx_capacity_ - ndtr;   // 正常路径
++		else { len = 0u; ++rx_overflow; }            // NDTR 异常，防御性钳位
+ 		rx_len = (uint16_t)len;
+ 
+ 		/* ---- ② 到达时刻（V2 的 sample_time_us 基准）----
+@@ -495,7 +507,7 @@
+ 
+ 		DMAClearAllFlags(huart.hdmarx);
+ 
+-		__HAL_DMA_SET_COUNTER(huart.hdmarx, UART_MAX_LEN);
++		__HAL_DMA_SET_COUNTER(huart.hdmarx, rx_capacity_);
+ 		__HAL_DMA_ENABLE(huart.hdmarx);
+ 	}
+ 	HAL_UART_IRQHandler(&huart);
+@@ -559,19 +571,25 @@
+  * ========================================================================== */
+ bool UART::DMATransmit(uint8_t* const pData, const uint32_t Size)
+ {
+-	if (huart.hdmatx->Instance->NDTR != 0u)   // 上一帧还没发完
+-	{
+-		++tx_busy_reject;
+-		return false;                          // 丢弃本次，绝不拼帧
+-	}
+-
+-	__HAL_DMA_DISABLE(huart.hdmatx);
+-	huart.hdmatx->Instance->NDTR = Size;
+-	huart.hdmatx->Instance->M0AR = reinterpret_cast<uint32_t>(pData);
+-	DMAClearAllFlags(huart.hdmatx);
+-	__HAL_DMA_ENABLE(huart.hdmatx);
+-	++tx_cnt;
+-	return true;
++    if (!pData || Size == 0u || Size > UART_TX_STORAGE || !huart.hdmatx)
++        return false;
++    taskENTER_CRITICAL();
++    if (!TxIdle())
++    {
++        ++tx_busy_reject;
++        taskEXIT_CRITICAL();
++        return false;
++    }
++    // The DMA owns this copy. Callers may immediately reuse their buffers.
++    memcpy(tx_owned_, pData, Size);
++    __HAL_DMA_DISABLE(huart.hdmatx);
++    huart.hdmatx->Instance->NDTR = Size;
++    huart.hdmatx->Instance->M0AR = reinterpret_cast<uint32_t>(tx_owned_);
++    DMAClearAllFlags(huart.hdmatx);
++    __HAL_DMA_ENABLE(huart.hdmatx);
++    ++tx_cnt;
++    taskEXIT_CRITICAL();
++    return true;
+ }
+ 
+ 
+diff --git a/STM32F405/usart.h b/STM32F405/usart.h
+--- a/STM32F405/usart.h
++++ b/STM32F405/usart.h
+@@ -13,7 +13,9 @@
+ #include "FreeRTOS.h"
+ #include "queue.h"
+ 
+-#define UART_MAX_LEN 320 // A complete V2 frame can reach 142 bytes, plus concatenated commands.
++#define UART_MAX_LEN 100
++#define UART_RX_STORAGE 320
++#define UART_TX_STORAGE 512
+ 	class UART
+ 	{
+ 	public:
+@@ -27,6 +29,8 @@
+ 		 * （原实现无脑 DISABLE→重装→ENABLE，会发出「半截 + 拼接」的帧）。
+ 		 * 现有调用点忽略返回值也能编译，行为不变。*/
+ 		bool DMATransmit(uint8_t* const pData, const uint32_t Size);
++        bool ReceiveSnapshot(uint8_t* bytes, uint16_t capacity,
++                             uint16_t& length, uint32_t& arrival_us);
+         bool TxIdle() const { return huart.hdmatx && huart.hdmatx->Instance->NDTR == 0u; }
+ 		void UARTTransmit(uint8_t* pData, uint32_t Size);
+ 		static void DMAClearAllFlags(DMA_HandleTypeDef* dmax)
+@@ -55,7 +59,7 @@
+ 		bool updateFlag = false;
+ 		BaseType_t pd_Rx = false;
+ 		uint32_t dataDmaNum{};
+-		uint8_t m_uartrx[UART_MAX_LEN];
++		uint8_t m_uartrx[UART_RX_STORAGE]{};
+ 
+ 		/* ==================================================================
+ 		 * 接收元信息（IDLE 中断里更新）
+@@ -90,14 +94,13 @@
+ 		volatile uint32_t tx_busy_reject = 0; /* 因上一帧在途而被拒绝的次数 */
+ 
+ 		/* 便捷读取（任务上下文） */
+-        // Copy bytes and their ISR metadata in one critical section. IRQ priority 6
+-        // is masked by FreeRTOS configLIBRARY_MAX_SYSCALL_INTERRUPT_PRIORITY=5.
+-        bool ReceiveSnapshot(uint8_t* bytes, uint16_t& length, uint32_t& arrival_us);
+-        uint32_t GetRxTimeUs() const { return rx_time_us; }
++		uint32_t GetRxTimeUs() const { return rx_time_us; }
+ 		uint16_t GetRxLen()    const { return rx_len; }
+ 
+ 	private:
+-		UART_HandleTypeDef huart;
++		uint16_t rx_capacity_ = UART_MAX_LEN;
++        uint8_t tx_owned_[UART_TX_STORAGE]{};
++        UART_HandleTypeDef huart;
+ 		
+ 
+ 	};
+@@ -109,4 +112,4 @@
+ 
+ #endif /* __USART_H__ */
+ 
+-extern UART uart1, uart2, uart3, uart4, uart5, uart6;
++extern UART uart1, uart2, uart3, uart4, uart5, uart6;
+\ No newline at end of file
+diff --git a/STM32F405/xuc.cpp b/STM32F405/xuc.cpp
+--- a/STM32F405/xuc.cpp
++++ b/STM32F405/xuc.cpp
+@@ -1,12 +1,12 @@
+ #include "xuc.h"
+-#ifndef SENTINEL_HOST_TEST
+ #include "label.h"
+ #include "imu.h"
+ #include "CRC.h"
+ #include "control.h"
+-#include "tim.h"
++#include "tim.h"		// TIM::NowUs() —— V2 协议唯一的微秒时基（TIM2 @1MHz）
+ #include "math.h"
+-#endif
++#include "RC.h"
++#include "motor.h"
+ 
+ XUC xuc;
+ 
+@@ -51,37 +51,34 @@
+  * ========================================================================== */
+ void XUC::Init(UART* huart, USART_TypeDef* Instance, uint32_t BaudRate)
+ {
+-	huart->Init(Instance, BaudRate).DMARxInit(nullptr).DMATxInit();
++	huart->Init(Instance, BaudRate).DMARxInit(nullptr, XUC_UART_RX_LEN).DMATxInit();
+ 	m_uart = huart;
+ 	queue_handler = &huart->UartQueueHandler;
+ 
+-    // Hardware randomness avoids the old deterministic tick/address boot identity.
+-    // Zero denotes RNG failure and inhibits AIM/NAV control, with telemetry retained.
+-#ifdef SENTINEL_HOST_TEST
+-    boot_id = 0x11223344u;
+-#else
++
++    // A bounded hardware RNG read provides a new identity after reset.
++    // Zero means failure; both command paths reject it while telemetry remains.
+     __HAL_RCC_RNG_CLK_ENABLE();
+     RNG->CR |= RNG_CR_RNGEN;
+     boot_id = 0;
+-    for (uint32_t n=0; n<100000u; ++n) {
++    for (uint32_t n = 0; n < 100000u; ++n)
++    {
+         if (RNG->SR & (RNG_SR_CECS | RNG_SR_SECS)) break;
+         if (RNG->SR & RNG_SR_DRDY) { boot_id = RNG->DR; break; }
+     }
+     RNG->CR &= ~RNG_CR_RNGEN;
+-#endif
++    memset(ref_cache, 0, sizeof(ref_cache));
+ 
+ 	rx_len = 0;
+ 	pending_ms = 0;
+ 	ref_head = 0;
+-    memset(ref_cache, 0, sizeof(ref_cache));
+ 	rx_total = rx_count = crc_err = resync_cnt = 0;
+ 	last_reject = XUC_OK;
+ 	seq_gimbal = seq_chassis = seq_link = 0;
+-    seq_feed=0; feed_diagnostic={};
+ 	aim_seq_init = false;
+ 	nav_seq_init = false;
+ 	nav_last_seq = 0;
+-	prespeedx = prespeedy = 0.f;
++	prespeedx = prespeedy = prespeedz = 0.f;
+ 	frame_time_us = 0;
+ 	frame_len = 0;
+ 
+@@ -95,21 +92,13 @@
+  * ========================================================================== */
+ void XUC::Decode()
+ {
+-	if (!m_uart || !queue_handler || !*queue_handler) return;
+-
+-	/* ① 抽干队列。⚠️ 底层队列是「深度 1 + 覆盖写」（usart.cpp 的 ISR），
+-	 *    两次调用之间到达的帧会互相覆盖 ⇒ 视觉下发率必须 ≤ DecodeTask
+-	 *    的轮询率（5 ms ⇒ 200 Hz）。这里用 0 超时循环把当前所有可用快照取干净。
+-	 *
+-	 * ⚠️ 每次只取【一帧】的元信息：深度 1 的队列在一轮里若收到多帧，最终留下
+-	 *    的那一帧才是队列里真实的那个。取多次会把计数重复累加，得不到正确配对。*/
+-    if (m_uart->ReceiveSnapshot(m_frame, frame_len, frame_time_us)) {
++    if (!m_uart) return;
++    if (m_uart->ReceiveSnapshot(m_frame, sizeof(m_frame), frame_len, frame_time_us))
++    {
+         ++rx_total;
+         AppendRx(m_frame, frame_len);
+     }
+-
+-	/* ② 流式解析 */
+-	ParseRx();
++    ParseRx();
+ }
+ 
+ void XUC::AppendRx(const uint8_t* p, uint16_t n)
+@@ -232,16 +221,8 @@
+ 
+ 		switch (type)
+ 		{
+-		case XUC_T_AIM_COMMAND:
+-            taskENTER_CRITICAL();
+-            HandleAim(pl, frame_seq, f_boot);
+-            taskEXIT_CRITICAL();
+-            break;
+-		case XUC_T_NAV_COMMAND:
+-            taskENTER_CRITICAL();
+-            HandleNav(pl, frame_seq, f_boot);
+-            taskEXIT_CRITICAL();
+-            break;
++		case XUC_T_AIM_COMMAND:  HandleAim(pl, frame_seq, f_boot); break;
++		case XUC_T_NAV_COMMAND:  HandleNav(pl, frame_seq, f_boot); break;
+ 		default: break;      /* 已知但本版不处理：0x03 / 0x20 / 0x21 / 0x30 / 0x31 / 0x80 */
+ 		}
+ 
+@@ -279,10 +260,7 @@
+ 
+ 	/* --- flags / 有限值 --- */
+ 	if ((flags & (uint8_t)~XUC_AIMF_MASK) != 0u) { last_reject = XUC_INVALID_VALUE; return; }
+-	if (!isfinite(yaw_err) || !isfinite(pit_err)) { last_reject = XUC_INVALID_VALUE; return; }
+-    if (fabsf(yaw_err) > XUC_PI || fabsf(pit_err) > XUC_PI) {
+-        last_reject = XUC_INVALID_VALUE; return;
+-    }
++	if (!isfinite(yaw_err) || !isfinite(pit_err) || fabsf(yaw_err) > XUC_PI || fabsf(pit_err) > XUC_PI) { last_reject = XUC_INVALID_VALUE; return; }
+ 
+ 	/* --- 新序号：0 < (uint16)(new-last) < 32768 --- */
+ 	if (aim_seq_init)
+@@ -310,20 +288,11 @@
+ 
+ 	/* --- valid_for_ms 范围（1..150，推荐 100） --- */
+ 	if (v4ms < 1u || v4ms > 150u) { last_reject = XUC_INVALID_VALUE; return; }
+-	// Without a target, only the wheel lease is meaningful. Zero errors prevent
+-	// this heartbeat from becoming a latent movement/fire request on a later cycle.
+-	if (!(flags & XUC_AIM_VALID) &&
+-	    ((flags & XUC_AIM_FIRE_REQ) || yaw_err != 0.f || pit_err != 0.f)) {
+-		last_reject = XUC_INVALID_VALUE; return;
+-	}
+ 
+ 	/* --- 参考样本四元组匹配（boot_id 已查，这里查 epoch/seq/time） --- */
+ 	if (ref_epoch != imu_pantile.GetEpoch()) { last_reject = XUC_BAD_REFERENCE; return; }
+ 	const XUC_RefSample* s = FindRef(ref_epoch, ref_seq, ref_time);
+-    if (s == nullptr) { last_reject = XUC_BAD_REFERENCE; return; }
+-    if (!(s->flags & XUC_F_ORIENT_VALID) || !imu_pantile.IsValid()) {
+-        last_reject = XUC_LOCAL_FAULT; return;
+-    }
++	if (s == nullptr || (s->flags & XUC_F_ORIENT_VALID) == 0u) { last_reject = XUC_BAD_REFERENCE; return; }
+ 
+ 	/* --- 样本有效期：从样本时刻算，不从收包时算 ---
+ 	 * ⚠️ 用 TIM::NowUs()（真 1 µs），不是 xTaskGetTickCount()*1000（1 ms 量化）。
+@@ -337,7 +306,7 @@
+ 	/* --- 前置全部通过：重建目标（V2 §7.3，只在新命令通过检查时算一次） --- */
+ 	aim_yaw_target   = WrapPi(s->yaw + yaw_err);
+ 	aim_pitch_target = s->pitch + pit_err;
+-	aim_ref_epoch = ref_epoch;
++	aim_ref_epoch    = ref_epoch;
+ 	aim_ref_time_us  = ref_time;
+ 	aim_valid_for_ms = v4ms;
+ 	aim_control_en   = true;
+@@ -349,26 +318,13 @@
+ 	aim_last_seq     = frame_seq;
+ 
+ 	/* --- 本地模式与机构保护（最后一步） --- */
+-    if (ctrl.mode != CONTROL::AUTO) {
+-        last_reject = XUC_NOT_ALLOWED; return;
+-    }
+-#if XUC_REQUIRE_VERIFIED_POSE
+-    if (
+-        (s->flags & (XUC_F_SAMPLE_VALID|XUC_F_AXES_VERIFIED)) != (XUC_F_SAMPLE_VALID|XUC_F_AXES_VERIFIED)) {
+-        last_reject = XUC_NOT_ALLOWED; return;
+-    }
+-#endif
++	if (ctrl.mode != CONTROL::AUTO) { last_reject = XUC_NOT_ALLOWED; return; }
+ #if XUC_ALLOW_CONTROL == 0
+ 	/* 只读联调版：目标已重建但不下发，明确告知上位机「本地不允许」 */
+ 	last_reject = XUC_NOT_ALLOWED;
+ #else
+ 	last_reject = XUC_OK;
+ #endif
+-    if (last_reject==XUC_OK && aim_fire_req) {
+-        taskENTER_CRITICAL();
+-        feed_diagnostic.Request(frame_seq, frame_time_us);
+-        taskEXIT_CRITICAL();
+-    }
+ }
+ 
+ /* ==========================================================================
+@@ -388,6 +344,15 @@
+ 
+ 	if ((flags & (uint8_t)~XUC_NAVF_MASK) != 0u) { last_reject = XUC_INVALID_VALUE; return; }
+ 	if (!isfinite(vx) || !isfinite(vy) || !isfinite(wz)) { last_reject = XUC_INVALID_VALUE; return; }
++    if (fabsf(wz)>1e-6f && (!(para.nav_yaw_lever_m>0.f) ||
++        !isfinite(para.nav_yaw_lever_m) || !isfinite(para.nav_yaw_sign) ||
++        fabsf(para.nav_yaw_sign)!=1.f))
++    {
++        nav_accepted=false; nav_enable=false;
++        last_reject=XUC_NOT_ALLOWED;
++        return;
++    }
++
+ 
+ 	if (nav_seq_init)
+ 	{
+@@ -418,6 +383,7 @@
+ 	nav_enable = true;
+ 	nav_accepted = true;
+ 	nav_accept_tick = xTaskGetTickCount();
++	nav_arrival_us = frame_time_us;
+ 	nav_seq_init = true;
+ 	nav_last_seq = frame_seq;
+ 	last_reject = XUC_OK;
+@@ -435,8 +401,8 @@
+ 	s.pitch = pitch;
+ 	s.epoch = epoch;
+ 	s.seq = seq;
++	s.flags = flags;
+ 	s.valid = 1u;
+-	s.flags = flags;
+ 	ref_head = (uint16_t)((ref_head + 1u) % XUC_REF_CACHE_N);
+ }
+ 
+@@ -464,44 +430,30 @@
+ 	aim_fire_req = false;
+ }
+ 
++bool XUC::LeaseReady()
++{
++    if (!boot_id || !aim_accepted || !aim_control_en || ctrl.mode != CONTROL::AUTO ||
++        !imu_pantile.IsValid() || aim_ref_epoch != imu_pantile.GetEpoch()) return false;
++    const uint32_t age = uint32_t(TIM::NowUs() - aim_ref_time_us);
++    if (age >= 0x80000000u || age > uint32_t(aim_valid_for_ms) * 1000u) return false;
++    return XUC_ALLOW_CONTROL != 0;
++}
++
++bool XUC::FrictionReady()
++{
++    return aim_friction_en && LeaseReady();
++}
++
+ bool XUC::AimReady()
+ {
+-    return aim_valid && LeaseReady();
+-}
+-
+-bool XUC::FrictionReady()
+-{
+-    return aim_friction_en && LeaseReady();
+-}
+-
+-bool XUC::LeaseReady()
+-{
+-    if (!aim_accepted || !aim_control_en || ctrl.mode != CONTROL::AUTO ||
+-        !imu_pantile.IsValid() || aim_ref_epoch != imu_pantile.GetEpoch()) return false;
+-#if XUC_REQUIRE_VERIFIED_POSE
+-    if ((GimbalFlags() & (XUC_F_ORIENT_VALID|XUC_F_SAMPLE_VALID|XUC_F_AXES_VERIFIED)) !=
+-        (XUC_F_ORIENT_VALID|XUC_F_SAMPLE_VALID|XUC_F_AXES_VERIFIED)) return false;
+-#endif
+-	const uint32_t age = (uint32_t)(TIM::NowUs() - aim_ref_time_us);   /* 真 µs */
+-	if (age >= 0x80000000u) return false;
+-	if (age > (uint32_t)aim_valid_for_ms * 1000u) return false;
+-#if XUC_ALLOW_CONTROL == 0
+-	return false;                        /* 只读联调版：本地不放行 */
+-#else
+-	return true;
+-#endif
++    return XUC_AXES_VERIFIED && aim_valid && LeaseReady();
+ }
+ 
+ bool XUC::NavReady()
+ {
+-	if (!nav_accepted || !nav_enable || ctrl.mode != CONTROL::AUTO || boot_id == 0u) return false;
+-	if ((uint32_t)(xTaskGetTickCount() - nav_accept_tick) > (uint32_t)nav_valid_for_ms)
+-		return false;
+-#if XUC_ALLOW_NAV == 0
+-	return false;
+-#else
+-	return true;
+-#endif
++    if (!boot_id || ctrl.mode!=CONTROL::AUTO || !nav_accepted || !nav_enable) return false;
++    const uint32_t age=uint32_t(TIM::NowUs()-nav_arrival_us);
++    return XUC_ALLOW_NAV && age<0x80000000u && age<=uint32_t(nav_valid_for_ms)*1000u;
+ }
+ 
+ uint16_t XUC::AimAgeMs()
+@@ -515,15 +467,17 @@
+ 
+ uint8_t XUC::LinkState()
+ {
+-	uint8_t s = 0u;
+-	if (ctrl.mode == CONTROL::AUTO) s |= XUC_ST_AUTO_MODE;
+-	if (aim_accepted && AimAgeMs() <= aim_valid_for_ms) s |= XUC_ST_AIM_FRESH;
+-	if (AimReady())        s |= XUC_ST_GIMBAL_ALLOW;
+-	if (FrictionReady()) s |= XUC_ST_FRICTION_ALLOW;
+-	if (aim_accepted && aim_friction_en && aim_fire_req && AimReady()) s |= XUC_ST_FIRE_ALLOW;
+-	if (NavReady())        s |= XUC_ST_NAV_FRESH | XUC_ST_NAV_ALLOW;
+-	return s;
+-}
++    uint8_t s = 0;
++    if (ctrl.mode == CONTROL::AUTO) s |= XUC_ST_AUTO_MODE;
++    if (LeaseReady()) s |= XUC_ST_AIM_FRESH;
++    if (AimReady()) s |= XUC_ST_GIMBAL_ALLOW;
++    if (FrictionReady()) s |= XUC_ST_FRICTION_ALLOW;
++    if (AimReady() && FrictionReady() && aim_fire_req &&
++        ctrl.shooter.feed_permission_was_ready && !ctrl.shooter.feed_rearm_required)
++        s |= XUC_ST_FIRE_ALLOW;
++    if (NavReady()) s |= XUC_ST_NAV_FRESH | XUC_ST_NAV_ALLOW;
++    return s;
++} //同时修正了“指令已经过期，却仍报告为新鲜”的判断
+ 
+ /* ==========================================================================
+  * 上行：组帧 + 发送
+@@ -547,24 +501,16 @@
+ 
+ uint8_t XUC::GimbalFlags()
+ {
+-	uint8_t f = 0u;
+-	if (imu_pantile.IsValid()) f |= XUC_F_ORIENT_VALID;
+-
+-	const float gx = imu_pantile.GetGyroRoll();
+-	const float gy = imu_pantile.GetGyroPitch();
+-	const float gz = imu_pantile.GetGyroYaw();
+-	if (imu_pantile.IsValid() && isfinite(gx) && isfinite(gy) && isfinite(gz))
+-		f |= XUC_F_GYRO_VALID;
+-
+-    if (imu_pantile.IsValid()) {
+-#if XUC_SAMPLE_TIME_VERIFIED
+-        f |= XUC_F_SAMPLE_VALID;
+-#endif
+-#if XUC_AXES_VERIFIED
+-        f |= XUC_F_AXES_VERIFIED;
+-#endif
++    uint8_t f = 0;
++    if (imu_pantile.IsValid())
++    {
++        f |= XUC_F_ORIENT_VALID;
++        if (isfinite(imu_pantile.GetGyroRoll()) && isfinite(imu_pantile.GetGyroPitch()) &&
++            isfinite(imu_pantile.GetGyroYaw())) f |= XUC_F_GYRO_VALID;
++        if (XUC_AXES_VERIFIED) f |= XUC_F_AXES_VERIFIED;
++        if (XUC_SAMPLE_TIME_VERIFIED) f |= XUC_F_SAMPLE_VALID;
+     }
+-	return f;
++    return f;
+ }
+ 
+ uint8_t XUC::ChassisFlags()
+@@ -575,111 +521,50 @@
+ 	return f;
+ }
+ 
+-void XUC::ObserveFeeder(const uint8_t* bytes, uint32_t arrival_us)
+-{
+-    // Called only for the validated, configured feeder CAN feedback in its ISR.
+-    const uint16_t angle=(uint16_t(bytes[0])<<8)|bytes[1];
+-    const int16_t rpm=int16_t((uint16_t(bytes[2])<<8)|bytes[3]);
+-    feed_diagnostic.Feedback(angle,rpm,arrival_us);
+-}
+-
+-void XUC::RecordFeedIssue(bool automatic, int16_t direction)
+-{
++void XUC::Encode()
++{
++    if (!m_uart || !m_uart->TxIdle()) return;
++    uint32_t w = 0;
++    uint8_t g[XUC_PL_GIMBAL_IMU]{};
++    W1(g, XUC_IMU_ID_GIMBAL); W1(g+1, GimbalFlags());
++    W2(g+2, imu_pantile.GetEpoch()); W4(g+4, imu_pantile.GetSampleTimeUs());
++    WF(g+8, Deg2Rad(imu_pantile.GetAngleRoll()));
++    WF(g+12, Deg2Rad(imu_pantile.GetAnglePitch()));
++    WF(g+16, Deg2Rad(imu_pantile.GetAngleYaw()));
++    WF(g+20, Deg2Rad(imu_pantile.GetGyroRoll()));
++    WF(g+24, Deg2Rad(imu_pantile.GetGyroPitch()));
++    WF(g+28, Deg2Rad(imu_pantile.GetGyroYaw()));
++    w += BuildFrame(XUC_T_GIMBAL_IMU,g,sizeof(g),seq_gimbal,tx_buf+w);
++
++    uint8_t ch[XUC_PL_CHASSIS_IMU]{};
++    W1(ch,XUC_IMU_ID_CHASSIS); W1(ch+1,ChassisFlags());
++    W2(ch+2,imu_chassis.GetEpoch()); W4(ch+4,imu_chassis.GetSampleTimeUs());
++    WF(ch+8,Deg2Rad(imu_chassis.GetAngleRoll()));
++    WF(ch+12,Deg2Rad(imu_chassis.GetAnglePitch()));
++    WF(ch+16,Deg2Rad(imu_chassis.GetAngleYaw()));
++    w += BuildFrame(XUC_T_CHASSIS_IMU,ch,sizeof(ch),seq_chassis,tx_buf+w);
++
++    uint8_t st[XUC_PL_LINK_STATUS]{};
++    W2(st+4,aim_last_seq); W1(st+6,LinkState()); W1(st+7,last_reject);
++    W2(st+8,AimAgeMs());
++    w += BuildFrame(XUC_T_LINK_STATUS,st,sizeof(st),seq_link,tx_buf+w);
++    // 0x83 passive mission status. Count actual completed single-feed travel.
++    uint8_t ms[28]{};
+     taskENTER_CRITICAL();
+-    feed_diagnostic.Issue(automatic ? feed_diagnostic.request_seq:0,TIM::NowUs(),automatic,direction);
++    Motor* feeder=ctrl.supply_motor[0];
++    const bool fresh=feeder && feeder->FeedbackFresh() && feeder->has_feedback &&
++        feeder->angle_latched && feeder->use_sum_angle;
++    mission_counter.Update(fresh,feeder ? feeder->FeedbackGeneration():0,
++        feeder ? feeder->sum_angle:0,para.bullet_step);
++    W1(ms,1); W1(ms+1,(fresh?1u:0u)|(rc.Fresh()?2u:0u)|(nav_seq_init?4u:0u));
++    W4(ms+4,mission_counter.generation_serial); W4(ms+8,mission_counter.count);
++    W4(ms+12,TIM::NowUs()); // +16 reserved zero; no invented acquisition time.
++    WF(ms+20,para.bullet_step); W2(ms+24,nav_last_seq);
+     taskEXIT_CRITICAL();
+-}
+-
+-void XUC::Encode()
+-{
+-	if (!m_uart || !m_uart->TxIdle()) return; // Do not overwrite bytes still read by DMA.
+-
+-    // Timestamp belongs to the decoded IMU sample. Never use host RX/packaging time.
+-    // It is the MCU UART2 arrival time, not certified sensor acquisition time.
+-    const uint32_t t_us = imu_pantile.GetArrivalTimeUs();
+-
+-	uint32_t w = 0u;
+-
+-	/* ---------------- 0x01 GIMBAL_IMU（负载 32） ---------------- */
+-	{
+-		uint8_t pl[XUC_PL_GIMBAL_IMU];
+-		const float r = Deg2Rad(imu_pantile.GetAngleRoll());
+-		const float p = Deg2Rad(imu_pantile.GetAnglePitch());
+-		const float y = Deg2Rad(imu_pantile.GetAngleYaw());
+-
+-		W1(pl + 0u,  XUC_IMU_ID_GIMBAL);
+-		W1(pl + 1u,  GimbalFlags());
+-		W2(pl + 2u,  imu_pantile.GetEpoch());
+-		W4(pl + 4u,  t_us);
+-		WF(pl + 8u,  r);
+-		WF(pl + 12u, p);
+-		WF(pl + 16u, y);
+-		WF(pl + 20u, Deg2Rad(imu_pantile.GetGyroRoll()));
+-		WF(pl + 24u, Deg2Rad(imu_pantile.GetGyroPitch()));
+-		WF(pl + 28u, Deg2Rad(imu_pantile.GetGyroYaw()));
+-
+-		const uint16_t seq = seq_gimbal++;
+-		w += BuildFrame(XUC_T_GIMBAL_IMU, pl, XUC_PL_GIMBAL_IMU, seq, tx_buf + w);
+-
+-	}
+-
+-	/* ---------------- 0x02 CHASSIS_IMU（负载 20） ---------------- */
+-	{
+-		uint8_t pl[XUC_PL_CHASSIS_IMU];
+-		W1(pl + 0u,  XUC_IMU_ID_CHASSIS);
+-		W1(pl + 1u,  ChassisFlags());
+-		W2(pl + 2u,  imu_chassis.GetEpoch());
+-        // Independent UART5 sample, with its own arrival and reference epoch.
+-        W4(pl + 4u, imu_chassis.GetArrivalTimeUs());
+-		WF(pl + 8u,  Deg2Rad(imu_chassis.GetAngleRoll()));
+-		WF(pl + 12u, Deg2Rad(imu_chassis.GetAnglePitch()));
+-		WF(pl + 16u, Deg2Rad(imu_chassis.GetAngleYaw()));
+-
+-		const uint16_t seq = seq_chassis++;
+-		w += BuildFrame(XUC_T_CHASSIS_IMU, pl, XUC_PL_CHASSIS_IMU, seq, tx_buf + w);
+-	}
+-
+-	/* ---------------- 0x81 LINK_STATUS（负载 12） ---------------- */
+-	{
+-		uint8_t pl[XUC_PL_LINK_STATUS];
+-		W4(pl + 0u,  0u);                    /* host_session：无会话 ⇒ 0 */
+-		W2(pl + 4u,  aim_last_seq);
+-		W1(pl + 6u,  LinkState());
+-		W1(pl + 7u,  last_reject);
+-		W2(pl + 8u,  AimAgeMs());
+-		W2(pl + 10u, 0u);                    /* reserved */
+-
+-		const uint16_t seq = seq_link++;
+-		w += BuildFrame(XUC_T_LINK_STATUS, pl, XUC_PL_LINK_STATUS, seq, tx_buf + w);
+-	}
+-
+-    // Separate diagnostic message: existing IMU/status layouts are untouched.
+-    // Latched event timestamps survive short motor pulses and 50 Hz packaging.
++    w += BuildFrame(0x83u,ms,sizeof(ms),seq_mission,tx_buf+w);
++    if (m_uart->DMATransmit(tx_buf,w))
+     {
+-        uint8_t pl[XUC_PL_FEED_DIAGNOSTIC]{};
+-        taskENTER_CRITICAL();
+-        const uint32_t now_us=TIM::NowUs();
+-        W1(pl,1u); W1(pl+1,feed_diagnostic.Flags(now_us));
+-        W2(pl+2,feed_diagnostic.request_seq); W4(pl+4,feed_diagnostic.request_us);
+-        W2(pl+8,feed_diagnostic.issue_seq); W2(pl+10,feed_diagnostic.motion_seq);
+-        W4(pl+12,feed_diagnostic.issue_us); W4(pl+16,feed_diagnostic.motion_us);
+-        W4(pl+20,feed_diagnostic.issue_count); W4(pl+24,feed_diagnostic.motion_count);
+-        W4(pl+28,now_us); W4(pl+32,feed_diagnostic.feedback_us);
+-        W2(pl+36,uint16_t(feed_diagnostic.rpm));
+-#ifndef SENTINEL_HOST_TEST
+-        W2(pl+38,ctrl.shooter_motor[0] ? uint16_t(ctrl.shooter_motor[0]->curspeed):0);
+-        W2(pl+40,ctrl.shooter_motor[1] ? uint16_t(ctrl.shooter_motor[1]->curspeed):0);
+-        W4(pl+44,ctrl.supply_motor[0] ? uint32_t(ctrl.supply_motor[0]->sum_angle):0);
+-        WF(pl+48,ctrl.supply_motor[0] ? ctrl.supply_motor[0]->setangle:0.f);
+-#endif
+-        taskEXIT_CRITICAL();
+-        w+=BuildFrame(XUC_T_FEED_DIAGNOSTIC,pl,sizeof(pl),seq_feed++,tx_buf+w);
++        PushRef(R2(g+2),seq_gimbal,R4u(g+4),RF(g+16),RF(g+12),g[1]);
++        ++seq_gimbal; ++seq_chassis; ++seq_link; ++seq_mission;
+     }
+-
+-	/* 四帧一次DMA发送。诊断不参与许可、参考新鲜度或电机控制。 */
+-    if (m_uart->DMATransmit(tx_buf, w)) {
+-        // Cache only a frame actually submitted, using exactly its serialized values.
+-        const uint8_t* pl = tx_buf + XUC_HDR_LEN;
+-        PushRef(R2(pl+2u), R2(tx_buf+6u), R4u(pl+4u), RF(pl+16u), RF(pl+12u), pl[1]);
+-    }
+-}
++}
+diff --git a/STM32F405/xuc.h b/STM32F405/xuc.h
+--- a/STM32F405/xuc.h
++++ b/STM32F405/xuc.h
+@@ -1,38 +1,17 @@
+ #pragma once
+ 
+-/* ============================================================================
+- * XUC —— 上下位机通信（V2 协议 · 精简版 P1）
+- *
+- * 帧格式（全部小端）：
+- *   magic(2) A6 6A | version(1) | type(1) | payload_len(2)
+- *   | sequence(2) | boot_id(4) | payload(N) | crc16(2)
+- *   总长 = 14 + N，最大负载 128
+- *
+- * CRC：CRC-16/MCRF4XX，init 0xFFFF，反射多项式 0x8408，无最终异或，
+- *      低字节先发，覆盖 [0 .. 12+N-1]。复用全局 CRC.h（算法零改动）。
+- *
+- * 本版实现的消息：0x01 GIMBAL_IMU / 0x02 CHASSIS_IMU / 0x10 AIM_COMMAND /
+- *                 0x11 NAV_COMMAND / 0x81 LINK_STATUS
+- * 其余类型（0x03/0x20/0x21/0x30/0x31/0x80）不实现，收到即静默跳过
+- * （V2 §3.1：长度合法且 CRC 正确时跳过）。
+- *
+- * 当前运行版按用户要求沿用既有标定，开启 AUTO 云台和发射接管。
+- * SAMPLE_TIME_VALID / AXES_VERIFIED 仅声明实际测量，兼容模式不伪造这些位。
+- * LINK_STATUS.state bit7 为本配对版本扩展：遥控 AUTO 许可；STOP 也持续上报。
+- * ============================================================================ */
+-
+-#ifdef SENTINEL_HOST_TEST
+-#include "tests/sentinel/firmware_stubs.hpp"
+-#else
++/* Sentinel V2: 0x01/0x02 IMU, 0x10 AIM, 0x11 NAV, 0x81 STATUS.
++ * Angles: body-to-navigation quaternion converted to ZYX, radians on the wire.
++ * Timestamp: MCU arrival of the corresponding valid IMU frame, not acquisition time.
++ */
++
+ #include "stm32f4xx_hal.h"
+ #include "usart.h"
+ #include "FreeRTOS.h"
+-#include "task.h"
+-#endif
+ #include <cstring>
+ #include <cstddef>
+ #include <cmath>
+-#include "feed_diagnostics.h"
++#include "mission_counter.h"
+ 
+ #ifndef XUC_PI
+ #define XUC_PI 3.14159265358979323846f
+@@ -59,8 +38,6 @@
+ #define XUC_T_TIME_SYNC_RSP   0x31u        /* 不实现 */
+ #define XUC_T_ACK             0x80u        /* 不实现 */
+ #define XUC_T_LINK_STATUS     0x81u
+-#define XUC_T_FEED_DIAGNOSTIC 0x82u        /* paired passive diagnostic extension */
+-#define XUC_PL_FEED_DIAGNOSTIC 52u
+ 
+ /* -------------------------------------------------------- 负载长度（N） */
+ #define XUC_PL_GIMBAL_IMU     32u
+@@ -77,8 +54,8 @@
+ /* ------------------------------------------- 0x01 / 0x02 负载 flags 位 */
+ #define XUC_F_ORIENT_VALID    0x01u
+ #define XUC_F_GYRO_VALID      0x02u        /* 底盘帧固定 0 */
+-#define XUC_F_SAMPLE_VALID    0x04u        /* 首版固定 0 */
+-#define XUC_F_AXES_VERIFIED   0x08u        /* 首版固定 0 */
++#define XUC_F_SAMPLE_VALID    0x04u // Actual acquisition time certification only
++#define XUC_F_AXES_VERIFIED   0x08u        /* 2026-10-18 实测支撑后置 1 */
+ #define XUC_F_MASK            0x0Fu
+ 
+ /* ------------------------------------------------- 0x10 负载 flags 位 */
+@@ -100,7 +77,7 @@
+ #define XUC_ST_FIRE_ALLOW     0x10u
+ #define XUC_ST_NAV_FRESH      0x20u
+ #define XUC_ST_NAV_ALLOW      0x40u
+-#define XUC_ST_AUTO_MODE      0x80u        /* paired host extension: physical AUTO */
++#define XUC_ST_AUTO_MODE 0x80u  //表示电控当前处于AUTO模式，供上位机判断能否接管
+ 
+ /* ------------------------------------ 拒绝原因 / ACK result（V2 §9） */
+ enum XUC_RESULT
+@@ -118,28 +95,20 @@
+ };
+ 
+ /* ============================================================ 本版开关 */
+-/* User-authorized reuse of the existing calibration. NAV has its own switch. */
+-#ifndef XUC_ALLOW_CONTROL
+-#define XUC_ALLOW_CONTROL     1
+-#endif
+-#ifndef XUC_REQUIRE_VERIFIED_POSE
+-#define XUC_REQUIRE_VERIFIED_POSE 0
+-#endif
+-// These flags certify measurements, not software installation. Keep zero until measured.
+-#ifndef XUC_SAMPLE_TIME_VERIFIED
++/* AUTO pose motion requires a completed axis/installation verification. */
++#define XUC_ALLOW_CONTROL 1
++#define XUC_AXES_VERIFIED 1
+ #define XUC_SAMPLE_TIME_VERIFIED 0
+-#endif
+-#ifndef XUC_AXES_VERIFIED
+-#define XUC_AXES_VERIFIED 0
+-#endif
+ /* 底盘导航单独开关：速度指令本身是 fail-safe（丢包/超时即停），
+- * 不依赖 IMU 轴标定，只依赖 K_NAV 实测 ⇒ 可以先放行。*/
++ * 不依赖 IMU 轴标定，只依赖 K_NAV 实测 ⇒ 可以先放行。
++ * ⚠️ K_NAV 仍是【估算值】，必须实测标定后才算可用（见 docs_通信协议.md §2.7）。*/
+ #define XUC_ALLOW_NAV         1
+ #define XUC_EPOCH             1u           /* 姿态参考系代号，恒 1 */
+ #define XUC_IMU_ID_GIMBAL     1u
+ #define XUC_IMU_ID_CHASSIS    2u
+ #define XUC_REF_CACHE_N       48u          /* 参考样本环形缓存（≥40） */
+ #define XUC_RX_BUF            512u
++#define XUC_UART_RX_LEN       320u
+ #define XUC_TX_BUF            512u
+ #define XUC_HALF_FRAME_MS     100u         /* 候选半帧超时 ⇒ 丢首字节重同步 */
+ 
+@@ -177,17 +146,19 @@
+ 	uint32_t aim_rx_tick      = 0;     /* 最近收到结构正确 0x10 的时刻 */
+ 
+ 	/* --- 0x11 NAV_COMMAND --- */
+-	float    nav_vx = 0.f;             /* 原始幅值，当前安装实测正值左移 */
+-	float    nav_vy = 0.f;             /* 原始幅值，当前安装实测负值前进 */
+-	float    nav_wz = 0.f;             /* 原始转向幅值×159，限±200 motor rpm；左右符号待实测 */
++	float    nav_vx = 0.f;             /* m/s，车体前向 */
++	float    nav_vy = 0.f;             /* m/s，车体左向 */
++	float    nav_wz = 0.f;             /* rad/s，绕 +Z 左转为正（首版未使用） */
+ 	uint16_t nav_valid_for_ms = 0;
+ 	bool     nav_enable   = false;
+ 	bool     nav_accepted = false;     /* 最近一帧通过全部检查 */
+ 	uint32_t nav_accept_tick = 0;
++	uint32_t nav_arrival_us = 0;
+ 
+ 	/* --- 底盘速度平滑（递推量，跨周期保留） --- */
+ 	float    prespeedx = 0.f;          /* 本周期实际允许的 rpm */
+ 	float    prespeedy = 0.f;
++	float    prespeedz = 0.f;
+ 
+ 	/* ===================== 诊断计数（watch 用） ===================== */
+ 	uint16_t rx_total    = 0;          /* 从队列取到快照的次数 */
+@@ -203,31 +174,28 @@
+ 	void Encode();                     /* 上行组帧 + 发送 */
+ 
+ 	/* --- 供 RC::OnPC 查询 --- */
++	bool     LeaseReady();
++	bool     FrictionReady();
+ 	bool     AimReady();               /* 控制许可：已接受 + 未过期 + 本版允许 */
+-	bool     FrictionReady();          /* Same reference/lease, no target/angle control required. */
+ 	bool     NavReady();
+ 	uint16_t AimAgeMs();
+ 	uint8_t  LinkState();
+-	void     RevokeAim();              /* Revoke gimbal, wheels and fire; no local AUTO pre-spin. */
+-    void ObserveFeeder(const uint8_t* bytes, uint32_t arrival_us);
+-    void RecordFeedIssue(bool automatic, int16_t direction);
++	void     RevokeAim();              /* 撤销自动瞄准/摩擦轮/开火许可 */
+ 
+ 	/* --- 工具 --- */
+ 	static float WrapPi(float a)
+-	{
+-        // Bounded work even for a malformed but finite very large float.
+-        float wrapped = fmodf(a, 2.f * XUC_PI);
+-        if (wrapped >= XUC_PI) wrapped -= 2.f * XUC_PI;
+-        if (wrapped < -XUC_PI) wrapped += 2.f * XUC_PI;
+-        return wrapped;
+-	}
++    {
++        if (!std::isfinite(a)) return 0.f;
++        float v = std::fmod(a + XUC_PI, 2.f * XUC_PI);
++        if (v < 0.f) v += 2.f * XUC_PI;
++        return v - XUC_PI;
++    }
+ 
+ private:
+-	bool     LeaseReady();
+ 	UART*           m_uart = nullptr;
+ 	QueueHandle_t*  queue_handler = nullptr;
+ 
+-	uint8_t  m_frame[UART_MAX_LEN]{};  /* 队列快照落点 */
++	uint8_t  m_frame[XUC_UART_RX_LEN]{};  /* 队列快照落点 */
+ 	uint8_t  rx_buf[XUC_RX_BUF]{};     /* 流式接收缓冲 */
+ 	uint16_t rx_len = 0;
+ 	uint32_t pending_ms = 0;           /* 候选半帧起始时刻（HAL_GetTick） */
+@@ -236,8 +204,8 @@
+ 	uint16_t seq_gimbal = 0;
+ 	uint16_t seq_chassis = 0;
+ 	uint16_t seq_link = 0;
+-    uint16_t seq_feed = 0;
+-    FeedDiagnostics feed_diagnostic{};
++	uint16_t seq_mission = 0;
++	MissionFeedCounter mission_counter;
+ 
+ 	bool     aim_seq_init = false;
+ 	bool     nav_seq_init = false;
+@@ -284,5 +252,7 @@
+ 
+ /* 帧长上限自检：三帧同发不得超过发送缓冲 */
+ static_assert(XUC_MAX_FRAME * 3u <= XUC_TX_BUF, "tx_buf too small");
++static_assert((32u+20u+12u+28u)+4u*(XUC_HDR_LEN+XUC_CRC_LEN)<=XUC_TX_BUF,
++              "mission telemetry exceeds DMA buffer");
+ 
+ extern XUC xuc;

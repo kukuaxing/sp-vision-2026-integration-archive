@@ -47,7 +47,8 @@ class HostTests(unittest.TestCase):
         a.odom=dict(stamp=stamp,received=now,f=0.,l=0.,w=0.)
         a.state={};a.state_rx=now;a.state_stamp=stamp;a.boot_rx=now
         a.last_generation=None;a.checked_publishers=now
-        with patch.object(live,'project',return_value=dict(xy_m=[0.,0.],yaw_deg=0.)):
+        with patch.object(live,'project',return_value=dict(xy_m=[0.,0.],yaw_deg=0.)), \
+             patch.object(live.Path,'read_text',return_value='boot'):
             with self.assertRaisesRegex(RuntimeError,'Localization not healthy'):
                 a.sample()
     def test_actual_disabled_entry_never_constructs_serial(self):

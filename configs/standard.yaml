@@ -229,11 +229,11 @@ xuc_max_yaw_excursion_rad: 0.0          # legacy SP only; Sentinel motor limits 
 xuc_lock_pitch_for_control: false       # legacy SP only; Sentinel uses current-to-target error
 xuc_allow_control: true
 xuc_allow_shoot: true
-sentinel_fire_min_interval_ms: 300 # mechanical single-feed stop trial: allow adjacent ~350 ms face opportunities; no catch-up
+sentinel_fire_min_interval_ms: 225 # halfway rollback between 200/250 ms; fresh gates still select every shot
 xuc_fire_guard_enabled: true       # require fresh measured armor in both axes
 xuc_fire_stable_ms: 120.0 # [当前调参值] field request: require 120 ms continuous alignment
 xuc_fire_yaw_tolerance_deg: 0.8 # 2026-10-20: further tighten angular tolerance by 20 percent
-xuc_fire_pitch_tolerance_deg: 0.25 # recover narrow pitch opportunities; retain rotating yaw/quality gates
+xuc_fire_pitch_tolerance_deg: 0.4 # speed-priority trial: wider pitch qualification window
 xuc_gyro_center_follow_enabled: true
 xuc_gyro_omega_threshold_rad_s: 0.8
 # Trust-aware armor -> vehicle -> phase-clock model selection.
@@ -266,10 +266,11 @@ xuc_gyro_predicted_fire_enabled: true # restored pre-mission vision policy; veri
 # while the physical phase event clock is unlocked.  This prevents event=0,
 # cycle=-1 rounds such as shots 1-20 in the 2026-09-11 23:34 field log.
 xuc_gyro_require_event_lock_for_fire: true
-xuc_gyro_predicted_yaw_tolerance_deg: 0.6 # first frequency trial: wider yaw window after mechanical single-feed stop
+xuc_gyro_predicted_yaw_tolerance_deg: 1.0 # speed-priority trial: reduce missed rotating face opportunities
 xuc_gyro_predicted_yaw_trim_deg: 0.0
 xuc_gyro_visibility_yaw_tolerance_deg: 8.0
-xuc_gyro_fire_min_consecutive_frames: 3
+xuc_gyro_fire_min_consecutive_frames: 2
+xuc_high_speed_wait_for_best_frame: true # rollback boolean to previous best-frame selection
 # The lower board starts each new feed about 0.59 s after the previous feed stops
 # (2026-09-12 log, 124 matched shots). Waiting 0.55 s here avoids stale queued
 # commands while preserving the lower board's actual maximum repeat cadence.
@@ -444,11 +445,12 @@ rmv_flight_time_uncertainty_s: 0.050 # wide initial uncertainty for estimated sp
 # periodic retains the previous strategy for a controlled A/B test.
 xuc_high_speed_strategy: teammate_prediction
 xuc_high_speed_prediction_quality_enabled: true
-xuc_high_speed_prediction_quality_max_error_deg: 0.25
+xuc_high_speed_prediction_quality_max_error_deg: 0.45
 xuc_high_speed_pitch_variation_deg: 0.15
+xuc_high_speed_pitch_stable_ms: 20.0 # halfway rollback between 10/30 ms qualification dwell
 # These are prediction horizons BEFORE flight time, not measured muzzle delay.
 # Preserve OUR 330ms baseline, do not import the teammate's 385/325ms tuning.
-high_speed_delay_time_cw: 0.200
+high_speed_delay_time_cw: 0.195
 high_speed_delay_time_ccw: 0.330
 vision_plot_enabled: false
 vision_diagnostics_stride: 3

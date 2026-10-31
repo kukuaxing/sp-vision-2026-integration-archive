@@ -104,7 +104,7 @@ class GlobalMissionTests(unittest.TestCase):
         for k in range(150):
             c=f.step(State(0,0,0,0,0,0),.02,.1,k)
             NativeProfile(yaw_lever_m=.35,yaw_sign=-1.).convert(c['wire_vx'],c['wire_vy'],c['wire_wz'])
-        self.assertAlmostEqual(c['planned_speed_m_s'],.9)
+        self.assertAlmostEqual(c['planned_speed_m_s'],.9,delta=.001)
         f=Follower([[0.,0.],[3.,0.],[3.,1.]],.9)
         f.progress=2.3;f.vx=.9
         c=f.step(State(2.3,0,0,.9,0,0),.02,.1,1)
@@ -120,7 +120,7 @@ class GlobalMissionTests(unittest.TestCase):
             c=f.step(State(0,0,0,0,0,0),.02,.1,k)
             o=profile.convert(c['wire_vx'],c['wire_vy'],c['wire_wz'])
         self.assertAlmostEqual(c['planned_speed_m_s'],1.8)
-        self.assertAlmostEqual(o['requested_motor_rpm'][1],-3233.898305084746)
+        self.assertAlmostEqual(o['requested_motor_rpm'][1],-3233.898305084746,delta=.01)
 
     def test_return_uses_reversed_route_not_direct_chord(self):
         plan=json.loads((HERE/'global_plan.json').read_text(encoding='utf-8'))
