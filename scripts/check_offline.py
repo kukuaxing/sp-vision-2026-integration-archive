@@ -139,7 +139,8 @@ def main():
                          "/D_USE_MATH_DEFINES", "/UNDEBUG", "/I.", "/Ilibrm/libs/eigen", source,
                          "/Fe:" + str(binary), "/Fo:" + str(build / (name + ".obj"))]
         else:
-            arguments = [compiler, "-std=c++17", "-O2", "-UNDEBUG", "-I.", "-Ilibrm/libs/eigen",
+            # MinGW's strict C++ mode needs the same math-constant opt-in as MSVC.
+            arguments = [compiler, "-std=c++17", "-O2", "-D_USE_MATH_DEFINES", "-UNDEBUG", "-I.", "-Ilibrm/libs/eigen",
                          source, "-o", binary]
         run(arguments, env=environment)
         if name == "rmv_session_peer":
